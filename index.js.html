@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Forthune</title>
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="icon" type="image/png" href="favicon.ico">
+</head>
+<body>
+
+<h1>Forthune</h1>
+<h2>Forth interpreter in JavaScript</h2>
+
+<div class="container">
+  <div class="row center">
+    <label for="terminal" style="display: none">Terminal</label>
+    <textarea id="terminal" spellcheck="false"></textarea>
+  </div>
+
+  <div class="row center">
+    <label for="readline" style="display: none">Readline</label>
+    <input id="readline" type="text" spellcheck="false">
+  </div>
+
+  <div class="row center">
+    <div id="stack-view"></div>
+  </div>
+
+  <div class="row center">
+    <div id="dictionary"></div>
+  </div>
+</div>
+
+<script src="js/index.js"></script>
+<!--suppress JSUnusedGlobalSymbols -->
+<script>
+	'use strict'
+	const module = {exports: {}}
+	window.addEventListener('load', () => {
+		new Application()
+	})
+</script>
+</body>
+</html>
