@@ -80,19 +80,22 @@ class Forthune
 	private getKnownWords(): {[name: string]: Command}
 	{
 		return {
-			'.'    : {kind: Kind.Word, value: '.',     see: 'dot ( n -- ) - Display n in free field format.'},
-			'+'    : {kind: Kind.Word, value: '+',     see: 'plus ( n1 n2 -- n3 ) - Add n2 to n1, giving the sum n3.'},
+			'.'    : {kind: Kind.Word, value: '.',     see: 'dot   ( n -- ) - Display n in free field format.'},
+			'.s'   : {kind: Kind.Word, value: '.s',    see: 'dot-s ( -- ) - Display the stack in free field format.'},
+
+			'+'    : {kind: Kind.Word, value: '+',     see: 'plus  ( n1 n2 -- n3 ) - Add n2 to n1, giving the sum n3.'},
 			'-'    : {kind: Kind.Word, value: '-',     see: 'minus ( n1 n2 -- n3 ) - Subtract n2 from n1 , giving the difference n3.'},
 			'*'    : {kind: Kind.Word, value: '*',     see: 'start ( n1 n2 -- n3 ) - Multiply n1 by n2 giving the product n3.'},
 			'/'    : {kind: Kind.Word, value: '/',     see: 'slash ( n1 n2 -- n3 ) - Divide n1 by n2, giving the single-cell quotient n3.'},
-			'abs'  : {kind: Kind.Word, value: 'abs',   see: 'abs ( n -- u ) - Push the absolute value of n.'},
+
+			'abs'  : {kind: Kind.Word, value: 'abs',   see: 'abs   ( n -- u ) - Push the absolute value of n.'},
 			'depth': {kind: Kind.Word, value: 'depth', see: 'depth ( -- +n ) - Push the depth of the stack.'},
-			'drop' : {kind: Kind.Word, value: 'drop',  see: 'drop ( x -- ) - Remove x from the stack.'},
-			'dup'  : {kind: Kind.Word, value: 'dup' ,  see: 'dupe ( x -- x x ) - Duplicate x.'},
-			'mod'  : {kind: Kind.Word, value: 'mod',   see: 'mod ( n1 n2 -- n3 ) - Divide n1 by n2, giving the single-cell remainder n3.'},
-			'over' : {kind: Kind.Word, value: 'over',  see: 'over ( x1 x2 -- x1 x2 x1 ) - Place a copy of x1 on top of the stack.'},
-			'rot'  : {kind: Kind.Word, value: 'rot' ,  see: 'rote ( x1 x2 x3 -- x2 x3 x1 ) - Rotate the top three stack entries.'},
-			'swap' : {kind: Kind.Word, value: 'swap',  see: 'swap ( x1 x2 -- x2 x1 ) - Exchange the top two stack items.'},
+			'drop' : {kind: Kind.Word, value: 'drop',  see: 'drop  ( x -- ) - Remove x from the stack.'},
+			'dup'  : {kind: Kind.Word, value: 'dup' ,  see: 'dupe  ( x -- x x ) - Duplicate x.'},
+			'mod'  : {kind: Kind.Word, value: 'mod',   see: 'mod   ( n1 n2 -- n3 ) - Divide n1 by n2, giving the single-cell remainder n3.'},
+			'over' : {kind: Kind.Word, value: 'over',  see: 'over  ( x1 x2 -- x1 x2 x1 ) - Place a copy of x1 on top of the stack.'},
+			'rot'  : {kind: Kind.Word, value: 'rot' ,  see: 'rote  ( x1 x2 x3 -- x2 x3 x1 ) - Rotate the top three stack entries.'},
+			'swap' : {kind: Kind.Word, value: 'swap',  see: 'swap  ( x1 x2 -- x2 x1 ) - Exchange the top two stack items.'},
 		}
 	}
 
@@ -105,6 +108,9 @@ class Forthune
 					return {status: Status.Ok, value: String(a)}
 				}
 				return {status: Status.Fail, value: 'Stack underflow'}
+
+			case '.s':
+				return {status: Status.Ok, value: this.stack.join(' ')}
 
 			case '+':
 				if (this.stack.length >= 2) {
