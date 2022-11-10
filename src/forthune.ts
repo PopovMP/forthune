@@ -1,35 +1,104 @@
 class Forthune
 {
 	private readonly stack: number[]
-	private readonly dictionary: {[name: string]: Command}
+	private readonly knownWords: {[name: string]: Command}
+	private readonly colonWords: {[name: string]: ColonDef}
 
 	public output = (_text :string) => {}
 
+	private colonDef: ColonDef|undefined
+
 	constructor()
 	{
-		this.stack = []
-		this.dictionary = this.getKnownWords()
+		this.stack      = []
+		this.knownWords = this.getKnownWords()
+		this.colonWords = {}
+		this.colonDef   = undefined
 	}
 
 	public manageInput(inputText: string): void
 	{
+		const res: ExecResult = this.manageInputText(inputText)
+
+		if (res.status === Status.Fail) {
+			this.clearStack()
+			this.output(res.value)
+			return
+		}
+
+		if (this.colonDef)
+			this.output(inputText)
+		else
+			this.output(`${inputText} ${res.value}  ok`)
+	}
+
+	private manageInputText(inputText: string): ExecResult
+	{
 		const cmdTexts = inputText.split(/[ \t]/).map(cmdText => cmdText.trim()).filter(cmdText => cmdText !== '')
 
 		let outText = ''
+		let commentStarted = false
 		for (const cmdText of cmdTexts) {
+			if (cmdText === '(') {
+				commentStarted = true
+				continue
+			}
+
+			if (cmdText === ':') {
+				if (this.colonDef)
+					return {status: Status.Fail, value: `${cmdText} Colon definition already started`}
+
+				this.colonDef = {name: '', comment: '', content: []}
+				continue
+			}
+
+			if (this.colonDef) {
+				if (this.colonDef.name === '') {
+					this.colonDef.name = cmdText
+					continue
+				}
+
+				if (cmdText === ';') {
+					if (this.colonDef.name === '')
+						return {status: Status.Fail, value: `${inputText} Attempt to use zero-length string as a name`}
+
+					this.colonWords[this.colonDef.name] = this.colonDef
+					this.colonDef = undefined
+					continue
+				}
+
+				if (cmdText === ')' || cmdText.endsWith(')')) {
+					commentStarted = false
+					continue
+				}
+
+				if (commentStarted) {
+					this.colonDef.comment += cmdText
+					continue
+				}
+
+				this.colonDef.content.push(cmdText)
+				continue
+			}
+
+			if (commentStarted) {
+				continue
+			}
+
+			if (cmdText === ')' || cmdText.endsWith(')')) {
+				commentStarted = false
+				continue
+			}
+
 			const res: ExecResult = this.execute(cmdText)
 
-			if (res.status === Status.Fail) {
-				while (this.stack.length > 0)
-					this.stack.pop()
-				this.output(`${cmdText} ${res.value}`)
-				return
-			}
+			if (res.status === Status.Fail)
+				return {status: Status.Fail, value: `${inputText} ${res.value}`}
 
 			outText += res.value
 		}
 
-		this.output(`${inputText} ${outText}  ok`)
+		return {status: Status.Ok, value: outText}
 	}
 
 	public getStack()
@@ -39,7 +108,13 @@ class Forthune
 
 	public getWords()
 	{
-		return Object.keys(this.dictionary).map(key => this.dictionary[key])
+		return Object.keys(this.knownWords).map(key => this.knownWords[key])
+	}
+
+	private clearStack()
+	{
+		while (this.stack.length > 0)
+			this.stack.pop()
 	}
 
 	private execute(cmdText: string): ExecResult
@@ -52,6 +127,8 @@ class Forthune
 				return {status: Status.Ok, value: ''}
 			case Kind.Word:
 				return this.executeWord(cmdText, cmd.value)
+			case Kind.ColonDef:
+				return this.manageInputText(cmd.value as string)
 			case Kind.Unknown:
 				return {status: Status.Fail, value: `${cmdText} ?`}
 			default:
@@ -61,17 +138,22 @@ class Forthune
 
 	private parse(cmdText: string): Command
 	{
-		if (this.dictionary.hasOwnProperty(cmdText))
-			return this.dictionary[cmdText]
+		if (this.knownWords.hasOwnProperty(cmdText))
+			return this.knownWords[cmdText]
+
+		if (this.colonWords.hasOwnProperty(cmdText)) {
+			const value = this.colonWords[cmdText].content.join(' ')
+			return {kind: Kind.ColonDef, value, see: value}
+		}
 
 		if (cmdText.match(/[+-]?\d+/)) {
 			const value =  parseInt(cmdText)
-			return {kind: Kind.Number, value: value, see: String(value) }
+			return {kind: Kind.Number, value, see: String(value)}
 		}
 
 		if (cmdText.match(/[+-]?\d+.\d+/)) {
 			const value =  parseFloat(cmdText)
-			return {kind: Kind.Number, value: value, see: String(value) }
+			return {kind: Kind.Number, value, see: String(value)}
 		}
 
 		return {kind: Kind.Unknown, value: `${cmdText} ?`, see: ''}
@@ -82,6 +164,11 @@ class Forthune
 		return {
 			'.'    : {kind: Kind.Word, value: '.',     see: 'dot   ( n -- ) - Display n in free field format.'},
 			'.s'   : {kind: Kind.Word, value: '.s',    see: 'dot-s ( -- ) - Display the stack in free field format.'},
+
+			':'    : {kind: Kind.Word, value: ':',     see: 'colon ( name -- colon-sys ) - Create a definition for name.'},
+			';'    : {kind: Kind.Word, value: ';',     see: 'semicolon ( colon-sys -- ) - Terminate a colon-definition.'},
+			'('    : {kind: Kind.Word, value: '(',     see: 'paren ( comment -- ) - Start a comment.'},
+			')'    : {kind: Kind.Word, value: ')',     see: 'paren ( comment -- ) - Terminate a comment.'},
 
 			'+'    : {kind: Kind.Word, value: '+',     see: 'plus  ( n1 n2 -- n3 ) - Add n2 to n1, giving the sum n3.'},
 			'-'    : {kind: Kind.Word, value: '-',     see: 'minus ( n1 n2 -- n3 ) - Subtract n2 from n1 , giving the difference n3.'},

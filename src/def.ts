@@ -11,9 +11,17 @@ interface ExecResult
 	value : string
 }
 
+interface ColonDef
+{
+	name   : string
+	comment: string
+	content: string[]
+}
+
 const enum Kind {
 	Word,
 	Number,
+	ColonDef,
 	Unknown,
 }
 

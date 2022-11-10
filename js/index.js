@@ -56,7 +56,8 @@ var Kind;
 (function (Kind) {
     Kind[Kind["Word"] = 0] = "Word";
     Kind[Kind["Number"] = 1] = "Number";
-    Kind[Kind["Unknown"] = 2] = "Unknown";
+    Kind[Kind["ColonDef"] = 2] = "ColonDef";
+    Kind[Kind["Unknown"] = 3] = "Unknown";
 })(Kind || (Kind = {}));
 var Status;
 (function (Status) {
@@ -67,28 +68,83 @@ class Forthune {
     constructor() {
         this.output = (_text) => { };
         this.stack = [];
-        this.dictionary = this.getKnownWords();
+        this.knownWords = this.getKnownWords();
+        this.colonWords = {};
+        this.colonDef = undefined;
     }
     manageInput(inputText) {
+        const res = this.manageInputText(inputText);
+        if (res.status === 1 /* Status.Fail */) {
+            this.clearStack();
+            this.output(res.value);
+            return;
+        }
+        if (this.colonDef)
+            this.output(inputText);
+        else
+            this.output(`${inputText} ${res.value}  ok`);
+    }
+    manageInputText(inputText) {
         const cmdTexts = inputText.split(/[ \t]/).map(cmdText => cmdText.trim()).filter(cmdText => cmdText !== '');
         let outText = '';
+        let commentStarted = false;
         for (const cmdText of cmdTexts) {
-            const res = this.execute(cmdText);
-            if (res.status === 1 /* Status.Fail */) {
-                while (this.stack.length > 0)
-                    this.stack.pop();
-                this.output(`${cmdText} ${res.value}`);
-                return;
+            if (cmdText === '(') {
+                commentStarted = true;
+                continue;
             }
+            if (cmdText === ':') {
+                if (this.colonDef)
+                    return { status: 1 /* Status.Fail */, value: `${cmdText} Colon definition already started` };
+                this.colonDef = { name: '', comment: '', content: [] };
+                continue;
+            }
+            if (this.colonDef) {
+                if (this.colonDef.name === '') {
+                    this.colonDef.name = cmdText;
+                    continue;
+                }
+                if (cmdText === ';') {
+                    if (this.colonDef.name === '')
+                        return { status: 1 /* Status.Fail */, value: `${inputText} Attempt to use zero-length string as a name` };
+                    this.colonWords[this.colonDef.name] = this.colonDef;
+                    this.colonDef = undefined;
+                    continue;
+                }
+                if (cmdText === ')' || cmdText.endsWith(')')) {
+                    commentStarted = false;
+                    continue;
+                }
+                if (commentStarted) {
+                    this.colonDef.comment += cmdText;
+                    continue;
+                }
+                this.colonDef.content.push(cmdText);
+                continue;
+            }
+            if (commentStarted) {
+                continue;
+            }
+            if (cmdText === ')' || cmdText.endsWith(')')) {
+                commentStarted = false;
+                continue;
+            }
+            const res = this.execute(cmdText);
+            if (res.status === 1 /* Status.Fail */)
+                return { status: 1 /* Status.Fail */, value: `${inputText} ${res.value}` };
             outText += res.value;
         }
-        this.output(`${inputText} ${outText}  ok`);
+        return { status: 0 /* Status.Ok */, value: outText };
     }
     getStack() {
         return this.stack.slice();
     }
     getWords() {
-        return Object.keys(this.dictionary).map(key => this.dictionary[key]);
+        return Object.keys(this.knownWords).map(key => this.knownWords[key]);
+    }
+    clearStack() {
+        while (this.stack.length > 0)
+            this.stack.pop();
     }
     execute(cmdText) {
         const cmd = this.parse(cmdText);
@@ -98,29 +154,39 @@ class Forthune {
                 return { status: 0 /* Status.Ok */, value: '' };
             case 0 /* Kind.Word */:
                 return this.executeWord(cmdText, cmd.value);
-            case 2 /* Kind.Unknown */:
+            case 2 /* Kind.ColonDef */:
+                return this.manageInputText(cmd.value);
+            case 3 /* Kind.Unknown */:
                 return { status: 1 /* Status.Fail */, value: `${cmdText} ?` };
             default:
                 return { status: 1 /* Status.Fail */, value: `${cmdText} ?` };
         }
     }
     parse(cmdText) {
-        if (this.dictionary.hasOwnProperty(cmdText))
-            return this.dictionary[cmdText];
+        if (this.knownWords.hasOwnProperty(cmdText))
+            return this.knownWords[cmdText];
+        if (this.colonWords.hasOwnProperty(cmdText)) {
+            const value = this.colonWords[cmdText].content.join(' ');
+            return { kind: 2 /* Kind.ColonDef */, value, see: value };
+        }
         if (cmdText.match(/[+-]?\d+/)) {
             const value = parseInt(cmdText);
-            return { kind: 1 /* Kind.Number */, value: value, see: String(value) };
+            return { kind: 1 /* Kind.Number */, value, see: String(value) };
         }
         if (cmdText.match(/[+-]?\d+.\d+/)) {
             const value = parseFloat(cmdText);
-            return { kind: 1 /* Kind.Number */, value: value, see: String(value) };
+            return { kind: 1 /* Kind.Number */, value, see: String(value) };
         }
-        return { kind: 2 /* Kind.Unknown */, value: `${cmdText} ?`, see: '' };
+        return { kind: 3 /* Kind.Unknown */, value: `${cmdText} ?`, see: '' };
     }
     getKnownWords() {
         return {
             '.': { kind: 0 /* Kind.Word */, value: '.', see: 'dot   ( n -- ) - Display n in free field format.' },
             '.s': { kind: 0 /* Kind.Word */, value: '.s', see: 'dot-s ( -- ) - Display the stack in free field format.' },
+            ':': { kind: 0 /* Kind.Word */, value: ':', see: 'colon ( name -- colon-sys ) - Create a definition for name.' },
+            ';': { kind: 0 /* Kind.Word */, value: ';', see: 'semicolon ( colon-sys -- ) - Terminate a colon-definition.' },
+            '(': { kind: 0 /* Kind.Word */, value: '(', see: 'paren ( comment -- ) - Start a comment.' },
+            ')': { kind: 0 /* Kind.Word */, value: ')', see: 'paren ( comment -- ) - Terminate a comment.' },
             '+': { kind: 0 /* Kind.Word */, value: '+', see: 'plus  ( n1 n2 -- n3 ) - Add n2 to n1, giving the sum n3.' },
             '-': { kind: 0 /* Kind.Word */, value: '-', see: 'minus ( n1 n2 -- n3 ) - Subtract n2 from n1 , giving the difference n3.' },
             '*': { kind: 0 /* Kind.Word */, value: '*', see: 'start ( n1 n2 -- n3 ) - Multiply n1 by n2 giving the product n3.' },
