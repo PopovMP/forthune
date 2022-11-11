@@ -66,6 +66,8 @@ var Status;
 })(Status || (Status = {}));
 class Forthune {
     constructor() {
+        this.TRUE = -1;
+        this.FALSE = 0;
         this.output = (_text) => { };
         this.stack = [];
         this.knownWords = this.getKnownWords();
@@ -191,6 +193,10 @@ class Forthune {
             '-': { kind: 0 /* Kind.Word */, value: '-', see: 'minus ( n1 n2 -- n3 ) - Subtract n2 from n1 , giving the difference n3.' },
             '*': { kind: 0 /* Kind.Word */, value: '*', see: 'start ( n1 n2 -- n3 ) - Multiply n1 by n2 giving the product n3.' },
             '/': { kind: 0 /* Kind.Word */, value: '/', see: 'slash ( n1 n2 -- n3 ) - Divide n1 by n2, giving the single-cell quotient n3.' },
+            '=': { kind: 0 /* Kind.Word */, value: '=', see: 'equals       ( n1 n2 -- flag ) - flag is true if and only if x1 is bit-for-bit the same as x2.' },
+            '<>': { kind: 0 /* Kind.Word */, value: '<>', see: 'not-equals   ( n1 n2 -- flag ) - flag is true if and only if x1 is not bit-for-bit the same as x2.' },
+            '>': { kind: 0 /* Kind.Word */, value: '>', see: 'greater-than ( n1 n2 -- flag ) - flag is true if and only if n1 is greater than n2.' },
+            '<': { kind: 0 /* Kind.Word */, value: '<', see: 'less-than    ( n1 n2 -- flag ) - flag is true if and only if n1 is less than n2.' },
             'abs': { kind: 0 /* Kind.Word */, value: 'abs', see: 'abs   ( n -- u ) - Push the absolute value of n.' },
             'depth': { kind: 0 /* Kind.Word */, value: 'depth', see: 'depth ( -- +n ) - Push the depth of the stack.' },
             'drop': { kind: 0 /* Kind.Word */, value: 'drop', see: 'drop  ( x -- ) - Remove x from the stack.' },
@@ -243,6 +249,42 @@ class Forthune {
                     const n2 = this.stack.pop();
                     const n1 = this.stack.pop();
                     const res = n1 / n2;
+                    this.stack.push(res);
+                    return { status: 0 /* Status.Ok */, value: '' };
+                }
+                return { status: 1 /* Status.Fail */, value: 'Stack underflow' };
+            case '=':
+                if (this.stack.length >= 2) {
+                    const n2 = this.stack.pop();
+                    const n1 = this.stack.pop();
+                    const res = n1 === n2 ? this.TRUE : this.FALSE;
+                    this.stack.push(res);
+                    return { status: 0 /* Status.Ok */, value: '' };
+                }
+                return { status: 1 /* Status.Fail */, value: 'Stack underflow' };
+            case '<>':
+                if (this.stack.length >= 2) {
+                    const n2 = this.stack.pop();
+                    const n1 = this.stack.pop();
+                    const res = n1 !== n2 ? this.TRUE : this.FALSE;
+                    this.stack.push(res);
+                    return { status: 0 /* Status.Ok */, value: '' };
+                }
+                return { status: 1 /* Status.Fail */, value: 'Stack underflow' };
+            case '>':
+                if (this.stack.length >= 2) {
+                    const n2 = this.stack.pop();
+                    const n1 = this.stack.pop();
+                    const res = n1 > n2 ? this.TRUE : this.FALSE;
+                    this.stack.push(res);
+                    return { status: 0 /* Status.Ok */, value: '' };
+                }
+                return { status: 1 /* Status.Fail */, value: 'Stack underflow' };
+            case '<':
+                if (this.stack.length >= 2) {
+                    const n2 = this.stack.pop();
+                    const n1 = this.stack.pop();
+                    const res = n1 < n2 ? this.TRUE : this.FALSE;
                     this.stack.push(res);
                     return { status: 0 /* Status.Ok */, value: '' };
                 }

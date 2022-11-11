@@ -1,5 +1,8 @@
 class Forthune
 {
+	private readonly TRUE  = -1
+	private readonly FALSE =  0
+
 	private readonly stack: number[]
 	private readonly knownWords: {[name: string]: Command}
 	private readonly colonWords: {[name: string]: ColonDef}
@@ -175,6 +178,11 @@ class Forthune
 			'*'    : {kind: Kind.Word, value: '*',     see: 'start ( n1 n2 -- n3 ) - Multiply n1 by n2 giving the product n3.'},
 			'/'    : {kind: Kind.Word, value: '/',     see: 'slash ( n1 n2 -- n3 ) - Divide n1 by n2, giving the single-cell quotient n3.'},
 
+			'='    : {kind: Kind.Word, value: '=',     see: 'equals       ( n1 n2 -- flag ) - flag is true if and only if x1 is bit-for-bit the same as x2.'},
+			'<>'   : {kind: Kind.Word, value: '<>',    see: 'not-equals   ( n1 n2 -- flag ) - flag is true if and only if x1 is not bit-for-bit the same as x2.'},
+			'>'    : {kind: Kind.Word, value: '>',     see: 'greater-than ( n1 n2 -- flag ) - flag is true if and only if n1 is greater than n2.'},
+			'<'    : {kind: Kind.Word, value: '<',     see: 'less-than    ( n1 n2 -- flag ) - flag is true if and only if n1 is less than n2.'},
+
 			'abs'  : {kind: Kind.Word, value: 'abs',   see: 'abs   ( n -- u ) - Push the absolute value of n.'},
 			'depth': {kind: Kind.Word, value: 'depth', see: 'depth ( -- +n ) - Push the depth of the stack.'},
 			'drop' : {kind: Kind.Word, value: 'drop',  see: 'drop  ( x -- ) - Remove x from the stack.'},
@@ -234,6 +242,46 @@ class Forthune
 					const n2: number = this.stack.pop() as number
 					const n1: number = this.stack.pop() as number
 					const res: number = n1 / n2
+					this.stack.push(res)
+					return {status: Status.Ok, value: ''}
+				}
+				return {status: Status.Fail, value: 'Stack underflow'}
+
+			case '=':
+				if (this.stack.length >= 2) {
+					const n2: number = this.stack.pop() as number
+					const n1: number = this.stack.pop() as number
+					const res: number = n1 === n2 ? this.TRUE : this.FALSE
+					this.stack.push(res)
+					return {status: Status.Ok, value: ''}
+				}
+				return {status: Status.Fail, value: 'Stack underflow'}
+
+			case '<>':
+				if (this.stack.length >= 2) {
+					const n2: number = this.stack.pop() as number
+					const n1: number = this.stack.pop() as number
+					const res: number = n1 !== n2 ? this.TRUE : this.FALSE
+					this.stack.push(res)
+					return {status: Status.Ok, value: ''}
+				}
+				return {status: Status.Fail, value: 'Stack underflow'}
+
+			case '>':
+				if (this.stack.length >= 2) {
+					const n2: number = this.stack.pop() as number
+					const n1: number = this.stack.pop() as number
+					const res: number = n1 > n2 ? this.TRUE : this.FALSE
+					this.stack.push(res)
+					return {status: Status.Ok, value: ''}
+				}
+				return {status: Status.Fail, value: 'Stack underflow'}
+
+			case '<':
+				if (this.stack.length >= 2) {
+					const n2: number = this.stack.pop() as number
+					const n1: number = this.stack.pop() as number
+					const res: number = n1 < n2 ? this.TRUE : this.FALSE
 					this.stack.push(res)
 					return {status: Status.Ok, value: ''}
 				}
