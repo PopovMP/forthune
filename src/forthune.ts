@@ -32,7 +32,7 @@ class Forthune
 		if (this.colonDef)
 			this.output(inputText)
 		else
-			this.output(`${inputText} ${res.value}  ok`)
+			this.output(`${inputText} ${res.value === '' ? '' : res.value + ' '} ok`)
 	}
 
 	private manageInputText(inputText: string): ExecResult

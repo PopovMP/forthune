@@ -93,7 +93,7 @@ class Forthune {
         if (this.colonDef)
             this.output(inputText);
         else
-            this.output(`${inputText} ${res.value}  ok`);
+            this.output(`${inputText} ${res.value === '' ? '' : res.value + ' '} ok`);
     }
     manageInputText(inputText) {
         const cmdTexts = inputText.split(/[ \t]/).map(cmdText => cmdText.trim()).filter(cmdText => cmdText !== '');
