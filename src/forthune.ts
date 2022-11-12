@@ -171,7 +171,6 @@ class Forthune
 			':'    : {kind: Kind.Word, value: ':',     see: 'colon ( name -- colon-sys ) - Create a definition for name.'},
 			';'    : {kind: Kind.Word, value: ';',     see: 'semicolon ( colon-sys -- ) - Terminate a colon-definition.'},
 			'('    : {kind: Kind.Word, value: '(',     see: 'paren ( comment -- ) - Start a comment.'},
-			')'    : {kind: Kind.Word, value: ')',     see: 'paren ( comment -- ) - Terminate a comment.'},
 
 			'+'    : {kind: Kind.Word, value: '+',     see: 'plus  ( n1 n2 -- n3 ) - Add n2 to n1, giving the sum n3.'},
 			'-'    : {kind: Kind.Word, value: '-',     see: 'minus ( n1 n2 -- n3 ) - Subtract n2 from n1 , giving the difference n3.'},

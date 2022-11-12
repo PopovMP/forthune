@@ -3,27 +3,34 @@
 class Application {
     // noinspection JSUnusedGlobalSymbols
     constructor() {
+        this.OUT_BUFFER_LINES = 23;
         this.forthune = new Forthune();
-        this.readline = document.getElementById('readline');
-        this.terminal = document.getElementById('terminal');
+        this.screen = document.getElementById('screen');
+        this.outputLog = document.getElementById('output-log');
+        this.inputLine = document.getElementById('input-line');
         this.stackView = document.getElementById('stack-view');
         this.wordsElem = document.getElementById('dictionary');
         this.readBuffer = [];
+        this.outputBuffer = [];
         this.readBufferIndex = 0;
-        this.readline.addEventListener("keydown", this.readline_keydown.bind(this));
+        this.inputLine.addEventListener("keydown", this.readline_keydown.bind(this));
         this.forthune.output = this.output.bind(this);
-        this.terminal.value = '';
-        this.readline.value = '';
+        this.outputLog.innerText = '';
+        this.inputLine.value = '';
         this.stackView.innerText = ' <top';
+        this.outputLog.addEventListener('click', () => this.inputLine.focus());
+        this.screen.addEventListener('click', () => this.inputLine.focus());
+        this.inputLine.focus();
         this.wordsElem.innerHTML = this.forthune.getWords()
             .map(word => `<strong>${word.value.toString().padEnd(5, ' ').replace(/ /g, '&nbsp;')}</strong> ${word.see}`)
             .join('<br/>');
+        document.addEventListener('click', () => this.inputLine.focus());
     }
     readline_keydown(event) {
         if (event.code === 'Enter') {
             event.preventDefault();
-            const cmdText = this.readline.value.trim();
-            this.readline.value = '';
+            const cmdText = this.inputLine.value.trim();
+            this.inputLine.value = '';
             if (this.readBuffer.length === 0 || this.readBuffer[this.readBuffer.length - 1] !== cmdText) {
                 this.readBuffer.push(cmdText);
                 this.readBufferIndex = this.readBuffer.length - 1;
@@ -35,7 +42,7 @@ class Application {
         if (event.code === 'ArrowUp') {
             event.preventDefault();
             if (this.readBuffer.length > 0)
-                this.readline.value = this.readBuffer[this.readBufferIndex];
+                this.inputLine.value = this.readBuffer[this.readBufferIndex];
             if (this.readBufferIndex > 0)
                 this.readBufferIndex -= 1;
         }
@@ -43,13 +50,15 @@ class Application {
             event.preventDefault();
             if (this.readBufferIndex < this.readBuffer.length - 1) {
                 this.readBufferIndex += 1;
-                this.readline.value = this.readBuffer[this.readBufferIndex];
+                this.inputLine.value = this.readBuffer[this.readBufferIndex];
             }
         }
     }
     output(text) {
-        this.terminal.value += text + '\n';
-        this.terminal.scrollTop = this.terminal.scrollHeight;
+        this.outputBuffer.push(text);
+        while (this.outputBuffer.length > this.OUT_BUFFER_LINES)
+            this.outputBuffer.shift();
+        this.outputLog.innerText = this.outputBuffer.join('\n');
     }
 }
 var Kind;
@@ -188,7 +197,6 @@ class Forthune {
             ':': { kind: 0 /* Kind.Word */, value: ':', see: 'colon ( name -- colon-sys ) - Create a definition for name.' },
             ';': { kind: 0 /* Kind.Word */, value: ';', see: 'semicolon ( colon-sys -- ) - Terminate a colon-definition.' },
             '(': { kind: 0 /* Kind.Word */, value: '(', see: 'paren ( comment -- ) - Start a comment.' },
-            ')': { kind: 0 /* Kind.Word */, value: ')', see: 'paren ( comment -- ) - Terminate a comment.' },
             '+': { kind: 0 /* Kind.Word */, value: '+', see: 'plus  ( n1 n2 -- n3 ) - Add n2 to n1, giving the sum n3.' },
             '-': { kind: 0 /* Kind.Word */, value: '-', see: 'minus ( n1 n2 -- n3 ) - Subtract n2 from n1 , giving the difference n3.' },
             '*': { kind: 0 /* Kind.Word */, value: '*', see: 'start ( n1 n2 -- n3 ) - Multiply n1 by n2 giving the product n3.' },

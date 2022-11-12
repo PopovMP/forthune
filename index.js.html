@@ -13,13 +13,11 @@
 
 <div class="container">
   <div class="row center">
-    <label for="terminal" style="display: none">Terminal</label>
-    <textarea id="terminal" spellcheck="false"></textarea>
-  </div>
-
-  <div class="row center">
-    <label for="readline" style="display: none">Readline</label>
-    <input id="readline" type="text" spellcheck="false">
+    <label for="input-line" style="display: none">Readline</label>
+    <div id="screen">
+      <div class="terminal" id="output-log"></div>
+      <input class="terminal" id="input-line" type="text" spellcheck="false">
+    </div>
   </div>
 
   <div class="row center">
