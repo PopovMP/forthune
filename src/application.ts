@@ -49,7 +49,7 @@ class Application
 			const cmdText = this.inputLine.value.trim()
 			this.inputLine.value = ''
 
-			if (this.readBuffer.length === 0 || this.readBuffer[this.readBuffer.length-1] !== cmdText) {
+			if (cmdText !== '' && (this.readBuffer.length === 0 || this.readBuffer[this.readBuffer.length-1] !== cmdText)) {
 				this.readBuffer.push(cmdText)
 				this.readBufferIndex = this.readBuffer.length - 1
 			}

@@ -13,9 +13,9 @@ interface ExecResult
 
 interface ColonDef
 {
-	name   : string
-	comment: string
-	content: string[]
+	name     : string
+	comment  : string
+	loopCode : string[][]
 }
 
 const enum Kind {

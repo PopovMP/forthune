@@ -3,20 +3,24 @@ class Forthune
 	private readonly TRUE  = -1
 	private readonly FALSE =  0
 
-	private readonly stack: number[]
+	private readonly stack : number[]
+	private readonly rStack: number[]
 	private readonly knownWords: {[name: string]: Command}
 	private readonly colonWords: {[name: string]: ColonDef}
 
 	public output = (_text :string) => {}
 
 	private colonDef: ColonDef|undefined
+	private loopDepth: number
 
 	constructor()
 	{
 		this.stack      = []
+		this.rStack     = []
 		this.knownWords = this.getKnownWords()
 		this.colonWords = {}
 		this.colonDef   = undefined
+		this.loopDepth  = 0
 	}
 
 	public manageInput(inputText: string): void
@@ -51,7 +55,7 @@ class Forthune
 				if (this.colonDef)
 					return {status: Status.Fail, value: `${cmdText} Colon definition already started`}
 
-				this.colonDef = {name: '', comment: '', content: []}
+				this.colonDef = {name: '', comment: '', loopCode: [[]]}
 				continue
 			}
 
@@ -80,7 +84,19 @@ class Forthune
 					continue
 				}
 
-				this.colonDef.content.push(cmdText)
+				this.colonDef.loopCode[this.loopDepth].push(cmdText)
+
+				if (cmdText === 'do') {
+					this.loopDepth += 1
+					this.colonDef.loopCode[this.loopDepth] = []
+					continue
+				}
+
+				if (cmdText === 'loop') {
+					this.loopDepth -= 1
+					continue
+				}
+
 				continue
 			}
 
@@ -131,7 +147,8 @@ class Forthune
 			case Kind.Word:
 				return this.executeWord(cmdText, cmd.value)
 			case Kind.ColonDef:
-				return this.manageInputText(cmd.value as string)
+				const value = this.colonWords[cmdText].loopCode[this.loopDepth].join(' ')
+				return this.manageInputText(value)
 			case Kind.Unknown:
 				return {status: Status.Fail, value: `${cmdText} ?`}
 			default:
@@ -145,8 +162,7 @@ class Forthune
 			return this.knownWords[cmdText]
 
 		if (this.colonWords.hasOwnProperty(cmdText)) {
-			const value = this.colonWords[cmdText].content.join(' ')
-			return {kind: Kind.ColonDef, value, see: value}
+			return {kind: Kind.ColonDef, value: '', see: cmdText}
 		}
 
 		if (cmdText.match(/[+-]?\d+/)) {
@@ -181,6 +197,12 @@ class Forthune
 			'<>'   : {kind: Kind.Word, value: '<>',    see: 'not-equals   ( n1 n2 -- flag ) - flag is true if and only if x1 is not bit-for-bit the same as x2.'},
 			'>'    : {kind: Kind.Word, value: '>',     see: 'greater-than ( n1 n2 -- flag ) - flag is true if and only if n1 is greater than n2.'},
 			'<'    : {kind: Kind.Word, value: '<',     see: 'less-than    ( n1 n2 -- flag ) - flag is true if and only if n1 is less than n2.'},
+
+			'do'   : {kind: Kind.Word, value: 'do',    see: 'do        ( n1 n2 -- ) ( R: -- loop-sys ) - Set up loop control parameters with index n2 and limit n1.'},
+			'i'    : {kind: Kind.Word, value: 'i',     see: 'i    Ex:  ( -- n | u ) ( R: loop-sys -- loop-sys ) - n is a copy of the current (innermost) loop index.'},
+			'j'    : {kind: Kind.Word, value: 'j',     see: 'j    Ex:  ( -- n | u ) ( R: loop-sys -- loop-sys ) - n is a copy of the second outer loop index.'},
+			'k'    : {kind: Kind.Word, value: 'k',     see: 'k    Ex:  ( -- n | u ) ( R: loop-sys -- loop-sys ) - n is a copy of the third outer loop index.'},
+			'loop' : {kind: Kind.Word, value: 'loop',  see: 'loop Run: ( -- ) ( R: loop-sys1 -- | loop-sys2 ) - Add one to the loop index.'},
 
 			'abs'  : {kind: Kind.Word, value: 'abs',   see: 'abs   ( n -- u ) - Push the absolute value of n.'},
 			'depth': {kind: Kind.Word, value: 'depth', see: 'depth ( -- +n ) - Push the depth of the stack.'},
@@ -282,6 +304,68 @@ class Forthune
 					const n1: number = this.stack.pop() as number
 					const res: number = n1 < n2 ? this.TRUE : this.FALSE
 					this.stack.push(res)
+					return {status: Status.Ok, value: ''}
+				}
+				return {status: Status.Fail, value: 'Stack underflow'}
+
+			case 'do':
+				if (this.stack.length >= 2) {
+					const currVal: number = this.stack.pop() as number
+					const toVal  : number = this.stack.pop() as number
+					if (currVal === toVal)
+						return {status: Status.Fail, value: 'DO start and end parameters are equal.'}
+					this.rStack.push(toVal)
+					this.rStack.push(currVal)
+					if (this.loopDepth >= 3)
+						return {status: Status.Fail, value: 'DO more than 3 nested loops.'}
+					this.loopDepth += 1
+					return {status: Status.Ok, value: ''}
+				}
+				return {status: Status.Fail, value: 'Stack underflow'}
+
+			case 'i':
+				if (this.rStack.length >= 2) {
+					const i: number = this.rStack[this.rStack.length - 1] as number
+					this.stack.push(i)
+					return {status: Status.Ok, value: ''}
+				}
+				return {status: Status.Fail, value: 'R stack underflow'}
+
+			case 'j':
+				if (this.loopDepth < 2)
+					return {status: Status.Fail, value: 'J used out of second nested loop.'}
+				if (this.rStack.length >= 4) {
+					const j: number = this.rStack[this.rStack.length - 3] as number
+					this.stack.push(j)
+					return {status: Status.Ok, value: ''}
+				}
+				return {status: Status.Fail, value: 'R stack underflow'}
+
+			case 'k':
+				if (this.loopDepth < 3)
+					return {status: Status.Fail, value: 'K used out of third nested loop.'}
+				if (this.rStack.length >= 6) {
+					const j: number = this.rStack[this.rStack.length - 5] as number
+					this.stack.push(j)
+					return {status: Status.Ok, value: ''}
+				}
+				return {status: Status.Fail, value: 'R stack underflow'}
+
+			case 'loop':
+				if (this.loopDepth === 0)
+					return {status: Status.Fail, value: 'LOOP without DO.'}
+				if (this.rStack.length >= 2) {
+					const currVal: number = this.stack.pop() as number + 1
+					const toVal  : number = this.stack.pop() as number
+
+					if (currVal >= toVal) {
+						this.loopDepth -= 1
+					}
+					else {
+						this.rStack.push(toVal)
+						this.rStack.push(currVal)
+					}
+
 					return {status: Status.Ok, value: ''}
 				}
 				return {status: Status.Fail, value: 'Stack underflow'}

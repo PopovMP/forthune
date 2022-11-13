@@ -31,7 +31,7 @@ class Application {
             event.preventDefault();
             const cmdText = this.inputLine.value.trim();
             this.inputLine.value = '';
-            if (this.readBuffer.length === 0 || this.readBuffer[this.readBuffer.length - 1] !== cmdText) {
+            if (cmdText !== '' && (this.readBuffer.length === 0 || this.readBuffer[this.readBuffer.length - 1] !== cmdText)) {
                 this.readBuffer.push(cmdText);
                 this.readBufferIndex = this.readBuffer.length - 1;
             }
@@ -79,9 +79,11 @@ class Forthune {
         this.FALSE = 0;
         this.output = (_text) => { };
         this.stack = [];
+        this.rStack = [];
         this.knownWords = this.getKnownWords();
         this.colonWords = {};
         this.colonDef = undefined;
+        this.loopDepth = 0;
     }
     manageInput(inputText) {
         const res = this.manageInputText(inputText);
@@ -107,7 +109,7 @@ class Forthune {
             if (cmdText === ':') {
                 if (this.colonDef)
                     return { status: 1 /* Status.Fail */, value: `${cmdText} Colon definition already started` };
-                this.colonDef = { name: '', comment: '', content: [] };
+                this.colonDef = { name: '', comment: '', loopCode: [[]] };
                 continue;
             }
             if (this.colonDef) {
@@ -130,7 +132,16 @@ class Forthune {
                     this.colonDef.comment += cmdText;
                     continue;
                 }
-                this.colonDef.content.push(cmdText);
+                this.colonDef.loopCode[this.loopDepth].push(cmdText);
+                if (cmdText === 'do') {
+                    this.loopDepth += 1;
+                    this.colonDef.loopCode[this.loopDepth] = [];
+                    continue;
+                }
+                if (cmdText === 'loop') {
+                    this.loopDepth -= 1;
+                    continue;
+                }
                 continue;
             }
             if (commentStarted) {
@@ -166,7 +177,8 @@ class Forthune {
             case 0 /* Kind.Word */:
                 return this.executeWord(cmdText, cmd.value);
             case 2 /* Kind.ColonDef */:
-                return this.manageInputText(cmd.value);
+                const value = this.colonWords[cmdText].loopCode[this.loopDepth].join(' ');
+                return this.manageInputText(value);
             case 3 /* Kind.Unknown */:
                 return { status: 1 /* Status.Fail */, value: `${cmdText} ?` };
             default:
@@ -177,8 +189,7 @@ class Forthune {
         if (this.knownWords.hasOwnProperty(cmdText))
             return this.knownWords[cmdText];
         if (this.colonWords.hasOwnProperty(cmdText)) {
-            const value = this.colonWords[cmdText].content.join(' ');
-            return { kind: 2 /* Kind.ColonDef */, value, see: value };
+            return { kind: 2 /* Kind.ColonDef */, value: '', see: cmdText };
         }
         if (cmdText.match(/[+-]?\d+/)) {
             const value = parseInt(cmdText);
@@ -205,6 +216,11 @@ class Forthune {
             '<>': { kind: 0 /* Kind.Word */, value: '<>', see: 'not-equals   ( n1 n2 -- flag ) - flag is true if and only if x1 is not bit-for-bit the same as x2.' },
             '>': { kind: 0 /* Kind.Word */, value: '>', see: 'greater-than ( n1 n2 -- flag ) - flag is true if and only if n1 is greater than n2.' },
             '<': { kind: 0 /* Kind.Word */, value: '<', see: 'less-than    ( n1 n2 -- flag ) - flag is true if and only if n1 is less than n2.' },
+            'do': { kind: 0 /* Kind.Word */, value: 'do', see: 'do        ( n1 n2 -- ) ( R: -- loop-sys ) - Set up loop control parameters with index n2 and limit n1.' },
+            'i': { kind: 0 /* Kind.Word */, value: 'i', see: 'i    Ex:  ( -- n | u ) ( R: loop-sys -- loop-sys ) - n is a copy of the current (innermost) loop index.' },
+            'j': { kind: 0 /* Kind.Word */, value: 'j', see: 'j    Ex:  ( -- n | u ) ( R: loop-sys -- loop-sys ) - n is a copy of the second outer loop index.' },
+            'k': { kind: 0 /* Kind.Word */, value: 'k', see: 'k    Ex:  ( -- n | u ) ( R: loop-sys -- loop-sys ) - n is a copy of the third outer loop index.' },
+            'loop': { kind: 0 /* Kind.Word */, value: 'loop', see: 'loop Run: ( -- ) ( R: loop-sys1 -- | loop-sys2 ) - Add one to the loop index.' },
             'abs': { kind: 0 /* Kind.Word */, value: 'abs', see: 'abs   ( n -- u ) - Push the absolute value of n.' },
             'depth': { kind: 0 /* Kind.Word */, value: 'depth', see: 'depth ( -- +n ) - Push the depth of the stack.' },
             'drop': { kind: 0 /* Kind.Word */, value: 'drop', see: 'drop  ( x -- ) - Remove x from the stack.' },
@@ -294,6 +310,61 @@ class Forthune {
                     const n1 = this.stack.pop();
                     const res = n1 < n2 ? this.TRUE : this.FALSE;
                     this.stack.push(res);
+                    return { status: 0 /* Status.Ok */, value: '' };
+                }
+                return { status: 1 /* Status.Fail */, value: 'Stack underflow' };
+            case 'do':
+                if (this.stack.length >= 2) {
+                    const currVal = this.stack.pop();
+                    const toVal = this.stack.pop();
+                    if (currVal === toVal)
+                        return { status: 1 /* Status.Fail */, value: 'DO start and end parameters are equal.' };
+                    this.rStack.push(toVal);
+                    this.rStack.push(currVal);
+                    if (this.loopDepth >= 3)
+                        return { status: 1 /* Status.Fail */, value: 'DO more than 3 nested loops.' };
+                    this.loopDepth += 1;
+                    return { status: 0 /* Status.Ok */, value: '' };
+                }
+                return { status: 1 /* Status.Fail */, value: 'Stack underflow' };
+            case 'i':
+                if (this.rStack.length >= 2) {
+                    const i = this.rStack[this.rStack.length - 1];
+                    this.stack.push(i);
+                    return { status: 0 /* Status.Ok */, value: '' };
+                }
+                return { status: 1 /* Status.Fail */, value: 'R stack underflow' };
+            case 'j':
+                if (this.loopDepth < 2)
+                    return { status: 1 /* Status.Fail */, value: 'J used out of second nested loop.' };
+                if (this.rStack.length >= 4) {
+                    const j = this.rStack[this.rStack.length - 3];
+                    this.stack.push(j);
+                    return { status: 0 /* Status.Ok */, value: '' };
+                }
+                return { status: 1 /* Status.Fail */, value: 'R stack underflow' };
+            case 'k':
+                if (this.loopDepth < 3)
+                    return { status: 1 /* Status.Fail */, value: 'K used out of third nested loop.' };
+                if (this.rStack.length >= 6) {
+                    const j = this.rStack[this.rStack.length - 5];
+                    this.stack.push(j);
+                    return { status: 0 /* Status.Ok */, value: '' };
+                }
+                return { status: 1 /* Status.Fail */, value: 'R stack underflow' };
+            case 'loop':
+                if (this.loopDepth === 0)
+                    return { status: 1 /* Status.Fail */, value: 'LOOP without DO.' };
+                if (this.rStack.length >= 2) {
+                    const currVal = this.stack.pop() + 1;
+                    const toVal = this.stack.pop();
+                    if (currVal >= toVal) {
+                        this.loopDepth -= 1;
+                    }
+                    else {
+                        this.rStack.push(toVal);
+                        this.rStack.push(currVal);
+                    }
                     return { status: 0 /* Status.Ok */, value: '' };
                 }
                 return { status: 1 /* Status.Fail */, value: 'Stack underflow' };
