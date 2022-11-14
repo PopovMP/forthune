@@ -490,7 +490,7 @@ class Tokenizer {
             ...Object.keys(ToolsWord),
         ];
     }
-    tokenizeLine(codeLine) {
+    tokenizeLine(codeLine, lineNum) {
         const tokens = [];
         let fromIndex = 0;
         let prevWord = '';
@@ -521,26 +521,27 @@ class Tokenizer {
                         toIndex += 1;
                     break;
             }
+            const pos = { line: lineNum, col: fromIndex };
             const currentWord = codeLine.slice(fromIndex, toIndex);
             fromIndex = toIndex + 1;
             switch (prevWord) {
                 case '\\': // Line comment
-                    tokens.push({ kind: TokenKind.LineComment, value: currentWord });
+                    tokens.push({ kind: TokenKind.LineComment, value: currentWord, pos });
                     break;
                 case '(': // Comment
                 case '.(':
-                    tokens.push({ kind: TokenKind.Comment, value: currentWord });
+                    tokens.push({ kind: TokenKind.Comment, value: currentWord, pos });
                     break;
                 case '."': // String
-                    tokens.push({ kind: TokenKind.String, value: currentWord });
+                    tokens.push({ kind: TokenKind.String, value: currentWord, pos });
                     break;
                 default:
                     if (this.keywords.includes(currentWord.toUpperCase())) // Known word
-                        tokens.push({ kind: TokenKind.Word, value: currentWord.toUpperCase() });
+                        tokens.push({ kind: TokenKind.Word, value: currentWord.toUpperCase(), pos });
                     else if (currentWord.match(/^[+-]?\d+$/)) // Number
-                        tokens.push({ kind: TokenKind.Number, value: currentWord });
+                        tokens.push({ kind: TokenKind.Number, value: currentWord, pos });
                     else // Unknown word
-                        tokens.push({ kind: TokenKind.Word, value: currentWord.toUpperCase() });
+                        tokens.push({ kind: TokenKind.Word, value: currentWord.toUpperCase(), pos });
                     break;
             }
             prevWord = currentWord;

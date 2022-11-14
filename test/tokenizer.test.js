@@ -8,7 +8,7 @@ const tokenizer = new Tokenizer()
 
 function tok(code, expected)
 {
-	const actualCode = tokenizer.stringify( tokenizer.tokenizeLine(code) )
+	const actualCode = tokenizer.stringify( tokenizer.tokenizeLine(code, 0) )
 
 	strictEqual(actualCode, expected)
 }

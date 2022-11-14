@@ -1,7 +1,14 @@
+interface Position
+{
+	line: number,
+	col : number
+}
+
 interface Token
 {
 	kind : TokenKind
 	value: string
+	pos  : Position
 }
 
 interface Command
