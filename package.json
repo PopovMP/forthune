@@ -1,0 +1,11 @@
+{
+  "devDependencies": {
+    "typescript": "^4.8.4",
+    "@types/node": "^18.11.9",
+    "@popovmp/mocha-tiny": "^3.1.0"
+  },
+  "scripts": {
+    "compile": "tsc",
+    "test": "mocha-tiny"
+  }
+}
