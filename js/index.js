@@ -77,12 +77,14 @@ var TokenKind;
 (function (TokenKind) {
     TokenKind[TokenKind["LineComment"] = 0] = "LineComment";
     TokenKind[TokenKind["Comment"] = 1] = "Comment";
-    TokenKind[TokenKind["Word"] = 2] = "Word";
+    TokenKind[TokenKind["String"] = 2] = "String";
     TokenKind[TokenKind["Keyword"] = 3] = "Keyword";
     TokenKind[TokenKind["Number"] = 4] = "Number";
-    TokenKind[TokenKind["String"] = 5] = "String";
+    TokenKind[TokenKind["Word"] = 5] = "Word";
 })(TokenKind || (TokenKind = {}));
-const CoreWord = {
+class Dictionary {
+}
+Dictionary.CoreWord = {
     '(': 'paren',
     '*': 'start',
     '+': 'plus',
@@ -112,11 +114,11 @@ const CoreWord = {
     'ROT': 'rot',
     'SWAP': 'swap',
 };
-const CoreExtensionWord = {
+Dictionary.CoreExtensionWord = {
     '.(': 'dot-paren',
     '<>': 'not-equals',
 };
-const ToolsWord = {
+Dictionary.ToolsWord = {
     '.S': 'dot-s',
 };
 class Forthune {
@@ -485,9 +487,9 @@ class Forthune {
 class Tokenizer {
     constructor() {
         this.keywords = [
-            ...Object.keys(CoreWord),
-            ...Object.keys(CoreExtensionWord),
-            ...Object.keys(ToolsWord),
+            ...Object.keys(Dictionary.CoreWord),
+            ...Object.keys(Dictionary.CoreExtensionWord),
+            ...Object.keys(Dictionary.ToolsWord),
         ];
     }
     tokenizeLine(codeLine, lineNum) {
@@ -516,7 +518,7 @@ class Tokenizer {
                     while (codeLine[toIndex] !== '"' && toIndex < codeLine.length)
                         toIndex += 1;
                     break;
-                default: // Eat non-empty character
+                default: // Eat word
                     while (codeLine[toIndex] !== ' ' && codeLine[toIndex] !== '\t' && toIndex < codeLine.length)
                         toIndex += 1;
                     break;
@@ -537,11 +539,11 @@ class Tokenizer {
                     break;
                 default:
                     if (this.keywords.includes(currentWord.toUpperCase())) // Known word
-                        tokens.push({ kind: TokenKind.Word, value: currentWord.toUpperCase(), pos });
+                        tokens.push({ kind: TokenKind.Keyword, value: currentWord, pos });
                     else if (currentWord.match(/^[+-]?\d+$/)) // Number
                         tokens.push({ kind: TokenKind.Number, value: currentWord, pos });
                     else // Unknown word
-                        tokens.push({ kind: TokenKind.Word, value: currentWord.toUpperCase(), pos });
+                        tokens.push({ kind: TokenKind.Word, value: currentWord, pos });
                     break;
             }
             prevWord = currentWord;

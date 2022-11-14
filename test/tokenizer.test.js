@@ -16,12 +16,12 @@ function tok(code, expected)
 describe('tokenize', () => {
 	it('word', () => {
 		tok('cr',
-			'CR')
+			'cr')
 	})
 
 	it('word with leading and trailing spaces', () => {
 		tok(' cr ',
-			'CR')
+			'cr')
 	})
 
 	it('numbers', () => {
@@ -66,21 +66,21 @@ describe('tokenize', () => {
 
 	it('def - only name', () => {
 		tok(': sum',
-			': SUM')
+			': sum')
 	})
 
 	it('def with comment', () => {
 		tok(': sum ( n n -- n ) + ;',
-			': SUM ( n n -- n ) + ;')
+			': sum ( n n -- n ) + ;')
 	})
 
 	it('def with unclosed comment', () => {
 		tok(': foo .( compile foo',
-			': FOO .( compile foo)')
+			': foo .( compile foo)')
 	})
 
 	it('def with interpolation words', () => {
 		tok(': print10 ( -- "print nums" ) 11 1 do i . loop ; cr print10 cr',
-			': PRINT10 ( -- "print nums" ) 11 1 DO I . LOOP ; CR PRINT10 CR')
+			': print10 ( -- "print nums" ) 11 1 do i . loop ; cr print10 cr')
 	})
 })

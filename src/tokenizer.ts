@@ -5,9 +5,9 @@ class Tokenizer
 	constructor()
 	{
 		this.keywords = [
-			...Object.keys(CoreWord),
-			...Object.keys(CoreExtensionWord),
-			...Object.keys(ToolsWord),
+			...Object.keys(Dictionary.CoreWord),
+			...Object.keys(Dictionary.CoreExtensionWord),
+			...Object.keys(Dictionary.ToolsWord),
 		]
 	}
 
@@ -42,7 +42,7 @@ class Tokenizer
 					while (codeLine[toIndex] !== '"' && toIndex < codeLine.length)
 						toIndex += 1
 					break
-				default: // Eat non-empty character
+				default: // Eat word
 					while (codeLine[toIndex] !== ' ' && codeLine[toIndex] !== '\t' && toIndex < codeLine.length)
 						toIndex += 1
 					break
@@ -66,11 +66,11 @@ class Tokenizer
 					break
 				default:
 					if (this.keywords.includes(currentWord.toUpperCase())) // Known word
-						tokens.push({kind: TokenKind.Word, value: currentWord.toUpperCase(), pos})
+						tokens.push({kind: TokenKind.Keyword, value: currentWord, pos})
 					else if (currentWord.match(/^[+-]?\d+$/)) // Number
 						tokens.push({kind: TokenKind.Number, value: currentWord, pos})
 					else // Unknown word
-						tokens.push({kind: TokenKind.Word, value: currentWord.toUpperCase(), pos})
+						tokens.push({kind: TokenKind.Word, value: currentWord, pos})
 					break
 			}
 
