@@ -448,17 +448,29 @@ class Interpreter {
                         break;
                     if (wordName === 'IF') {
                         let thenIndex = i + 1;
+                        let ifDepth = 1;
                         while (true) {
                             thenIndex += 1;
                             if (thenIndex === tokens.length)
                                 return { status: 1 /* Status.Fail */, value: ' THEN not found' };
-                            if (tokens[thenIndex].value.toUpperCase() === 'THEN')
+                            const loopWord = tokens[thenIndex].value.toUpperCase();
+                            if (loopWord === 'IF')
+                                ifDepth += 1;
+                            if (loopWord === 'THEN')
+                                ifDepth -= 1;
+                            if (ifDepth === 0)
                                 break;
                         }
                         let elseIndex = i + 1;
+                        ifDepth = 1;
                         while (elseIndex < thenIndex) {
                             elseIndex += 1;
-                            if (tokens[elseIndex].value.toUpperCase() === 'ELSE')
+                            const loopWord = tokens[elseIndex].value.toUpperCase();
+                            if (loopWord === 'IF')
+                                ifDepth += 1;
+                            if (loopWord === 'THEN')
+                                ifDepth -= 1;
+                            if (ifDepth === 1 && loopWord === 'ELSE')
                                 break;
                         }
                         const flag = this.dStack.pop();
