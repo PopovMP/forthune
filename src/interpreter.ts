@@ -9,6 +9,7 @@ class Interpreter
 
 	private runMode: RunMode
 	private tempColonDef: ColonDef
+	private isLeaveActivated: boolean
 
 	constructor(capacity: number, output: (text: string) => void)
 	{
@@ -16,6 +17,7 @@ class Interpreter
 		this.rStack = new Stack(capacity)
 		this.output = output
 		this.runMode = RunMode.Interpret
+		this.isLeaveActivated = false
 		this.tempColonDef = {name  : '', tokens: []}
 	}
 
@@ -184,6 +186,9 @@ class Interpreter
 				case TokenKind.Keyword: {
 					const wordName = token.value.toUpperCase()
 
+					if (this.isLeaveActivated)
+						break
+
 					if (wordName === 'IF') {
 						let thenIndex = i + 1
 						while (true) {
@@ -254,6 +259,10 @@ class Interpreter
 							this.rStack.push(counter)
 							const res = this.runTokens(tokens.slice(i+1, loopIndex))
 							this.rStack.pop()
+
+							if (this.isLeaveActivated)
+								break
+
 							outText += res.value
 							if (res.status === Status.Fail)
 								return {status: Status.Fail, value: outText}
@@ -261,6 +270,7 @@ class Interpreter
 							counter += isPlusLoop ? this.dStack.pop() : 1
 						}
 						i = loopIndex
+						this.isLeaveActivated = false
 						continue
 					}
 
@@ -302,6 +312,7 @@ class Interpreter
 		this.rStack.clear()
 		this.output(lineText + ' ' + message)
 		this.runMode = RunMode.Interpret
+		this.isLeaveActivated = false
 	}
 
 	private readonly colonDef: {[word: string]: ColonDef} = {}
@@ -450,6 +461,11 @@ class Interpreter
 
 		'J': () => {
 			this.dStack.push( this.rStack.get(1) )
+			return {status: Status.Ok, value: ''}
+		},
+
+		'LEAVE': () => {
+			this.isLeaveActivated = true
 			return {status: Status.Ok, value: ''}
 		},
 

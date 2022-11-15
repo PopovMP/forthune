@@ -96,6 +96,7 @@ Dictionary.CoreWord = {
     '=': 'equals',
     '>': 'greater-than',
     'ABS': 'abs',
+    'CR': 'cr',
     'DEPTH': 'depth',
     'IF': 'if',
     'THEN': 'then',
@@ -105,6 +106,7 @@ Dictionary.CoreWord = {
     'DUP': 'dup',
     'I': 'i',
     'J': 'j',
+    'LEAVE': 'leave',
     'LOOP': 'loop',
     'MOD': 'mod',
     'OVER': 'over',
@@ -119,7 +121,7 @@ Dictionary.ToolsWord = {
     '.S': 'dot-s',
 };
 Dictionary.CompileOnlyWords = [
-    '.(', '."', 'DO', 'I', 'J', 'LOOP', '+LOOP', ';', 'IF', 'ELSE', 'THEN'
+    '.(', '."', 'DO', 'I', 'J', 'LEAVE', 'LOOP', '+LOOP', ';', 'IF', 'ELSE', 'THEN'
 ];
 class Interpreter {
     constructor(capacity, output) {
@@ -245,6 +247,10 @@ class Interpreter {
                 this.dStack.push(this.rStack.get(1));
                 return { status: 0 /* Status.Ok */, value: '' };
             },
+            'LEAVE': () => {
+                this.isLeaveActivated = true;
+                return { status: 0 /* Status.Ok */, value: '' };
+            },
             // Tools
             '.S': () => {
                 return { status: 0 /* Status.Ok */, value: this.getStack().join(' ') + ' < Top' };
@@ -254,6 +260,7 @@ class Interpreter {
         this.rStack = new Stack(capacity);
         this.output = output;
         this.runMode = RunMode.Interpret;
+        this.isLeaveActivated = false;
         this.tempColonDef = { name: '', tokens: [] };
     }
     interpret(tokens, lineText) {
@@ -387,6 +394,8 @@ class Interpreter {
                     break;
                 case TokenKind.Keyword: {
                     const wordName = token.value.toUpperCase();
+                    if (this.isLeaveActivated)
+                        break;
                     if (wordName === 'IF') {
                         let thenIndex = i + 1;
                         while (true) {
@@ -447,12 +456,15 @@ class Interpreter {
                             this.rStack.push(counter);
                             const res = this.runTokens(tokens.slice(i + 1, loopIndex));
                             this.rStack.pop();
+                            if (this.isLeaveActivated)
+                                break;
                             outText += res.value;
                             if (res.status === 1 /* Status.Fail */)
                                 return { status: 1 /* Status.Fail */, value: outText };
                             counter += isPlusLoop ? this.dStack.pop() : 1;
                         }
                         i = loopIndex;
+                        this.isLeaveActivated = false;
                         continue;
                     }
                     if (!this.keyword.hasOwnProperty(wordName))
@@ -484,6 +496,7 @@ class Interpreter {
         this.rStack.clear();
         this.output(lineText + ' ' + message);
         this.runMode = RunMode.Interpret;
+        this.isLeaveActivated = false;
     }
 }
 class Stack {
