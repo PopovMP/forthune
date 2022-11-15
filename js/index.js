@@ -53,7 +53,12 @@ class Application {
         }
     }
     output(text) {
-        this.outputBuffer.push(text);
+        if (text.endsWith('\n')) {
+            this.outputBuffer.push(text.slice(0, text.length - 1));
+        }
+        else {
+            this.outputBuffer[this.outputBuffer.length - 1] += text;
+        }
         while (this.outputBuffer.length > this.OUT_BUFFER_LINES)
             this.outputBuffer.shift();
         this.outputLog.innerText = this.outputBuffer.join('\n');
@@ -87,8 +92,8 @@ Dictionary.CoreWord = {
     '+': 'plus',
     '+LOOP': 'plus-loop',
     '-': 'minus',
-    '.': 'dot',
     '."': 'dot-quote',
+    '.': 'dot',
     '/': 'slash',
     ':': 'colon',
     ';': 'semicolon',
@@ -98,20 +103,23 @@ Dictionary.CoreWord = {
     'ABS': 'abs',
     'CR': 'cr',
     'DEPTH': 'depth',
-    'IF': 'if',
-    'THEN': 'then',
-    'ELSE': 'else',
     'DO': 'do',
     'DROP': 'drop',
     'DUP': 'dup',
+    'ELSE': 'else',
+    'EMIT': 'emit',
     'I': 'i',
+    'IF': 'if',
     'J': 'j',
     'LEAVE': 'leave',
     'LOOP': 'loop',
     'MOD': 'mod',
     'OVER': 'over',
     'ROT': 'rot',
+    'SPACE': 'space',
+    'SPACES': 'spaces',
     'SWAP': 'swap',
+    'THEN': 'then',
 };
 Dictionary.CoreExtensionWord = {
     '.(': 'dot-paren',
@@ -146,6 +154,22 @@ class Interpreter {
                 return this.runMode === RunMode.Interpret
                     ? { status: 1 /* Status.Fail */, value: ' No Interpretation' }
                     : { status: 0 /* Status.Ok */, value: '' };
+            },
+            // Output
+            'CR': () => {
+                return { status: 0 /* Status.Ok */, value: '\n' };
+            },
+            'EMIT': () => {
+                const charCode = this.dStack.pop();
+                this.output(String.fromCharCode(charCode));
+                return { status: 0 /* Status.Ok */, value: '' };
+            },
+            'SPACE': () => {
+                return { status: 0 /* Status.Ok */, value: ' ' };
+            },
+            'SPACES': () => {
+                const count = this.dStack.pop();
+                return { status: 0 /* Status.Ok */, value: ' '.repeat(count) };
             },
             // Numbers
             '+': () => {
@@ -367,9 +391,9 @@ class Interpreter {
             return;
         }
         if (this.runMode === RunMode.Interpret)
-            this.output(`${lineText} ${outText === '' ? '' : outText + ' '} ok`);
+            this.output(`${lineText} ${outText === '' ? '' : outText + ' '} ok\n`);
         else
-            this.output(`${lineText} ${outText === '' ? '' : outText + ' '} compiling`);
+            this.output(`${lineText} ${outText === '' ? '' : outText + ' '} compiling\n`);
     }
     getStack() {
         const depth = this.dStack.depth();
@@ -494,7 +518,7 @@ class Interpreter {
     die(lineText, message) {
         this.dStack.clear();
         this.rStack.clear();
-        this.output(lineText + ' ' + message);
+        this.output(`${lineText} ${message}\n`);
         this.runMode = RunMode.Interpret;
         this.isLeaveActivated = false;
     }
@@ -549,7 +573,7 @@ class Tokenizer {
         while (fromIndex < codeLine.length) {
             const ch0 = codeLine[fromIndex];
             // Eat leading spaces
-            if (ch0 === ' ' || ch0 === '\t') {
+            if (prevWord !== '."' && (ch0 === ' ' || ch0 === '\t')) {
                 fromIndex += 1;
                 continue;
             }

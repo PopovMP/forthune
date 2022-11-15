@@ -16,7 +16,7 @@ class Tokenizer
 			const ch0 = codeLine[fromIndex]
 
 			// Eat leading spaces
-			if (ch0 === ' ' || ch0 === '\t') {
+			if (prevWord !== '."' && (ch0 === ' ' || ch0 === '\t')) {
 				fromIndex += 1
 				continue
 			}

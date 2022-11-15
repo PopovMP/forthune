@@ -81,7 +81,12 @@ class Application
 
 	private output(text: string): void
 	{
-		this.outputBuffer.push(text)
+		if ( text.endsWith('\n') ) {
+			this.outputBuffer.push(text.slice(0, text.length-1))
+		} else {
+			this.outputBuffer[this.outputBuffer.length-1] += text
+		}
+
 		while (this.outputBuffer.length > this.OUT_BUFFER_LINES)
 			this.outputBuffer.shift()
 		this.outputLog.innerText = this.outputBuffer.join('\n')

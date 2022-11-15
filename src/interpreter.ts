@@ -148,9 +148,9 @@ class Interpreter
 		}
 
 		if (this.runMode === RunMode.Interpret)
-			this.output(`${lineText} ${outText === '' ? '' : outText + ' '} ok`)
+			this.output(`${lineText} ${outText === '' ? '' : outText + ' '} ok\n`)
 		else
-			this.output(`${lineText} ${outText === '' ? '' : outText + ' '} compiling`)
+			this.output(`${lineText} ${outText === '' ? '' : outText + ' '} compiling\n`)
 	}
 
 	public getStack()
@@ -310,7 +310,7 @@ class Interpreter
 	{
 		this.dStack.clear()
 		this.rStack.clear()
-		this.output(lineText + ' ' + message)
+		this.output(`${lineText} ${message}\n`)
 		this.runMode = RunMode.Interpret
 		this.isLeaveActivated = false
 	}
@@ -340,6 +340,27 @@ class Interpreter
 			return this.runMode === RunMode.Interpret
 				? {status: Status.Fail, value: ' No Interpretation'}
 				: {status: Status.Ok, value: ''}
+		},
+
+		// Output
+
+		'CR': () => {
+			return {status: Status.Ok, value: '\n'}
+		},
+
+		'EMIT': () => {
+			const charCode = this.dStack.pop()
+			this.output(String.fromCharCode(charCode))
+			return {status: Status.Ok, value: ''}
+		},
+
+		'SPACE': () => {
+			return {status: Status.Ok, value: ' '}
+		},
+
+		'SPACES': () => {
+			const count = this.dStack.pop()
+			return {status: Status.Ok, value: ' '.repeat(count)}
 		},
 
 		// Numbers

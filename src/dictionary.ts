@@ -1,34 +1,39 @@
 class Dictionary
 {
 	public static readonly CoreWord: {[word: string]: string} = {
-		'('    : 'paren',
-		'*'    : 'start',
-		'+'    : 'plus',
-		'+LOOP': 'plus-loop',
-		'-'    : 'minus',
-		'.'    : 'dot',
-		'."'   : 'dot-quote',
-		'/'    : 'slash',
-		':'    : 'colon',
-		';'    : 'semicolon',
-		'<'    : 'less-than',
-		'='    : 'equals',
-		'>'    : 'greater-than',
-		'ABS'  : 'abs',
-		'DEPTH': 'depth',
-		'IF'   : 'if',
-		'THEN' : 'then',
-		'ELSE' : 'else',
-		'DO'   : 'do',
-		'DROP' : 'drop',
-		'DUP'  : 'dup',
-		'I'    : 'i',
-		'J'    : 'j',
-		'LOOP' : 'loop',
-		'MOD'  : 'mod',
-		'OVER' : 'over',
-		'ROT'  : 'rot',
-		'SWAP' : 'swap',
+		'('     : 'paren',
+		'*'     : 'start',
+		'+'     : 'plus',
+		'+LOOP' : 'plus-loop',
+		'-'     : 'minus',
+		'."'    : 'dot-quote',
+		'.'     : 'dot',
+		'/'     : 'slash',
+		':'     : 'colon',
+		';'     : 'semicolon',
+		'<'     : 'less-than',
+		'='     : 'equals',
+		'>'     : 'greater-than',
+		'ABS'   : 'abs',
+		'CR'    : 'cr',
+		'DEPTH' : 'depth',
+		'DO'    : 'do',
+		'DROP'  : 'drop',
+		'DUP'   : 'dup',
+		'ELSE'  : 'else',
+		'EMIT'  : 'emit',
+		'I'     : 'i',
+		'IF'    : 'if',
+		'J'     : 'j',
+		'LEAVE' : 'leave',
+		'LOOP'  : 'loop',
+		'MOD'   : 'mod',
+		'OVER'  : 'over',
+		'ROT'   : 'rot',
+		'SPACE' : 'space',
+		'SPACES': 'spaces',
+		'SWAP'  : 'swap',
+		'THEN'  : 'then',
 	}
 
 	public static readonly CoreExtensionWord: {[word: string]: string} = {
@@ -41,6 +46,6 @@ class Dictionary
 	}
 
 	public static readonly CompileOnlyWords = [
-		'.(', '."', 'DO', 'I', 'J', 'LOOP', '+LOOP', ';', 'IF', 'ELSE', 'THEN'
+		'.(', '."', 'DO', 'I', 'J', 'LEAVE', 'LOOP', '+LOOP', ';', 'IF', 'ELSE', 'THEN'
 	]
 }

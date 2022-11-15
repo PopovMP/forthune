@@ -60,6 +60,11 @@ describe('tokenize', () => {
 			'." foo"')
 	})
 
+	it('multi string', () => {
+		tok(': foo CR ."    *" CR ."   **" CR ."  ***" CR ." ****" ;',
+			': foo CR ."    *" CR ."   **" CR ."  ***" CR ." ****" ;')
+	})
+
 	it('def - only name', () => {
 		tok(': sum',
 			': sum')
