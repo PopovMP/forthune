@@ -105,7 +105,7 @@ Dictionary.CoreWord = {
     'DEPTH': 'depth',
     'DO': 'do',
     'DROP': 'drop',
-    'DUP': 'dup',
+    'DUP': 'dupe',
     'ELSE': 'else',
     'EMIT': 'emit',
     'I': 'i',
@@ -120,6 +120,8 @@ Dictionary.CoreWord = {
     'SPACES': 'spaces',
     'SWAP': 'swap',
     'THEN': 'then',
+    '?DO': 'question-do',
+    '?DUP': 'question-dupe',
 };
 Dictionary.CoreExtensionWord = {
     '.(': 'dot-paren',
@@ -129,7 +131,7 @@ Dictionary.ToolsWord = {
     '.S': 'dot-s',
 };
 Dictionary.CompileOnlyWords = [
-    '.(', '."', 'DO', 'I', 'J', 'LEAVE', 'LOOP', '+LOOP', ';', 'IF', 'ELSE', 'THEN'
+    '.(', '."', '?DO', 'DO', 'I', 'J', 'LEAVE', 'LOOP', '+LOOP', ';', 'IF', 'ELSE', 'THEN'
 ];
 class Interpreter {
     constructor(capacity, output) {
@@ -235,6 +237,12 @@ class Interpreter {
                 this.dStack.push(n2);
                 this.dStack.push(n3);
                 this.dStack.push(n1);
+                return { status: 0 /* Status.Ok */, value: '' };
+            },
+            '?DUP': () => {
+                const n = this.dStack.get(0);
+                if (n !== 0)
+                    this.dStack.push(this.dStack.get(0));
                 return { status: 0 /* Status.Ok */, value: '' };
             },
             // Comparison
@@ -455,7 +463,8 @@ class Interpreter {
                             continue;
                         }
                     }
-                    if (wordName === 'DO') {
+                    if (wordName === 'DO' || wordName === '?DO') {
+                        const isQuestionDup = wordName === '?DO';
                         let loopIndex = i + 1;
                         let doDepth = 1;
                         while (true) {
@@ -474,6 +483,11 @@ class Interpreter {
                         let counter = this.dStack.pop();
                         const limit = this.dStack.pop();
                         const upwards = limit > counter;
+                        if (isQuestionDup && counter === limit) {
+                            i = loopIndex;
+                            this.isLeaveActivated = false;
+                            continue;
+                        }
                         if (!isPlusLoop && !upwards)
                             return { status: 1 /* Status.Fail */, value: ' LOOP wrong range' };
                         while (upwards ? counter < limit : counter >= limit) {

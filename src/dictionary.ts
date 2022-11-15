@@ -19,7 +19,7 @@ class Dictionary
 		'DEPTH' : 'depth',
 		'DO'    : 'do',
 		'DROP'  : 'drop',
-		'DUP'   : 'dup',
+		'DUP'   : 'dupe',
 		'ELSE'  : 'else',
 		'EMIT'  : 'emit',
 		'I'     : 'i',
@@ -34,6 +34,8 @@ class Dictionary
 		'SPACES': 'spaces',
 		'SWAP'  : 'swap',
 		'THEN'  : 'then',
+		'?DO'   : 'question-do',
+		'?DUP'  : 'question-dupe',
 	}
 
 	public static readonly CoreExtensionWord: {[word: string]: string} = {
@@ -46,6 +48,6 @@ class Dictionary
 	}
 
 	public static readonly CompileOnlyWords = [
-		'.(', '."', 'DO', 'I', 'J', 'LEAVE', 'LOOP', '+LOOP', ';', 'IF', 'ELSE', 'THEN'
+		'.(', '."', '?DO', 'DO', 'I', 'J', 'LEAVE', 'LOOP', '+LOOP', ';', 'IF', 'ELSE', 'THEN'
 	]
 }

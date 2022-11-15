@@ -232,9 +232,11 @@ class Interpreter
 						}
 					}
 
-					if (wordName === 'DO') {
+					if (wordName === 'DO' || wordName === '?DO') {
+						const isQuestionDup = wordName === '?DO'
 						let loopIndex = i + 1
 						let doDepth = 1
+
 						while (true) {
 							loopIndex += 1
 							if (loopIndex === tokens.length)
@@ -247,10 +249,17 @@ class Interpreter
 							if (doDepth === 0)
 								break
 						}
+
 						const isPlusLoop = tokens[loopIndex].value.toUpperCase() === '+LOOP'
 						let   counter    = this.dStack.pop()
 						const limit      = this.dStack.pop()
 						const upwards    = limit > counter
+
+						if (isQuestionDup && counter === limit) {
+							i = loopIndex
+							this.isLeaveActivated = false
+							continue
+						}
 
 						if (!isPlusLoop && !upwards)
 							return {status: Status.Fail, value: ' LOOP wrong range'}
@@ -269,6 +278,7 @@ class Interpreter
 
 							counter += isPlusLoop ? this.dStack.pop() : 1
 						}
+
 						i = loopIndex
 						this.isLeaveActivated = false
 						continue
@@ -440,6 +450,13 @@ class Interpreter
 			this.dStack.push(n2)
 			this.dStack.push(n3)
 			this.dStack.push(n1)
+			return {status: Status.Ok, value: ''}
+		},
+
+		'?DUP': () => {
+			const n = this.dStack.get(0)
+			if (n !== 0)
+				this.dStack.push(this.dStack.get(0))
 			return {status: Status.Ok, value: ''}
 		},
 
