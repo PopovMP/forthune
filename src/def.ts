@@ -29,11 +29,12 @@ const enum Status {
 }
 
 enum TokenKind {
-	LineComment,
+	Character,
 	Comment,
-	String,
 	Keyword,
+	LineComment,
 	Number,
+	String,
 	Word,
 }
 

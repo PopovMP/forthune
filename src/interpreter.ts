@@ -35,6 +35,10 @@ class Interpreter
 							this.dStack.push(parseInt(token.value))
 							break
 
+						case TokenKind.Character:
+							this.dStack.push(token.value.charCodeAt(0))
+							break
+
 						case TokenKind.Comment:
 						case TokenKind.LineComment:
 						case TokenKind.String:
@@ -177,6 +181,10 @@ class Interpreter
 
 				case TokenKind.Comment:
 				case TokenKind.LineComment:
+					break
+
+				case TokenKind.Character:
+					this.dStack.push(token.value.charCodeAt(0))
 					break
 
 				case TokenKind.String:
@@ -341,6 +349,18 @@ class Interpreter
 		},
 
 		'\\': () => {
+			return {status: Status.Ok, value: ''}
+		},
+
+		// Char
+
+		'BL': () => {
+			// Put the ASCII code of space in Stack
+			this.dStack.push(32)
+			return {status: Status.Ok, value: ''}
+		},
+
+		'CHAR': () => {
 			return {status: Status.Ok, value: ''}
 		},
 

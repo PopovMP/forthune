@@ -15,6 +15,8 @@ class Dictionary
 		'='     : 'equals',
 		'>'     : 'greater-than',
 		'ABS'   : 'abs',
+		'BL'    : 'bl',
+		'CHAR'  : 'char',
 		'CR'    : 'cr',
 		'DEPTH' : 'depth',
 		'DO'    : 'do',
@@ -34,13 +36,13 @@ class Dictionary
 		'SPACES': 'spaces',
 		'SWAP'  : 'swap',
 		'THEN'  : 'then',
-		'?DO'   : 'question-do',
 		'?DUP'  : 'question-dupe',
 	}
 
 	public static readonly CoreExtensionWord: {[word: string]: string} = {
 		'.('   : 'dot-paren',
 		'<>'   : 'not-equals',
+		'?DO'  : 'question-do',
 	}
 
 	public static readonly ToolsWord: {[word: string]: string} = {

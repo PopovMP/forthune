@@ -23,21 +23,26 @@ class Tokenizer
 
 			let toIndex = fromIndex
 
-			switch (prevWord) {
-				case '\\': // Eat line comment
+			// Immediate words
+			switch (prevWord.toUpperCase()) {
+				case '\\': // Eat line comment delimited by <newline>
 					while (toIndex < codeLine.length)
 						toIndex += 1
 					break
 				case '(':
-				case '.(': // Eat comment
+				case '.(': // Eat comment delimited by <paren>
 					while (codeLine[toIndex] !== ')' && toIndex < codeLine.length)
 						toIndex += 1
 					break
-				case '."': // Eat string
+				case '."': // Eat string delimited by <comma>
 					while (codeLine[toIndex] !== '"' && toIndex < codeLine.length)
 						toIndex += 1
 					break
-				default: // Eat word
+				case 'CHAR': // Eat character delimited by <space>
+					while (codeLine[toIndex] !== ' ' && codeLine[toIndex] !== '\t' && toIndex < codeLine.length)
+						toIndex += 1
+					break
+				default: // Eat word delimited by <space>
 					while (codeLine[toIndex] !== ' ' && codeLine[toIndex] !== '\t' && toIndex < codeLine.length)
 						toIndex += 1
 					break
@@ -48,7 +53,7 @@ class Tokenizer
 			const currentWord = codeLine.slice(fromIndex, toIndex)
 			fromIndex = toIndex + 1
 
-			switch (prevWord) {
+			switch (prevWord.toUpperCase()) {
 				case '\\': // Line comment
 					tokens.push({kind: TokenKind.LineComment, value: currentWord, pos})
 					break
@@ -58,6 +63,9 @@ class Tokenizer
 					break
 				case '."': // String
 					tokens.push({kind: TokenKind.String, value: currentWord, pos})
+					break
+				case 'CHAR': // Character
+					tokens.push({kind: TokenKind.Character, value: currentWord, pos})
 					break
 				default:
 					if (keywords.includes(currentWord.toUpperCase())) // Known word

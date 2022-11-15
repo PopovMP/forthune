@@ -71,12 +71,13 @@ var Status;
 })(Status || (Status = {}));
 var TokenKind;
 (function (TokenKind) {
-    TokenKind[TokenKind["LineComment"] = 0] = "LineComment";
+    TokenKind[TokenKind["Character"] = 0] = "Character";
     TokenKind[TokenKind["Comment"] = 1] = "Comment";
-    TokenKind[TokenKind["String"] = 2] = "String";
-    TokenKind[TokenKind["Keyword"] = 3] = "Keyword";
+    TokenKind[TokenKind["Keyword"] = 2] = "Keyword";
+    TokenKind[TokenKind["LineComment"] = 3] = "LineComment";
     TokenKind[TokenKind["Number"] = 4] = "Number";
-    TokenKind[TokenKind["Word"] = 5] = "Word";
+    TokenKind[TokenKind["String"] = 5] = "String";
+    TokenKind[TokenKind["Word"] = 6] = "Word";
 })(TokenKind || (TokenKind = {}));
 var RunMode;
 (function (RunMode) {
@@ -101,6 +102,8 @@ Dictionary.CoreWord = {
     '=': 'equals',
     '>': 'greater-than',
     'ABS': 'abs',
+    'BL': 'bl',
+    'CHAR': 'char',
     'CR': 'cr',
     'DEPTH': 'depth',
     'DO': 'do',
@@ -120,12 +123,12 @@ Dictionary.CoreWord = {
     'SPACES': 'spaces',
     'SWAP': 'swap',
     'THEN': 'then',
-    '?DO': 'question-do',
     '?DUP': 'question-dupe',
 };
 Dictionary.CoreExtensionWord = {
     '.(': 'dot-paren',
     '<>': 'not-equals',
+    '?DO': 'question-do',
 };
 Dictionary.ToolsWord = {
     '.S': 'dot-s',
@@ -149,6 +152,15 @@ class Interpreter {
                     : { status: 0 /* Status.Ok */, value: '' };
             },
             '\\': () => {
+                return { status: 0 /* Status.Ok */, value: '' };
+            },
+            // Char
+            'BL': () => {
+                // Put the ASCII code of space in Stack
+                this.dStack.push(32);
+                return { status: 0 /* Status.Ok */, value: '' };
+            },
+            'CHAR': () => {
                 return { status: 0 /* Status.Ok */, value: '' };
             },
             // String
@@ -305,6 +317,9 @@ class Interpreter {
                         case TokenKind.Number:
                             this.dStack.push(parseInt(token.value));
                             break;
+                        case TokenKind.Character:
+                            this.dStack.push(token.value.charCodeAt(0));
+                            break;
                         case TokenKind.Comment:
                         case TokenKind.LineComment:
                         case TokenKind.String:
@@ -420,6 +435,9 @@ class Interpreter {
                     break;
                 case TokenKind.Comment:
                 case TokenKind.LineComment:
+                    break;
+                case TokenKind.Character:
+                    this.dStack.push(token.value.charCodeAt(0));
                     break;
                 case TokenKind.String:
                     outText += token.value;
@@ -592,21 +610,26 @@ class Tokenizer {
                 continue;
             }
             let toIndex = fromIndex;
-            switch (prevWord) {
-                case '\\': // Eat line comment
+            // Immediate words
+            switch (prevWord.toUpperCase()) {
+                case '\\': // Eat line comment delimited by <newline>
                     while (toIndex < codeLine.length)
                         toIndex += 1;
                     break;
                 case '(':
-                case '.(': // Eat comment
+                case '.(': // Eat comment delimited by <paren>
                     while (codeLine[toIndex] !== ')' && toIndex < codeLine.length)
                         toIndex += 1;
                     break;
-                case '."': // Eat string
+                case '."': // Eat string delimited by <comma>
                     while (codeLine[toIndex] !== '"' && toIndex < codeLine.length)
                         toIndex += 1;
                     break;
-                default: // Eat word
+                case 'CHAR': // Eat character delimited by <space>
+                    while (codeLine[toIndex] !== ' ' && codeLine[toIndex] !== '\t' && toIndex < codeLine.length)
+                        toIndex += 1;
+                    break;
+                default: // Eat word delimited by <space>
                     while (codeLine[toIndex] !== ' ' && codeLine[toIndex] !== '\t' && toIndex < codeLine.length)
                         toIndex += 1;
                     break;
@@ -614,7 +637,7 @@ class Tokenizer {
             const pos = { line: lineNum, col: fromIndex };
             const currentWord = codeLine.slice(fromIndex, toIndex);
             fromIndex = toIndex + 1;
-            switch (prevWord) {
+            switch (prevWord.toUpperCase()) {
                 case '\\': // Line comment
                     tokens.push({ kind: TokenKind.LineComment, value: currentWord, pos });
                     break;
@@ -624,6 +647,9 @@ class Tokenizer {
                     break;
                 case '."': // String
                     tokens.push({ kind: TokenKind.String, value: currentWord, pos });
+                    break;
+                case 'CHAR': // Character
+                    tokens.push({ kind: TokenKind.Character, value: currentWord, pos });
                     break;
                 default:
                     if (keywords.includes(currentWord.toUpperCase())) // Known word
