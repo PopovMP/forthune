@@ -4,13 +4,9 @@ const {strictEqual}  = require('assert')
 const {describe, it} = require('@popovmp/mocha-tiny')
 const {Tokenizer}   = require('../js/index')
 
-const tokenizer = new Tokenizer()
-
 function tok(code, expected)
 {
-	const actualCode = tokenizer.stringify( tokenizer.tokenizeLine(code, 0) )
-
-	strictEqual(actualCode, expected)
+	strictEqual(Tokenizer.stringify( Tokenizer.tokenizeLine(code, 0) ), expected)
 }
 
 describe('tokenize', () => {

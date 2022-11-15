@@ -11,13 +11,6 @@ interface Token
 	pos  : Position
 }
 
-interface Command
-{
-	kind : Kind
-	value: string|number
-	see  : string
-}
-
 interface ExecResult
 {
 	status: Status
@@ -26,16 +19,8 @@ interface ExecResult
 
 interface ColonDef
 {
-	name     : string
-	comment  : string
-	loopCode : string[][]
-}
-
-const enum Kind {
-	Word,
-	Number,
-	ColonDef,
-	Unknown,
+	name  : string
+	tokens: Token[]
 }
 
 const enum Status {
@@ -50,4 +35,10 @@ enum TokenKind {
 	Keyword,
 	Number,
 	Word,
+}
+
+enum RunMode {
+	Interpret,
+	Compile,
+	Run
 }

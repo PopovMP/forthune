@@ -1,7 +1,7 @@
 // noinspection JSUnusedGlobalSymbols
 class Application
 {
-	private readonly forthune  : Forthune
+	private readonly interpreter: Interpreter
 	private readonly screen    : HTMLElement
 	private readonly outputLog : HTMLElement
 	private readonly inputLine : HTMLInputElement
@@ -9,6 +9,7 @@ class Application
 	private readonly wordsElem : HTMLElement
 
 	private readonly OUT_BUFFER_LINES = 23
+	private readonly STACK_CAPACITY   = 1024
 	private readonly outputBuffer: string[]
 	private readonly readBuffer: string[]
 
@@ -17,7 +18,8 @@ class Application
 	// noinspection JSUnusedGlobalSymbols
 	constructor()
 	{
-		this.forthune   = new Forthune()
+		this.interpreter = new Interpreter(this.STACK_CAPACITY, this.output.bind(this))
+
 		this.screen     = document.getElementById('screen')     as HTMLElement
 		this.outputLog  = document.getElementById('output-log') as HTMLElement
 		this.inputLine  = document.getElementById('input-line') as HTMLInputElement
@@ -27,17 +29,13 @@ class Application
 		this.outputBuffer = []
 		this.readBufferIndex = 0
 		this.inputLine.addEventListener("keydown", this.readline_keydown.bind(this))
-		this.forthune.output = this.output.bind(this)
 		this.outputLog.innerText = ''
-		this.inputLine.value = ''
-		this.stackView.innerText = ' <top'
+		this.inputLine.value     = ''
+		this.stackView.innerText = ' < Top'
 
 		this.outputLog.addEventListener('click', () => this.inputLine.focus())
 		this.screen.addEventListener('click', () => this.inputLine.focus())
 		this.inputLine.focus()
-		this.wordsElem.innerHTML = this.forthune.getWords()
-			.map(word => `<strong>${word.value.toString().padEnd(5, ' ').replace(/ /g, '&nbsp;')}</strong> ${word.see}`)
-			.join('<br/>')
 		document.addEventListener('click', () => this.inputLine.focus())
 	}
 
@@ -46,7 +44,7 @@ class Application
 		if (event.code === 'Enter') {
 			event.preventDefault()
 
-			const cmdText = this.inputLine.value.trim()
+			const cmdText = this.inputLine.value
 			this.inputLine.value = ''
 
 			if (cmdText !== '' && (this.readBuffer.length === 0 || this.readBuffer[this.readBuffer.length-1] !== cmdText)) {
@@ -54,8 +52,10 @@ class Application
 				this.readBufferIndex = this.readBuffer.length - 1
 			}
 
-			this.forthune.manageInput(cmdText)
-			this.stackView.innerText = this.forthune.getStack().join(' ') +  ' <top'
+			const tokens = Tokenizer.tokenizeLine(cmdText, 0)
+			this.interpreter.interpret(tokens, cmdText)
+
+			this.stackView.innerText = this.interpreter.getStack().join(' ') +  ' < Top'
 
 			return
 		}

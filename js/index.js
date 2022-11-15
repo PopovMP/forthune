@@ -4,7 +4,8 @@ class Application {
     // noinspection JSUnusedGlobalSymbols
     constructor() {
         this.OUT_BUFFER_LINES = 23;
-        this.forthune = new Forthune();
+        this.STACK_CAPACITY = 1024;
+        this.interpreter = new Interpreter(this.STACK_CAPACITY, this.output.bind(this));
         this.screen = document.getElementById('screen');
         this.outputLog = document.getElementById('output-log');
         this.inputLine = document.getElementById('input-line');
@@ -14,29 +15,26 @@ class Application {
         this.outputBuffer = [];
         this.readBufferIndex = 0;
         this.inputLine.addEventListener("keydown", this.readline_keydown.bind(this));
-        this.forthune.output = this.output.bind(this);
         this.outputLog.innerText = '';
         this.inputLine.value = '';
-        this.stackView.innerText = ' <top';
+        this.stackView.innerText = ' < Top';
         this.outputLog.addEventListener('click', () => this.inputLine.focus());
         this.screen.addEventListener('click', () => this.inputLine.focus());
         this.inputLine.focus();
-        this.wordsElem.innerHTML = this.forthune.getWords()
-            .map(word => `<strong>${word.value.toString().padEnd(5, ' ').replace(/ /g, '&nbsp;')}</strong> ${word.see}`)
-            .join('<br/>');
         document.addEventListener('click', () => this.inputLine.focus());
     }
     readline_keydown(event) {
         if (event.code === 'Enter') {
             event.preventDefault();
-            const cmdText = this.inputLine.value.trim();
+            const cmdText = this.inputLine.value;
             this.inputLine.value = '';
             if (cmdText !== '' && (this.readBuffer.length === 0 || this.readBuffer[this.readBuffer.length - 1] !== cmdText)) {
                 this.readBuffer.push(cmdText);
                 this.readBufferIndex = this.readBuffer.length - 1;
             }
-            this.forthune.manageInput(cmdText);
-            this.stackView.innerText = this.forthune.getStack().join(' ') + ' <top';
+            const tokens = Tokenizer.tokenizeLine(cmdText, 0);
+            this.interpreter.interpret(tokens, cmdText);
+            this.stackView.innerText = this.interpreter.getStack().join(' ') + ' < Top';
             return;
         }
         if (event.code === 'ArrowUp') {
@@ -61,13 +59,6 @@ class Application {
         this.outputLog.innerText = this.outputBuffer.join('\n');
     }
 }
-var Kind;
-(function (Kind) {
-    Kind[Kind["Word"] = 0] = "Word";
-    Kind[Kind["Number"] = 1] = "Number";
-    Kind[Kind["ColonDef"] = 2] = "ColonDef";
-    Kind[Kind["Unknown"] = 3] = "Unknown";
-})(Kind || (Kind = {}));
 var Status;
 (function (Status) {
     Status[Status["Ok"] = 0] = "Ok";
@@ -82,6 +73,12 @@ var TokenKind;
     TokenKind[TokenKind["Number"] = 4] = "Number";
     TokenKind[TokenKind["Word"] = 5] = "Word";
 })(TokenKind || (TokenKind = {}));
+var RunMode;
+(function (RunMode) {
+    RunMode[RunMode["Interpret"] = 0] = "Interpret";
+    RunMode[RunMode["Compile"] = 1] = "Compile";
+    RunMode[RunMode["Run"] = 2] = "Run";
+})(RunMode || (RunMode = {}));
 class Dictionary {
 }
 Dictionary.CoreWord = {
@@ -121,378 +118,418 @@ Dictionary.CoreExtensionWord = {
 Dictionary.ToolsWord = {
     '.S': 'dot-s',
 };
-class Forthune {
-    constructor() {
+Dictionary.CompileOnlyWords = [
+    '.(', '."', 'DO', 'I', 'J', 'LOOP', '+LOOP', ';', 'IF', 'ELSE', 'THEN'
+];
+class Interpreter {
+    constructor(capacity, output) {
         this.TRUE = -1;
         this.FALSE = 0;
-        this.output = (_text) => { };
-        this.stack = [];
-        this.rStack = [];
-        this.knownWords = this.getKnownWords();
-        this.colonWords = {};
-        this.colonDef = undefined;
-        this.loopDepth = 0;
+        this.colonDef = {};
+        this.keyword = {
+            // Comments
+            '(': () => {
+                return { status: 0 /* Status.Ok */, value: '' };
+            },
+            '.(': () => {
+                return this.runMode === RunMode.Interpret
+                    ? { status: 1 /* Status.Fail */, value: ' No Interpretation' }
+                    : { status: 0 /* Status.Ok */, value: '' };
+            },
+            '\\': () => {
+                return { status: 0 /* Status.Ok */, value: '' };
+            },
+            // String
+            '."': () => {
+                return this.runMode === RunMode.Interpret
+                    ? { status: 1 /* Status.Fail */, value: ' No Interpretation' }
+                    : { status: 0 /* Status.Ok */, value: '' };
+            },
+            // Numbers
+            '+': () => {
+                const n2 = this.dStack.pop();
+                const n1 = this.dStack.pop();
+                this.dStack.push(n1 + n2);
+                return { status: 0 /* Status.Ok */, value: '' };
+            },
+            '-': () => {
+                const n2 = this.dStack.pop();
+                const n1 = this.dStack.pop();
+                this.dStack.push(n1 - n2);
+                return { status: 0 /* Status.Ok */, value: '' };
+            },
+            '*': () => {
+                const n2 = this.dStack.pop();
+                const n1 = this.dStack.pop();
+                this.dStack.push(n1 * n2);
+                return { status: 0 /* Status.Ok */, value: '' };
+            },
+            '/': () => {
+                const n2 = this.dStack.pop();
+                const n1 = this.dStack.pop();
+                this.dStack.push(n1 / n2);
+                return { status: 0 /* Status.Ok */, value: '' };
+            },
+            'ABS': () => {
+                const n1 = this.dStack.pop();
+                this.dStack.push(Math.abs(n1));
+                return { status: 0 /* Status.Ok */, value: '' };
+            },
+            // Stack manipulation
+            '.': () => {
+                return { status: 0 /* Status.Ok */, value: this.dStack.pop().toString() };
+            },
+            'DEPTH': () => {
+                this.dStack.push(this.dStack.depth());
+                return { status: 0 /* Status.Ok */, value: '' };
+            },
+            'DUP': () => {
+                this.dStack.push(this.dStack.get(0));
+                return { status: 0 /* Status.Ok */, value: '' };
+            },
+            'OVER': () => {
+                this.dStack.push(this.dStack.get(1));
+                return { status: 0 /* Status.Ok */, value: '' };
+            },
+            'DROP': () => {
+                this.dStack.pop();
+                return { status: 0 /* Status.Ok */, value: '' };
+            },
+            'SWAP': () => {
+                const n2 = this.dStack.pop();
+                const n1 = this.dStack.pop();
+                this.dStack.push(n2);
+                this.dStack.push(n1);
+                return { status: 0 /* Status.Ok */, value: '' };
+            },
+            'ROT': () => {
+                const n3 = this.dStack.pop();
+                const n2 = this.dStack.pop();
+                const n1 = this.dStack.pop();
+                this.dStack.push(n2);
+                this.dStack.push(n3);
+                this.dStack.push(n1);
+                return { status: 0 /* Status.Ok */, value: '' };
+            },
+            // Comparison
+            '=': () => {
+                const n2 = this.dStack.pop();
+                const n1 = this.dStack.pop();
+                this.dStack.push(n1 === n2 ? this.TRUE : this.FALSE);
+                return { status: 0 /* Status.Ok */, value: '' };
+            },
+            '<>': () => {
+                const n2 = this.dStack.pop();
+                const n1 = this.dStack.pop();
+                this.dStack.push(n1 !== n2 ? this.TRUE : this.FALSE);
+                return { status: 0 /* Status.Ok */, value: '' };
+            },
+            '>': () => {
+                const n2 = this.dStack.pop();
+                const n1 = this.dStack.pop();
+                this.dStack.push(n1 > n2 ? this.TRUE : this.FALSE);
+                return { status: 0 /* Status.Ok */, value: '' };
+            },
+            '<': () => {
+                const n2 = this.dStack.pop();
+                const n1 = this.dStack.pop();
+                this.dStack.push(n1 < n2 ? this.TRUE : this.FALSE);
+                return { status: 0 /* Status.Ok */, value: '' };
+            },
+            // DO
+            'I': () => {
+                this.dStack.push(this.rStack.get(0));
+                return { status: 0 /* Status.Ok */, value: '' };
+            },
+            'J': () => {
+                this.dStack.push(this.rStack.get(1));
+                return { status: 0 /* Status.Ok */, value: '' };
+            },
+            // Tools
+            '.S': () => {
+                return { status: 0 /* Status.Ok */, value: this.getStack().join(' ') + ' < Top' };
+            },
+        };
+        this.dStack = new Stack(capacity);
+        this.rStack = new Stack(capacity);
+        this.output = output;
+        this.runMode = RunMode.Interpret;
+        this.tempColonDef = { name: '', tokens: [] };
     }
-    manageInput(inputText) {
-        const res = this.manageInputText(inputText);
-        if (res.status === 1 /* Status.Fail */) {
-            this.clearStack();
-            this.output(res.value);
+    interpret(tokens, lineText) {
+        let outText = '';
+        try {
+            for (let i = 0; i < tokens.length; i += 1) {
+                const token = tokens[i];
+                if (this.runMode === RunMode.Interpret) {
+                    switch (token.kind) {
+                        case TokenKind.Number:
+                            this.dStack.push(parseInt(token.value));
+                            break;
+                        case TokenKind.Comment:
+                        case TokenKind.LineComment:
+                        case TokenKind.String:
+                            break;
+                        case TokenKind.Keyword: {
+                            const wordName = token.value.toUpperCase();
+                            if (wordName === ':') {
+                                if (i === tokens.length - 1 ||
+                                    tokens[i + 1].kind !== TokenKind.Word ||
+                                    tokens[i + 1].value === ';') {
+                                    this.die(lineText, token.value + ' Empty definition name');
+                                    return;
+                                }
+                                this.tempColonDef = {
+                                    name: tokens[i + 1].value.toUpperCase(),
+                                    tokens: []
+                                };
+                                i += 1; // Eat def name
+                                this.runMode = RunMode.Compile;
+                                continue;
+                            }
+                            if (Dictionary.CompileOnlyWords.includes(wordName)) {
+                                this.die(lineText, token.value + ' No Interpretation');
+                                return;
+                            }
+                            if (!this.keyword.hasOwnProperty(wordName)) {
+                                this.die(lineText, token.value + ' Unknown keyword');
+                                return;
+                            }
+                            const res = this.keyword[wordName]();
+                            outText += res.value;
+                            if (res.status === 1 /* Status.Fail */) {
+                                this.die(lineText, outText);
+                                return;
+                            }
+                            break;
+                        }
+                        case TokenKind.Word: {
+                            const wordName = token.value.toUpperCase();
+                            if (!this.colonDef.hasOwnProperty(wordName)) {
+                                this.die(lineText, token.value + ' Unknown word');
+                                return;
+                            }
+                            this.runMode = RunMode.Run;
+                            const res = this.runTokens(this.colonDef[wordName].tokens);
+                            this.runMode = RunMode.Interpret;
+                            outText += res.value;
+                            if (res.status === 1 /* Status.Fail */) {
+                                this.die(lineText, outText);
+                                return;
+                            }
+                            break;
+                        }
+                        default:
+                            this.die(lineText, token.value + ' Unknown word');
+                            return;
+                    }
+                }
+                else if (this.runMode === RunMode.Compile) {
+                    if (token.value === ':') {
+                        this.die(lineText, token.value + ' Nested definition');
+                        return;
+                    }
+                    if (token.value === ';') {
+                        this.colonDef[this.tempColonDef.name] = {
+                            name: this.tempColonDef.name,
+                            tokens: this.tempColonDef.tokens.slice()
+                        };
+                        this.tempColonDef = { name: '', tokens: [] };
+                        this.runMode = RunMode.Interpret;
+                        continue;
+                    }
+                    if (token.kind === TokenKind.Comment &&
+                        i > 0 && tokens[i - 1].value === '.(') {
+                        outText += token.value;
+                        continue;
+                    }
+                    if (token.kind === TokenKind.LineComment ||
+                        token.kind === TokenKind.Comment) {
+                        continue;
+                    }
+                    this.tempColonDef.tokens.push(token);
+                }
+                else if (this.runMode === RunMode.Run) {
+                    this.die(lineText, token.value + ' You should not be in Run mode here');
+                    return;
+                }
+            }
+        }
+        catch (e) {
+            this.die(lineText, e.message);
             return;
         }
-        if (this.colonDef)
-            this.output(inputText);
+        if (this.runMode === RunMode.Interpret)
+            this.output(`${lineText} ${outText === '' ? '' : outText + ' '} ok`);
         else
-            this.output(`${inputText} ${res.value === '' ? '' : res.value + ' '} ok`);
+            this.output(`${lineText} ${outText === '' ? '' : outText + ' '} compiling`);
     }
-    manageInputText(inputText) {
-        const cmdTexts = inputText.split(/[ \t]/).map(cmdText => cmdText.trim()).filter(cmdText => cmdText !== '');
+    getStack() {
+        const depth = this.dStack.depth();
+        const stack = Array(depth);
+        for (let i = 0; i < depth; i += 1)
+            stack[depth - i] = this.dStack.get(i);
+        return stack;
+    }
+    runTokens(tokens) {
         let outText = '';
-        let commentStarted = false;
-        for (const cmdText of cmdTexts) {
-            if (cmdText === '(') {
-                commentStarted = true;
-                continue;
+        for (let i = 0; i < tokens.length; i++) {
+            const token = tokens[i];
+            switch (token.kind) {
+                case TokenKind.Number:
+                    this.dStack.push(parseInt(token.value));
+                    break;
+                case TokenKind.Comment:
+                case TokenKind.LineComment:
+                    break;
+                case TokenKind.String:
+                    outText += token.value;
+                    break;
+                case TokenKind.Keyword: {
+                    const wordName = token.value.toUpperCase();
+                    if (wordName === 'IF') {
+                        let thenIndex = i + 1;
+                        while (true) {
+                            thenIndex += 1;
+                            if (thenIndex === tokens.length)
+                                return { status: 1 /* Status.Fail */, value: ' THEN not found' };
+                            if (tokens[thenIndex].value.toUpperCase() === 'THEN')
+                                break;
+                        }
+                        let elseIndex = i + 1;
+                        while (elseIndex < thenIndex) {
+                            elseIndex += 1;
+                            if (tokens[elseIndex].value.toUpperCase() === 'ELSE')
+                                break;
+                        }
+                        const flag = this.dStack.pop();
+                        if (flag === 0) {
+                            if (elseIndex < thenIndex) {
+                                const res = this.runTokens(tokens.slice(elseIndex + 1, thenIndex));
+                                outText += res.value;
+                                if (res.status === 1 /* Status.Fail */)
+                                    return { status: 1 /* Status.Fail */, value: outText };
+                            }
+                            i = thenIndex + 1;
+                            continue;
+                        }
+                        else {
+                            const res = this.runTokens(tokens.slice(i + 1, elseIndex));
+                            outText += res.value;
+                            if (res.status === 1 /* Status.Fail */)
+                                return { status: 1 /* Status.Fail */, value: outText };
+                            i = thenIndex + 1;
+                            continue;
+                        }
+                    }
+                    if (wordName === 'DO') {
+                        let loopIndex = i + 1;
+                        let doDepth = 1;
+                        while (true) {
+                            loopIndex += 1;
+                            if (loopIndex === tokens.length)
+                                return { status: 1 /* Status.Fail */, value: ' LOOP not found' };
+                            const loopWord = tokens[loopIndex].value.toUpperCase();
+                            if (loopWord === 'DO')
+                                doDepth += 1;
+                            if (loopWord === 'LOOP' || loopWord === '+LOOP')
+                                doDepth -= 1;
+                            if (doDepth === 0)
+                                break;
+                        }
+                        const isPlusLoop = tokens[loopIndex].value.toUpperCase() === '+LOOP';
+                        let counter = this.dStack.pop();
+                        const limit = this.dStack.pop();
+                        const upwards = limit > counter;
+                        if (!isPlusLoop && !upwards)
+                            return { status: 1 /* Status.Fail */, value: ' LOOP wrong range' };
+                        while (upwards ? counter < limit : counter >= limit) {
+                            this.rStack.push(counter);
+                            const res = this.runTokens(tokens.slice(i + 1, loopIndex));
+                            this.rStack.pop();
+                            outText += res.value;
+                            if (res.status === 1 /* Status.Fail */)
+                                return { status: 1 /* Status.Fail */, value: outText };
+                            counter += isPlusLoop ? this.dStack.pop() : 1;
+                        }
+                        i = loopIndex;
+                        continue;
+                    }
+                    if (!this.keyword.hasOwnProperty(wordName))
+                        return { status: 1 /* Status.Fail */, value: token.value + ' Unknown keyword' };
+                    const res = this.keyword[wordName]();
+                    outText += res.value;
+                    if (res.status === 1 /* Status.Fail */)
+                        return { status: 1 /* Status.Fail */, value: outText };
+                    break;
+                }
+                case TokenKind.Word: {
+                    const wordName = token.value.toUpperCase();
+                    if (!this.colonDef.hasOwnProperty(wordName))
+                        return { status: 1 /* Status.Fail */, value: token.value + ' Unknown word' };
+                    const res = this.runTokens(this.colonDef[wordName].tokens);
+                    outText += res.value;
+                    if (res.status === 1 /* Status.Fail */)
+                        return { status: 1 /* Status.Fail */, value: outText };
+                    break;
+                }
+                default:
+                    throw new Error('Interpreter: Unreachable');
             }
-            if (cmdText === ':') {
-                if (this.colonDef)
-                    return { status: 1 /* Status.Fail */, value: `${cmdText} Colon definition already started` };
-                this.colonDef = { name: '', comment: '', loopCode: [[]] };
-                continue;
-            }
-            if (this.colonDef) {
-                if (this.colonDef.name === '') {
-                    this.colonDef.name = cmdText;
-                    continue;
-                }
-                if (cmdText === ';') {
-                    if (this.colonDef.name === '')
-                        return { status: 1 /* Status.Fail */, value: `${inputText} Attempt to use zero-length string as a name` };
-                    this.colonWords[this.colonDef.name] = this.colonDef;
-                    this.colonDef = undefined;
-                    continue;
-                }
-                if (cmdText === ')' || cmdText.endsWith(')')) {
-                    commentStarted = false;
-                    continue;
-                }
-                if (commentStarted) {
-                    this.colonDef.comment += cmdText;
-                    continue;
-                }
-                this.colonDef.loopCode[this.loopDepth].push(cmdText);
-                if (cmdText === 'do') {
-                    this.loopDepth += 1;
-                    this.colonDef.loopCode[this.loopDepth] = [];
-                    continue;
-                }
-                if (cmdText === 'loop') {
-                    this.loopDepth -= 1;
-                    continue;
-                }
-                continue;
-            }
-            if (commentStarted) {
-                continue;
-            }
-            if (cmdText === ')' || cmdText.endsWith(')')) {
-                commentStarted = false;
-                continue;
-            }
-            const res = this.execute(cmdText);
-            if (res.status === 1 /* Status.Fail */)
-                return { status: 1 /* Status.Fail */, value: `${inputText} ${res.value}` };
-            outText += res.value;
         }
         return { status: 0 /* Status.Ok */, value: outText };
     }
-    getStack() {
-        return this.stack.slice();
+    die(lineText, message) {
+        this.dStack.clear();
+        this.rStack.clear();
+        this.output(lineText + ' ' + message);
+        this.runMode = RunMode.Interpret;
     }
-    getWords() {
-        return Object.keys(this.knownWords).map(key => this.knownWords[key]);
+}
+class Stack {
+    constructor(capacity) {
+        this.holder = new Array(capacity);
+        this.capacity = capacity;
+        this.index = 0;
     }
-    clearStack() {
-        while (this.stack.length > 0)
-            this.stack.pop();
+    depth() {
+        return this.index;
     }
-    execute(cmdText) {
-        const cmd = this.parse(cmdText);
-        switch (cmd.kind) {
-            case 1 /* Kind.Number */:
-                this.stack.push(cmd.value);
-                return { status: 0 /* Status.Ok */, value: '' };
-            case 0 /* Kind.Word */:
-                return this.executeWord(cmdText, cmd.value);
-            case 2 /* Kind.ColonDef */:
-                const value = this.colonWords[cmdText].loopCode[this.loopDepth].join(' ');
-                return this.manageInputText(value);
-            case 3 /* Kind.Unknown */:
-                return { status: 1 /* Status.Fail */, value: `${cmdText} ?` };
-            default:
-                return { status: 1 /* Status.Fail */, value: `${cmdText} ?` };
-        }
+    push(n) {
+        if (this.index >= this.capacity)
+            throw new Error('Stack overflow');
+        this.holder[this.index] = n;
+        this.index += 1;
     }
-    parse(cmdText) {
-        if (this.knownWords.hasOwnProperty(cmdText))
-            return this.knownWords[cmdText];
-        if (this.colonWords.hasOwnProperty(cmdText)) {
-            return { kind: 2 /* Kind.ColonDef */, value: '', see: cmdText };
-        }
-        if (cmdText.match(/[+-]?\d+/)) {
-            const value = parseInt(cmdText);
-            return { kind: 1 /* Kind.Number */, value, see: String(value) };
-        }
-        if (cmdText.match(/[+-]?\d+.\d+/)) {
-            const value = parseFloat(cmdText);
-            return { kind: 1 /* Kind.Number */, value, see: String(value) };
-        }
-        return { kind: 3 /* Kind.Unknown */, value: `${cmdText} ?`, see: '' };
+    pop() {
+        if (this.index <= 0)
+            throw new Error('Stack underflow');
+        this.index -= 1;
+        return this.holder[this.index];
     }
-    getKnownWords() {
-        return {
-            '.': { kind: 0 /* Kind.Word */, value: '.', see: 'dot   ( n -- ) - Display n in free field format.' },
-            '.s': { kind: 0 /* Kind.Word */, value: '.s', see: 'dot-s ( -- ) - Display the stack in free field format.' },
-            ':': { kind: 0 /* Kind.Word */, value: ':', see: 'colon ( name -- colon-sys ) - Create a definition for name.' },
-            ';': { kind: 0 /* Kind.Word */, value: ';', see: 'semicolon ( colon-sys -- ) - Terminate a colon-definition.' },
-            '(': { kind: 0 /* Kind.Word */, value: '(', see: 'paren ( comment -- ) - Start a comment.' },
-            '+': { kind: 0 /* Kind.Word */, value: '+', see: 'plus  ( n1 n2 -- n3 ) - Add n2 to n1, giving the sum n3.' },
-            '-': { kind: 0 /* Kind.Word */, value: '-', see: 'minus ( n1 n2 -- n3 ) - Subtract n2 from n1 , giving the difference n3.' },
-            '*': { kind: 0 /* Kind.Word */, value: '*', see: 'start ( n1 n2 -- n3 ) - Multiply n1 by n2 giving the product n3.' },
-            '/': { kind: 0 /* Kind.Word */, value: '/', see: 'slash ( n1 n2 -- n3 ) - Divide n1 by n2, giving the single-cell quotient n3.' },
-            '=': { kind: 0 /* Kind.Word */, value: '=', see: 'equals       ( n1 n2 -- flag ) - flag is true if and only if x1 is bit-for-bit the same as x2.' },
-            '<>': { kind: 0 /* Kind.Word */, value: '<>', see: 'not-equals   ( n1 n2 -- flag ) - flag is true if and only if x1 is not bit-for-bit the same as x2.' },
-            '>': { kind: 0 /* Kind.Word */, value: '>', see: 'greater-than ( n1 n2 -- flag ) - flag is true if and only if n1 is greater than n2.' },
-            '<': { kind: 0 /* Kind.Word */, value: '<', see: 'less-than    ( n1 n2 -- flag ) - flag is true if and only if n1 is less than n2.' },
-            'do': { kind: 0 /* Kind.Word */, value: 'do', see: 'do        ( n1 n2 -- ) ( R: -- loop-sys ) - Set up loop control parameters with index n2 and limit n1.' },
-            'i': { kind: 0 /* Kind.Word */, value: 'i', see: 'i    Ex:  ( -- n | u ) ( R: loop-sys -- loop-sys ) - n is a copy of the current (innermost) loop index.' },
-            'j': { kind: 0 /* Kind.Word */, value: 'j', see: 'j    Ex:  ( -- n | u ) ( R: loop-sys -- loop-sys ) - n is a copy of the second outer loop index.' },
-            'k': { kind: 0 /* Kind.Word */, value: 'k', see: 'k    Ex:  ( -- n | u ) ( R: loop-sys -- loop-sys ) - n is a copy of the third outer loop index.' },
-            'loop': { kind: 0 /* Kind.Word */, value: 'loop', see: 'loop Run: ( -- ) ( R: loop-sys1 -- | loop-sys2 ) - Add one to the loop index.' },
-            'abs': { kind: 0 /* Kind.Word */, value: 'abs', see: 'abs   ( n -- u ) - Push the absolute value of n.' },
-            'depth': { kind: 0 /* Kind.Word */, value: 'depth', see: 'depth ( -- +n ) - Push the depth of the stack.' },
-            'drop': { kind: 0 /* Kind.Word */, value: 'drop', see: 'drop  ( x -- ) - Remove x from the stack.' },
-            'dup': { kind: 0 /* Kind.Word */, value: 'dup', see: 'dupe  ( x -- x x ) - Duplicate x.' },
-            'mod': { kind: 0 /* Kind.Word */, value: 'mod', see: 'mod   ( n1 n2 -- n3 ) - Divide n1 by n2, giving the single-cell remainder n3.' },
-            'over': { kind: 0 /* Kind.Word */, value: 'over', see: 'over  ( x1 x2 -- x1 x2 x1 ) - Place a copy of x1 on top of the stack.' },
-            'rot': { kind: 0 /* Kind.Word */, value: 'rot', see: 'rote  ( x1 x2 x3 -- x2 x3 x1 ) - Rotate the top three stack entries.' },
-            'swap': { kind: 0 /* Kind.Word */, value: 'swap', see: 'swap  ( x1 x2 -- x2 x1 ) - Exchange the top two stack items.' },
-        };
+    get(i) {
+        const index = this.index - i - 1;
+        if (index < 0 || index >= this.index)
+            throw new Error('Stack out of range');
+        return this.holder[index];
     }
-    executeWord(cmdText, cmdValue) {
-        switch (cmdValue) {
-            case '.':
-                if (this.stack.length >= 1) {
-                    const a = this.stack.pop();
-                    return { status: 0 /* Status.Ok */, value: String(a) };
-                }
-                return { status: 1 /* Status.Fail */, value: 'Stack underflow' };
-            case '.s':
-                return { status: 0 /* Status.Ok */, value: this.stack.join(' ') };
-            case '+':
-                if (this.stack.length >= 2) {
-                    const n2 = this.stack.pop();
-                    const n1 = this.stack.pop();
-                    const res = n1 + n2;
-                    this.stack.push(res);
-                    return { status: 0 /* Status.Ok */, value: '' };
-                }
-                return { status: 1 /* Status.Fail */, value: 'Stack underflow' };
-            case '-':
-                if (this.stack.length >= 2) {
-                    const n2 = this.stack.pop();
-                    const n1 = this.stack.pop();
-                    const res = n1 - n2;
-                    this.stack.push(res);
-                    return { status: 0 /* Status.Ok */, value: '' };
-                }
-                return { status: 1 /* Status.Fail */, value: 'Stack underflow' };
-            case '*':
-                if (this.stack.length >= 2) {
-                    const n2 = this.stack.pop();
-                    const n1 = this.stack.pop();
-                    const res = n1 * n2;
-                    this.stack.push(res);
-                    return { status: 0 /* Status.Ok */, value: '' };
-                }
-                return { status: 1 /* Status.Fail */, value: 'Stack underflow' };
-            case '/':
-                if (this.stack.length >= 2) {
-                    const n2 = this.stack.pop();
-                    const n1 = this.stack.pop();
-                    const res = n1 / n2;
-                    this.stack.push(res);
-                    return { status: 0 /* Status.Ok */, value: '' };
-                }
-                return { status: 1 /* Status.Fail */, value: 'Stack underflow' };
-            case '=':
-                if (this.stack.length >= 2) {
-                    const n2 = this.stack.pop();
-                    const n1 = this.stack.pop();
-                    const res = n1 === n2 ? this.TRUE : this.FALSE;
-                    this.stack.push(res);
-                    return { status: 0 /* Status.Ok */, value: '' };
-                }
-                return { status: 1 /* Status.Fail */, value: 'Stack underflow' };
-            case '<>':
-                if (this.stack.length >= 2) {
-                    const n2 = this.stack.pop();
-                    const n1 = this.stack.pop();
-                    const res = n1 !== n2 ? this.TRUE : this.FALSE;
-                    this.stack.push(res);
-                    return { status: 0 /* Status.Ok */, value: '' };
-                }
-                return { status: 1 /* Status.Fail */, value: 'Stack underflow' };
-            case '>':
-                if (this.stack.length >= 2) {
-                    const n2 = this.stack.pop();
-                    const n1 = this.stack.pop();
-                    const res = n1 > n2 ? this.TRUE : this.FALSE;
-                    this.stack.push(res);
-                    return { status: 0 /* Status.Ok */, value: '' };
-                }
-                return { status: 1 /* Status.Fail */, value: 'Stack underflow' };
-            case '<':
-                if (this.stack.length >= 2) {
-                    const n2 = this.stack.pop();
-                    const n1 = this.stack.pop();
-                    const res = n1 < n2 ? this.TRUE : this.FALSE;
-                    this.stack.push(res);
-                    return { status: 0 /* Status.Ok */, value: '' };
-                }
-                return { status: 1 /* Status.Fail */, value: 'Stack underflow' };
-            case 'do':
-                if (this.stack.length >= 2) {
-                    const currVal = this.stack.pop();
-                    const toVal = this.stack.pop();
-                    if (currVal === toVal)
-                        return { status: 1 /* Status.Fail */, value: 'DO start and end parameters are equal.' };
-                    this.rStack.push(toVal);
-                    this.rStack.push(currVal);
-                    if (this.loopDepth >= 3)
-                        return { status: 1 /* Status.Fail */, value: 'DO more than 3 nested loops.' };
-                    this.loopDepth += 1;
-                    return { status: 0 /* Status.Ok */, value: '' };
-                }
-                return { status: 1 /* Status.Fail */, value: 'Stack underflow' };
-            case 'i':
-                if (this.rStack.length >= 2) {
-                    const i = this.rStack[this.rStack.length - 1];
-                    this.stack.push(i);
-                    return { status: 0 /* Status.Ok */, value: '' };
-                }
-                return { status: 1 /* Status.Fail */, value: 'R stack underflow' };
-            case 'j':
-                if (this.loopDepth < 2)
-                    return { status: 1 /* Status.Fail */, value: 'J used out of second nested loop.' };
-                if (this.rStack.length >= 4) {
-                    const j = this.rStack[this.rStack.length - 3];
-                    this.stack.push(j);
-                    return { status: 0 /* Status.Ok */, value: '' };
-                }
-                return { status: 1 /* Status.Fail */, value: 'R stack underflow' };
-            case 'k':
-                if (this.loopDepth < 3)
-                    return { status: 1 /* Status.Fail */, value: 'K used out of third nested loop.' };
-                if (this.rStack.length >= 6) {
-                    const j = this.rStack[this.rStack.length - 5];
-                    this.stack.push(j);
-                    return { status: 0 /* Status.Ok */, value: '' };
-                }
-                return { status: 1 /* Status.Fail */, value: 'R stack underflow' };
-            case 'loop':
-                if (this.loopDepth === 0)
-                    return { status: 1 /* Status.Fail */, value: 'LOOP without DO.' };
-                if (this.rStack.length >= 2) {
-                    const currVal = this.stack.pop() + 1;
-                    const toVal = this.stack.pop();
-                    if (currVal >= toVal) {
-                        this.loopDepth -= 1;
-                    }
-                    else {
-                        this.rStack.push(toVal);
-                        this.rStack.push(currVal);
-                    }
-                    return { status: 0 /* Status.Ok */, value: '' };
-                }
-                return { status: 1 /* Status.Fail */, value: 'Stack underflow' };
-            case 'depth':
-                this.stack.push(this.stack.length);
-                return { status: 0 /* Status.Ok */, value: '' };
-            case 'abs':
-                if (this.stack.length > 0) {
-                    const n = this.stack.pop();
-                    this.stack.push(Math.abs(n));
-                    return { status: 0 /* Status.Ok */, value: '' };
-                }
-                return { status: 1 /* Status.Fail */, value: 'Stack underflow' };
-            case 'drop':
-                if (this.stack.length > 0) {
-                    this.stack.pop();
-                    return { status: 0 /* Status.Ok */, value: '' };
-                }
-                return { status: 1 /* Status.Fail */, value: 'Stack underflow' };
-            case 'dup':
-                if (this.stack.length > 0) {
-                    const x1 = this.stack.pop();
-                    this.stack.push(x1);
-                    this.stack.push(x1);
-                    return { status: 0 /* Status.Ok */, value: '' };
-                }
-                return { status: 1 /* Status.Fail */, value: 'Stack underflow' };
-            case 'mod':
-                if (this.stack.length >= 2) {
-                    const n2 = this.stack.pop();
-                    const n1 = this.stack.pop();
-                    const res = n1 % n2;
-                    this.stack.push(res);
-                    return { status: 0 /* Status.Ok */, value: '' };
-                }
-                return { status: 1 /* Status.Fail */, value: 'Stack underflow' };
-            case 'over':
-                if (this.stack.length >= 2) {
-                    const x2 = this.stack.pop();
-                    const x1 = this.stack.pop();
-                    this.stack.push(x1);
-                    this.stack.push(x2);
-                    this.stack.push(x1);
-                    return { status: 0 /* Status.Ok */, value: '' };
-                }
-                return { status: 1 /* Status.Fail */, value: 'Stack underflow' };
-            case 'swap':
-                if (this.stack.length >= 2) {
-                    const x2 = this.stack.pop();
-                    const x1 = this.stack.pop();
-                    this.stack.push(x2);
-                    this.stack.push(x1);
-                    return { status: 0 /* Status.Ok */, value: '' };
-                }
-                return { status: 1 /* Status.Fail */, value: 'Stack underflow' };
-            case 'rot':
-                if (this.stack.length >= 2) {
-                    const x3 = this.stack.pop();
-                    const x2 = this.stack.pop();
-                    const x1 = this.stack.pop();
-                    this.stack.push(x2);
-                    this.stack.push(x3);
-                    this.stack.push(x1);
-                    return { status: 0 /* Status.Ok */, value: '' };
-                }
-                return { status: 1 /* Status.Fail */, value: 'Stack underflow' };
-            default:
-                return { status: 1 /* Status.Fail */, value: `${cmdText} ?` };
-        }
+    set(i, n) {
+        const index = this.index - i - 1;
+        if (index < 0 || index >= this.index)
+            throw new Error('Stack out of range');
+        this.holder[index] = n;
+    }
+    clear() {
+        this.index = 0;
     }
 }
 class Tokenizer {
-    constructor() {
-        this.keywords = [
+    static tokenizeLine(codeLine, lineNum) {
+        const keywords = [
             ...Object.keys(Dictionary.CoreWord),
             ...Object.keys(Dictionary.CoreExtensionWord),
             ...Object.keys(Dictionary.ToolsWord),
         ];
-    }
-    tokenizeLine(codeLine, lineNum) {
         const tokens = [];
         let fromIndex = 0;
         let prevWord = '';
@@ -538,7 +575,7 @@ class Tokenizer {
                     tokens.push({ kind: TokenKind.String, value: currentWord, pos });
                     break;
                 default:
-                    if (this.keywords.includes(currentWord.toUpperCase())) // Known word
+                    if (keywords.includes(currentWord.toUpperCase())) // Known word
                         tokens.push({ kind: TokenKind.Keyword, value: currentWord, pos });
                     else if (currentWord.match(/^[+-]?\d+$/)) // Number
                         tokens.push({ kind: TokenKind.Number, value: currentWord, pos });
@@ -550,7 +587,7 @@ class Tokenizer {
         }
         return tokens;
     }
-    stringify(tokens) {
+    static stringify(tokens) {
         return tokens.map((token) => {
             switch (token.kind) {
                 case TokenKind.Comment: return token.value + ')';

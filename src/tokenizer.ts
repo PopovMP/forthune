@@ -1,18 +1,13 @@
 class Tokenizer
 {
-	private readonly keywords: string[]
-
-	constructor()
+	public static tokenizeLine(codeLine: string, lineNum: number): Token[]
 	{
-		this.keywords = [
+		const keywords = [
 			...Object.keys(Dictionary.CoreWord),
 			...Object.keys(Dictionary.CoreExtensionWord),
 			...Object.keys(Dictionary.ToolsWord),
 		]
-	}
 
-	public tokenizeLine(codeLine: string, lineNum: number): Token[]
-	{
 		const tokens: Token[] = []
 
 		let fromIndex = 0
@@ -65,7 +60,7 @@ class Tokenizer
 					tokens.push({kind: TokenKind.String, value: currentWord, pos})
 					break
 				default:
-					if (this.keywords.includes(currentWord.toUpperCase())) // Known word
+					if (keywords.includes(currentWord.toUpperCase())) // Known word
 						tokens.push({kind: TokenKind.Keyword, value: currentWord, pos})
 					else if (currentWord.match(/^[+-]?\d+$/)) // Number
 						tokens.push({kind: TokenKind.Number, value: currentWord, pos})
@@ -80,7 +75,7 @@ class Tokenizer
 		return tokens
 	}
 
-	public stringify(tokens: Token[]): string
+	public static stringify(tokens: Token[]): string
 	{
 		return tokens.map((token: Token) => {
 			switch (token.kind) {

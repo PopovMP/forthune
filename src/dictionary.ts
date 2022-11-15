@@ -1,6 +1,6 @@
 class Dictionary
 {
-	public static CoreWord: {[word: string]: string} = {
+	public static readonly CoreWord: {[word: string]: string} = {
 		'('    : 'paren',
 		'*'    : 'start',
 		'+'    : 'plus',
@@ -31,12 +31,16 @@ class Dictionary
 		'SWAP' : 'swap',
 	}
 
-	public static CoreExtensionWord: {[word: string]: string} = {
+	public static readonly CoreExtensionWord: {[word: string]: string} = {
 		'.('   : 'dot-paren',
 		'<>'   : 'not-equals',
 	}
 
-	public static ToolsWord: {[word: string]: string} = {
+	public static readonly ToolsWord: {[word: string]: string} = {
 		'.S'   : 'dot-s',
 	}
+
+	public static readonly CompileOnlyWords = [
+		'.(', '."', 'DO', 'I', 'J', 'LOOP', '+LOOP', ';', 'IF', 'ELSE', 'THEN'
+	]
 }
