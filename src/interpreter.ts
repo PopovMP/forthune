@@ -107,7 +107,7 @@ class Interpreter
 						}
 
 						default:
-							this.die(lineText, token.value + ' Unknown word')
+							this.die(lineText, token.value + ' Interpret mode: Unreachable')
 							return
 					}
 				}
@@ -127,18 +127,33 @@ class Interpreter
 						continue
 					}
 
-					if (token.kind === TokenKind.Comment &&
-						i > 0 && tokens[i-1].value === '.(') {
+					if (token.kind === TokenKind.Comment && i > 0 && tokens[i-1].value === '.(') {
 						outText += token.value
 						continue
 					}
 
-					if (token.kind === TokenKind.LineComment ||
-						token.kind === TokenKind.Comment) {
-						continue
-					}
+					switch (token.kind) {
+						case TokenKind.Comment:
+						case TokenKind.LineComment:
+							break
+						case TokenKind.Number:
+						case TokenKind.Character:
+						case TokenKind.String:
+						case TokenKind.Keyword:
+							this.tempColonDef.tokens.push(token)
+							break
+						case TokenKind.Word:
+							if (this.colonDef.hasOwnProperty(token.value.toUpperCase())) {
+								this.tempColonDef.tokens.push(token)
+								break
+							}
+							this.die(lineText, token.value + ' ?')
+							return
 
-					this.tempColonDef.tokens.push(token)
+						default:
+							this.die(lineText, token.value + ' Compile mode: Unreachable')
+							return
+					}
 				}
 				else if (this.runMode === RunMode.Run) {
 					this.die(lineText, token.value + ' You should not be in Run mode here')
@@ -328,7 +343,7 @@ class Interpreter
 				}
 
 				default:
-					throw new Error('Interpreter: Unreachable')
+					throw new Error('runTokens:  Unreachable')
 			}
 		}
 
