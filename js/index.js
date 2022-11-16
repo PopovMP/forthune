@@ -3,7 +3,7 @@
 class Application {
     // noinspection JSUnusedGlobalSymbols
     constructor() {
-        this.OUT_BUFFER_LINES = 23;
+        this.OUT_BUFFER_LINES = 24;
         this.STACK_CAPACITY = 1024;
         this.interpreter = new Interpreter(this.STACK_CAPACITY, this.output.bind(this));
         this.screen = document.getElementById('screen');
@@ -11,26 +11,26 @@ class Application {
         this.inputLine = document.getElementById('input-line');
         this.stackView = document.getElementById('stack-view');
         this.wordsElem = document.getElementById('dictionary');
-        this.readBuffer = [];
-        this.outputBuffer = [];
-        this.readBufferIndex = 0;
-        this.inputLine.addEventListener("keydown", this.readline_keydown.bind(this));
+        this.inputBuffer = [];
+        this.outputBuffer = "";
+        this.inputIndex = 0;
+        this.inputLine.addEventListener("keydown", this.inputLine_keydown.bind(this));
         this.outputLog.innerText = '';
         this.inputLine.value = '';
         this.stackView.innerText = ' < Top';
         this.outputLog.addEventListener('click', () => this.inputLine.focus());
         this.screen.addEventListener('click', () => this.inputLine.focus());
-        this.inputLine.focus();
         document.addEventListener('click', () => this.inputLine.focus());
+        this.inputLine.focus();
     }
-    readline_keydown(event) {
+    inputLine_keydown(event) {
         if (event.code === 'Enter') {
             event.preventDefault();
             const cmdText = this.inputLine.value;
             this.inputLine.value = '';
-            if (cmdText !== '' && (this.readBuffer.length === 0 || this.readBuffer[this.readBuffer.length - 1] !== cmdText)) {
-                this.readBuffer.push(cmdText);
-                this.readBufferIndex = this.readBuffer.length - 1;
+            if (cmdText !== '' && (this.inputBuffer.length === 0 || this.inputBuffer[this.inputBuffer.length - 1] !== cmdText)) {
+                this.inputBuffer.push(cmdText);
+                this.inputIndex = this.inputBuffer.length - 1;
             }
             const tokens = Tokenizer.tokenizeLine(cmdText, 0);
             this.interpreter.interpret(tokens, cmdText);
@@ -39,29 +39,26 @@ class Application {
         }
         if (event.code === 'ArrowUp') {
             event.preventDefault();
-            if (this.readBuffer.length > 0)
-                this.inputLine.value = this.readBuffer[this.readBufferIndex];
-            if (this.readBufferIndex > 0)
-                this.readBufferIndex -= 1;
+            if (this.inputBuffer.length > 0)
+                this.inputLine.value = this.inputBuffer[this.inputIndex];
+            if (this.inputIndex > 0)
+                this.inputIndex -= 1;
         }
         if (event.code === 'ArrowDown') {
             event.preventDefault();
-            if (this.readBufferIndex < this.readBuffer.length - 1) {
-                this.readBufferIndex += 1;
-                this.inputLine.value = this.readBuffer[this.readBufferIndex];
+            if (this.inputIndex < this.inputBuffer.length - 1) {
+                this.inputIndex += 1;
+                this.inputLine.value = this.inputBuffer[this.inputIndex];
             }
         }
     }
     output(text) {
-        if (text.endsWith('\n')) {
-            this.outputBuffer.push(text.slice(0, text.length - 1));
-        }
-        else {
-            this.outputBuffer[this.outputBuffer.length - 1] += text;
-        }
-        while (this.outputBuffer.length > this.OUT_BUFFER_LINES)
-            this.outputBuffer.shift();
-        this.outputLog.innerText = this.outputBuffer.join('\n');
+        const outputText = this.outputBuffer + text;
+        const outSplit = outputText.split('\n');
+        while (outSplit.length > this.OUT_BUFFER_LINES)
+            outSplit.shift();
+        this.outputBuffer = outSplit.join('\n');
+        this.outputLog.innerText = this.outputBuffer;
     }
 }
 var Status;
