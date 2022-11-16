@@ -34,26 +34,22 @@ class Stack
 		return this.holder[this.index]
 	}
 
-	public get(i: number): number
+	public pick(i: number): number
 	{
-		const index = this.index - i - 1
+		const index = this.index - 1 - i
 		if (index < 0 || index >= this.index)
 			throw new Error('Stack out of range')
 
 		return this.holder[index]
 	}
 
-	public set(i: number, n: number): void
-	{
-		const index = this.index - i - 1
-		if (index < 0 || index >= this.index)
-			throw new Error('Stack out of range')
-
-		this.holder[index] = n
-	}
-
 	public clear()
 	{
 		this.index = 0
+	}
+
+	public print(): string
+	{
+		return this.holder.slice(0, this.index).join(' ') + ' <- Top'
 	}
 }

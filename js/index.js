@@ -9,15 +9,17 @@ class Application {
         this.screen = document.getElementById('screen');
         this.outputLog = document.getElementById('output-log');
         this.inputLine = document.getElementById('input-line');
+        this.importFile = document.getElementById('import-file');
         this.stackView = document.getElementById('stack-view');
         this.wordsElem = document.getElementById('dictionary');
         this.inputBuffer = [];
         this.outputBuffer = "";
         this.inputIndex = 0;
-        this.inputLine.addEventListener("keydown", this.inputLine_keydown.bind(this));
+        this.inputLine.addEventListener('keydown', this.inputLine_keydown.bind(this));
+        this.importFile.addEventListener('change', this.importFile_change.bind(this));
         this.outputLog.innerText = '';
         this.inputLine.value = '';
-        this.stackView.innerText = ' < Top';
+        this.stackView.innerText = this.interpreter.printStack();
         this.outputLog.addEventListener('click', () => this.inputLine.focus());
         this.screen.addEventListener('click', () => this.inputLine.focus());
         document.addEventListener('click', () => this.inputLine.focus());
@@ -28,13 +30,7 @@ class Application {
             event.preventDefault();
             const cmdText = this.inputLine.value;
             this.inputLine.value = '';
-            if (cmdText !== '' && (this.inputBuffer.length === 0 || this.inputBuffer[this.inputBuffer.length - 1] !== cmdText)) {
-                this.inputBuffer.push(cmdText);
-                this.inputIndex = this.inputBuffer.length - 1;
-            }
-            const tokens = Tokenizer.tokenizeLine(cmdText, 0);
-            this.interpreter.interpret(tokens, cmdText);
-            this.stackView.innerText = this.interpreter.getStack().join(' ') + ' < Top';
+            this.compileCode(cmdText);
             return;
         }
         if (event.code === 'ArrowUp') {
@@ -52,6 +48,16 @@ class Application {
             }
         }
     }
+    importFile_change(event) {
+        event.stopPropagation();
+        event.preventDefault();
+        if (event.target.files instanceof FileList) {
+            for (const file of event.target.files) {
+                this.readFile(file);
+            }
+        }
+        this.importFile.value = '';
+    }
     output(text) {
         const outputText = this.outputBuffer + text;
         const outSplit = outputText.split('\n');
@@ -59,6 +65,41 @@ class Application {
             outSplit.shift();
         this.outputBuffer = outSplit.join('\n');
         this.outputLog.innerText = this.outputBuffer;
+    }
+    compileCode(cmdText) {
+        if (cmdText !== '' && (this.inputBuffer.length === 0 ||
+            this.inputBuffer[this.inputBuffer.length - 1] !== cmdText)) {
+            this.inputBuffer.push(cmdText);
+            this.inputIndex = this.inputBuffer.length - 1;
+        }
+        const tokens = Tokenizer.tokenizeLine(cmdText, 0);
+        this.interpreter.interpret(tokens, cmdText);
+        this.stackView.innerText = this.interpreter.printStack();
+    }
+    readFile(file) {
+        const isFile = file instanceof File;
+        if (!isFile)
+            return;
+        const fileReader = new FileReader();
+        fileReader.addEventListener('load', this.fileReader_load.bind(this, file.name), false);
+        fileReader.readAsText(file, 'ascii');
+    }
+    fileReader_load(fileName, event) {
+        event.stopPropagation();
+        event.preventDefault();
+        event.target.removeEventListener('load', this.fileReader_load);
+        try {
+            this.onFileLoaded(fileName, event.target.result);
+        }
+        catch (error) {
+            this.output(`${fileName} ${error.message}\n`);
+        }
+    }
+    onFileLoaded(fileName, fileContent) {
+        this.output(`${fileName}  File loaded\n`);
+        for (const line of fileContent.split(/\r?\n/g)) {
+            this.compileCode(line);
+        }
     }
 }
 var Status;
@@ -123,6 +164,7 @@ Dictionary.CoreWord = {
     '?DUP': 'question-dupe',
 };
 Dictionary.CoreExtensionWord = {
+    '\\': 'backslash',
     '.(': 'dot-paren',
     '<>': 'not-equals',
     '?DO': 'question-do',
@@ -214,18 +256,18 @@ class Interpreter {
             },
             // Stack manipulation
             '.': () => {
-                return { status: 0 /* Status.Ok */, value: this.dStack.pop().toString() };
+                return { status: 0 /* Status.Ok */, value: this.dStack.pop().toString() + ' ' };
             },
             'DEPTH': () => {
                 this.dStack.push(this.dStack.depth());
                 return { status: 0 /* Status.Ok */, value: '' };
             },
             'DUP': () => {
-                this.dStack.push(this.dStack.get(0));
+                this.dStack.push(this.dStack.pick(0));
                 return { status: 0 /* Status.Ok */, value: '' };
             },
             'OVER': () => {
-                this.dStack.push(this.dStack.get(1));
+                this.dStack.push(this.dStack.pick(1));
                 return { status: 0 /* Status.Ok */, value: '' };
             },
             'DROP': () => {
@@ -249,9 +291,9 @@ class Interpreter {
                 return { status: 0 /* Status.Ok */, value: '' };
             },
             '?DUP': () => {
-                const n = this.dStack.get(0);
+                const n = this.dStack.pick(0);
                 if (n !== 0)
-                    this.dStack.push(this.dStack.get(0));
+                    this.dStack.push(this.dStack.pick(0));
                 return { status: 0 /* Status.Ok */, value: '' };
             },
             // Comparison
@@ -281,11 +323,11 @@ class Interpreter {
             },
             // DO
             'I': () => {
-                this.dStack.push(this.rStack.get(0));
+                this.dStack.push(this.rStack.pick(0));
                 return { status: 0 /* Status.Ok */, value: '' };
             },
             'J': () => {
-                this.dStack.push(this.rStack.get(1));
+                this.dStack.push(this.rStack.pick(1));
                 return { status: 0 /* Status.Ok */, value: '' };
             },
             'LEAVE': () => {
@@ -294,7 +336,7 @@ class Interpreter {
             },
             // Tools
             '.S': () => {
-                return { status: 0 /* Status.Ok */, value: this.getStack().join(' ') + ' < Top' };
+                return { status: 0 /* Status.Ok */, value: this.printStack() };
             },
         };
         this.dStack = new Stack(capacity);
@@ -425,17 +467,12 @@ class Interpreter {
             this.die(lineText, e.message);
             return;
         }
-        if (this.runMode === RunMode.Interpret)
-            this.output(`${lineText} ${outText === '' ? '' : outText + ' '} ok\n`);
-        else
-            this.output(`${lineText} ${outText === '' ? '' : outText + ' '} compiling\n`);
+        const status = this.runMode === RunMode.Interpret ? 'ok' : 'compiling';
+        const message = outText === '' ? '' : outText.endsWith(' ') ? outText : outText + ' ';
+        this.output(`${lineText} ${message} ${status}\n`);
     }
-    getStack() {
-        const depth = this.dStack.depth();
-        const stack = Array(depth);
-        for (let i = 0; i < depth; i += 1)
-            stack[depth - i] = this.dStack.get(i);
-        return stack;
+    printStack() {
+        return this.dStack.print();
     }
     runTokens(tokens) {
         let outText = '';
@@ -600,20 +637,17 @@ class Stack {
         this.index -= 1;
         return this.holder[this.index];
     }
-    get(i) {
-        const index = this.index - i - 1;
+    pick(i) {
+        const index = this.index - 1 - i;
         if (index < 0 || index >= this.index)
             throw new Error('Stack out of range');
         return this.holder[index];
     }
-    set(i, n) {
-        const index = this.index - i - 1;
-        if (index < 0 || index >= this.index)
-            throw new Error('Stack out of range');
-        this.holder[index] = n;
-    }
     clear() {
         this.index = 0;
+    }
+    print() {
+        return this.holder.slice(0, this.index).join(' ') + ' <- Top';
     }
 }
 class Tokenizer {

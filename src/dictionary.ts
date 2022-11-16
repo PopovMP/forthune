@@ -40,6 +40,7 @@ class Dictionary
 	}
 
 	public static readonly CoreExtensionWord: {[word: string]: string} = {
+		'\\'   : 'backslash',
 		'.('   : 'dot-paren',
 		'<>'   : 'not-equals',
 		'?DO'  : 'question-do',

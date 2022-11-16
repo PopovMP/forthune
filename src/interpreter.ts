@@ -166,21 +166,15 @@ class Interpreter
 			return
 		}
 
-		if (this.runMode === RunMode.Interpret)
-			this.output(`${lineText} ${outText === '' ? '' : outText + ' '} ok\n`)
-		else
-			this.output(`${lineText} ${outText === '' ? '' : outText + ' '} compiling\n`)
+		const status  = this.runMode === RunMode.Interpret ? 'ok' : 'compiling'
+		const message = outText === '' ? '' : outText.endsWith(' ') ? outText : outText + ' '
+
+		this.output(`${lineText} ${message} ${status}\n`)
 	}
 
-	public getStack()
+	public printStack()
 	{
-		const depth = this.dStack.depth()
-		const stack = Array(depth)
-
-		for(let i = 0; i < depth; i += 1)
-			stack[depth - i] = this.dStack.get(i)
-
-		return stack
+		return this.dStack.print()
 	}
 
 	private runTokens(tokens: Token[]): ExecResult
@@ -458,7 +452,7 @@ class Interpreter
 		// Stack manipulation
 
 		'.': () => {
-			return {status: Status.Ok, value: this.dStack.pop().toString()}
+			return {status: Status.Ok, value: this.dStack.pop().toString() + ' '}
 		},
 
 		'DEPTH': () => {
@@ -467,12 +461,12 @@ class Interpreter
 		},
 
 		'DUP': () => {
-			this.dStack.push(this.dStack.get(0))
+			this.dStack.push(this.dStack.pick(0))
 			return {status: Status.Ok, value: ''}
 		},
 
 		'OVER': () => {
-			this.dStack.push(this.dStack.get(1))
+			this.dStack.push(this.dStack.pick(1))
 			return {status: Status.Ok, value: ''}
 		},
 
@@ -500,9 +494,9 @@ class Interpreter
 		},
 
 		'?DUP': () => {
-			const n = this.dStack.get(0)
+			const n = this.dStack.pick(0)
 			if (n !== 0)
-				this.dStack.push(this.dStack.get(0))
+				this.dStack.push(this.dStack.pick(0))
 			return {status: Status.Ok, value: ''}
 		},
 
@@ -539,12 +533,12 @@ class Interpreter
 		// DO
 
 		'I': () => {
-			this.dStack.push( this.rStack.get(0) )
+			this.dStack.push( this.rStack.pick(0) )
 			return {status: Status.Ok, value: ''}
 		},
 
 		'J': () => {
-			this.dStack.push( this.rStack.get(1) )
+			this.dStack.push( this.rStack.pick(1) )
 			return {status: Status.Ok, value: ''}
 		},
 
@@ -556,7 +550,7 @@ class Interpreter
 		// Tools
 
 		'.S': () => {
-			return {status: Status.Ok, value: this.getStack().join(' ') + ' < Top'}
+			return {status: Status.Ok, value: this.printStack()}
 		},
 	}
 }

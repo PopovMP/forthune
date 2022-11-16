@@ -2,11 +2,12 @@
 class Application
 {
 	private readonly interpreter: Interpreter
-	private readonly screen    : HTMLElement
-	private readonly outputLog : HTMLElement
-	private readonly inputLine : HTMLInputElement
-	private readonly stackView : HTMLElement
-	private readonly wordsElem : HTMLElement
+	private readonly screen     : HTMLElement
+	private readonly outputLog  : HTMLElement
+	private readonly inputLine  : HTMLInputElement
+	private readonly importFile : HTMLInputElement
+	private readonly stackView  : HTMLElement
+	private readonly wordsElem  : HTMLElement
 
 	private readonly OUT_BUFFER_LINES = 24
 	private readonly STACK_CAPACITY   = 1024
@@ -20,19 +21,21 @@ class Application
 	{
 		this.interpreter = new Interpreter(this.STACK_CAPACITY, this.output.bind(this))
 
-		this.screen     = document.getElementById('screen')     as HTMLElement
-		this.outputLog  = document.getElementById('output-log') as HTMLElement
-		this.inputLine  = document.getElementById('input-line') as HTMLInputElement
-		this.stackView  = document.getElementById('stack-view') as HTMLElement
-		this.wordsElem  = document.getElementById('dictionary') as HTMLElement
+		this.screen      = document.getElementById('screen')      as HTMLElement
+		this.outputLog   = document.getElementById('output-log')  as HTMLElement
+		this.inputLine   = document.getElementById('input-line')  as HTMLInputElement
+		this.importFile  = document.getElementById('import-file') as HTMLInputElement
+		this.stackView   = document.getElementById('stack-view')  as HTMLElement
+		this.wordsElem   = document.getElementById('dictionary')  as HTMLElement
 
 		this.inputBuffer  = []
 		this.outputBuffer = ""
 		this.inputIndex   = 0
-		this.inputLine.addEventListener("keydown", this.inputLine_keydown.bind(this))
+		this.inputLine.addEventListener('keydown', this.inputLine_keydown.bind(this))
+		this.importFile.addEventListener('change', this.importFile_change.bind(this))
 		this.outputLog.innerText = ''
 		this.inputLine.value     = ''
-		this.stackView.innerText = ' < Top'
+		this.stackView.innerText = this.interpreter.printStack()
 
 		this.outputLog.addEventListener('click', () => this.inputLine.focus())
 		this.screen.addEventListener('click', () => this.inputLine.focus())
@@ -49,15 +52,7 @@ class Application
 			const cmdText = this.inputLine.value
 			this.inputLine.value = ''
 
-			if (cmdText !== '' && (this.inputBuffer.length === 0 || this.inputBuffer[this.inputBuffer.length-1] !== cmdText)) {
-				this.inputBuffer.push(cmdText)
-				this.inputIndex = this.inputBuffer.length - 1
-			}
-
-			const tokens = Tokenizer.tokenizeLine(cmdText, 0)
-			this.interpreter.interpret(tokens, cmdText)
-
-			this.stackView.innerText = this.interpreter.getStack().join(' ') +  ' < Top'
+			this.compileCode(cmdText)
 
 			return
 		}
@@ -81,6 +76,20 @@ class Application
 		}
 	}
 
+	public importFile_change(event: any): void
+	{
+		event.stopPropagation()
+		event.preventDefault()
+
+		if (event.target.files instanceof FileList) {
+			for (const file of event.target.files) {
+				this.readFile(file)
+			}
+		}
+
+		this.importFile.value = ''
+	}
+
 	private output(text: string): void
 	{
 		const outputText = this.outputBuffer + text
@@ -89,5 +98,49 @@ class Application
 			outSplit.shift()
 		this.outputBuffer = outSplit.join('\n')
 		this.outputLog.innerText = this.outputBuffer
+	}
+
+	private compileCode(cmdText: string): void
+	{
+		if (cmdText !== '' && (this.inputBuffer.length === 0 ||
+			this.inputBuffer[this.inputBuffer.length-1] !== cmdText)) {
+			this.inputBuffer.push(cmdText)
+			this.inputIndex = this.inputBuffer.length - 1
+		}
+
+		const tokens = Tokenizer.tokenizeLine(cmdText, 0)
+		this.interpreter.interpret(tokens, cmdText)
+
+		this.stackView.innerText = this.interpreter.printStack()
+	}
+
+	private readFile(file: File): void {
+		const isFile: boolean = file instanceof File
+		if (!isFile) return
+
+		const fileReader: FileReader = new FileReader()
+		fileReader.addEventListener('load', this.fileReader_load.bind(this, file.name), false)
+		fileReader.readAsText(file, 'ascii')
+	}
+
+	private fileReader_load(fileName: string, event: any): void {
+		event.stopPropagation()
+		event.preventDefault()
+
+		event.target.removeEventListener('load', this.fileReader_load)
+
+		try {
+			this.onFileLoaded(fileName, event.target.result)
+		} catch (error: any) {
+			this.output(`${fileName} ${(error as Error).message}\n`)
+		}
+	}
+
+	private onFileLoaded(fileName: string, fileContent: string): void {
+		this.output(`${fileName}  File loaded\n`)
+
+		for (const line of fileContent.split(/\r?\n/g)) {
+			this.compileCode(line)
+		}
 	}
 }
