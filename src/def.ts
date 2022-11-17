@@ -1,3 +1,10 @@
+interface Environment
+{
+	runMode: RunMode,
+	dStack : Stack
+	rStack : Stack
+}
+
 interface Position
 {
 	line: number,
@@ -31,7 +38,6 @@ const enum Status {
 enum TokenKind {
 	Character,
 	Comment,
-	Keyword,
 	LineComment,
 	Number,
 	String,

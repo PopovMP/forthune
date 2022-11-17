@@ -1,15 +1,12 @@
 class Interpreter
 {
-	private readonly TRUE  = -1
-	private readonly FALSE =  0
-
 	private readonly dStack: Stack
 	private readonly rStack: Stack
 	private readonly output: (text: string) => void
 
 	private runMode: RunMode
 	private tempColonDef: ColonDef
-	private isLeaveActivated: boolean
+	private isLeave: boolean
 
 	constructor(capacity: number, output: (text: string) => void)
 	{
@@ -17,7 +14,8 @@ class Interpreter
 		this.rStack = new Stack(capacity)
 		this.output = output
 		this.runMode = RunMode.Interpret
-		this.isLeaveActivated = false
+		this.isLeave = false
+
 		this.tempColonDef = {name  : '', tokens: []}
 	}
 
@@ -44,7 +42,7 @@ class Interpreter
 						case TokenKind.String:
 							break
 
-						case TokenKind.Keyword: {
+						case TokenKind.Word: {
 							const wordName = token.value.toUpperCase()
 
 							if (wordName === ':') {
@@ -65,45 +63,31 @@ class Interpreter
 								continue
 							}
 
-							if (Dictionary.CompileOnlyWords.includes(wordName)) {
-								this.die(lineText, token.value + ' No Interpretation')
-								return
+							if (Dictionary.words.hasOwnProperty(wordName)) {
+								const env = {runMode: this.runMode, dStack: this.dStack, rStack: this.rStack}
+								const res = Dictionary.words[wordName](env)
+								outText += res.value
+								if (res.status === Status.Fail) {
+									this.die(lineText, outText)
+									return
+								}
+								break
 							}
 
-							if (!this.keyword.hasOwnProperty(wordName)) {
-								this.die(lineText, token.value + ' Unknown keyword')
-								return
+							if (Dictionary.colonDef.hasOwnProperty(wordName)) {
+								this.runMode = RunMode.Run
+								const res = this.runTokens(Dictionary.colonDef[wordName].tokens)
+								this.runMode = RunMode.Interpret
+								outText += res.value
+								if (res.status === Status.Fail) {
+									this.die(lineText, outText)
+									return
+								}
+								break
 							}
 
-							const res = this.keyword[wordName]()
-							outText += res.value
-							if (res.status === Status.Fail) {
-								this.die(lineText, outText)
-								return
-							}
-
-							break
-						}
-
-						case TokenKind.Word: {
-							const wordName = token.value.toUpperCase()
-							if (!this.colonDef.hasOwnProperty(wordName)) {
-								this.die(lineText, token.value + ' Unknown word')
-								return
-							}
-
-							this.runMode = RunMode.Run
-
-							const res = this.runTokens(this.colonDef[wordName].tokens)
-
-							this.runMode = RunMode.Interpret
-							outText += res.value
-							if (res.status === Status.Fail) {
-								this.die(lineText, outText)
-								return
-							}
-
-							break
+							this.die(lineText, token.value + '  Unknown word')
+							return
 						}
 
 						default:
@@ -118,7 +102,7 @@ class Interpreter
 					}
 
 					if (token.value === ';') {
-						this.colonDef[this.tempColonDef.name] = {
+						Dictionary.colonDef[this.tempColonDef.name] = {
 							name  : this.tempColonDef.name,
 							tokens: this.tempColonDef.tokens.slice()
 						}
@@ -139,24 +123,31 @@ class Interpreter
 						case TokenKind.Number:
 						case TokenKind.Character:
 						case TokenKind.String:
-						case TokenKind.Keyword:
 							this.tempColonDef.tokens.push(token)
 							break
 						case TokenKind.Word:
-							if (this.colonDef.hasOwnProperty(token.value.toUpperCase())) {
+							const wordName = token.value.toUpperCase()
+
+							if (Dictionary.words.hasOwnProperty(wordName)) {
 								this.tempColonDef.tokens.push(token)
 								break
 							}
-							this.die(lineText, token.value + ' ?')
+
+							if (Dictionary.colonDef.hasOwnProperty(wordName)) {
+								this.tempColonDef.tokens.push(token)
+								break
+							}
+
+							this.die(lineText, token.value + '  Unknown word')
 							return
 
 						default:
-							this.die(lineText, token.value + ' Compile mode: Unreachable')
+							this.die(lineText, token.value + '  Compile mode: Unreachable')
 							return
 					}
 				}
 				else if (this.runMode === RunMode.Run) {
-					this.die(lineText, token.value + ' You should not be in Run mode here')
+					this.die(lineText, token.value + '  You should not be in Run mode here')
 					return
 				}
 			}
@@ -200,10 +191,10 @@ class Interpreter
 					outText += token.value
 					break
 
-				case TokenKind.Keyword: {
+				case TokenKind.Word:
 					const wordName = token.value.toUpperCase()
 
-					if (this.isLeaveActivated)
+					if (this.isLeave)
 						break
 
 					if (wordName === 'IF') {
@@ -285,7 +276,7 @@ class Interpreter
 
 						if (isQuestionDup && counter === limit) {
 							i = loopIndex
-							this.isLeaveActivated = false
+							this.isLeave = false
 							continue
 						}
 
@@ -297,7 +288,7 @@ class Interpreter
 							const res = this.runTokens(tokens.slice(i+1, loopIndex))
 							this.rStack.pop()
 
-							if (this.isLeaveActivated)
+							if (this.isLeave)
 								break
 
 							outText += res.value
@@ -308,33 +299,32 @@ class Interpreter
 						}
 
 						i = loopIndex
-						this.isLeaveActivated = false
+						this.isLeave = false
 						continue
 					}
 
-					if (!this.keyword.hasOwnProperty(wordName))
-						return {status: Status.Fail, value: token.value + ' Unknown keyword'}
+					if (Dictionary.words.hasOwnProperty(wordName) ) {
+						const env = {runMode: this.runMode, dStack: this.dStack, rStack: this.rStack}
+						const res = Dictionary.words[wordName](env)
+						outText += res.value
+						if (res.status === Status.Fail)
+							return {status: Status.Fail, value: outText}
+						if (wordName === 'LEAVE') {
+							this.isLeave = true
+							return {status: Status.Ok, value: outText}
+						}
+						break
+					}
 
-					const res = this.keyword[wordName]()
-					outText += res.value
+					if (Dictionary.colonDef.hasOwnProperty(wordName)) {
+						const res = this.runTokens(Dictionary.colonDef[wordName].tokens)
+						outText += res.value
+						if (res.status === Status.Fail)
+							return {status: Status.Fail, value: outText}
+						break
+					}
 
-					if (res.status === Status.Fail)
-						return {status: Status.Fail, value: outText}
-					break
-				}
-
-				case TokenKind.Word: {
-					const wordName = token.value.toUpperCase()
-					if (!this.colonDef.hasOwnProperty(wordName))
-						return {status: Status.Fail, value: token.value + ' Unknown word'}
-
-					const res = this.runTokens(this.colonDef[wordName].tokens)
-					outText += res.value
-
-					if (res.status === Status.Fail)
-						return {status: Status.Fail, value: outText}
-					break
-				}
+					return {status: Status.Fail, value: `${outText} ${token.value}  Unknown word`}
 
 				default:
 					throw new Error('runTokens:  Unreachable')
@@ -350,321 +340,6 @@ class Interpreter
 		this.rStack.clear()
 		this.output(`${lineText} ${message}\n`)
 		this.runMode = RunMode.Interpret
-		this.isLeaveActivated = false
-	}
-
-	private readonly colonDef: {[word: string]: ColonDef} = {}
-
-	private readonly keyword: {[word: string]: () => ExecResult} = {
-		// Comments
-
-		'(': () => {
-			return {status: Status.Ok, value: ''}
-		},
-
-		'.(': () => {
-			return this.runMode === RunMode.Interpret
-				? {status: Status.Fail, value: ' No Interpretation'}
-				: {status: Status.Ok, value: ''}
-		},
-
-		'\\': () => {
-			return {status: Status.Ok, value: ''}
-		},
-
-		// Char
-
-		'BL': () => {
-			// Put the ASCII code of space in Stack
-			this.dStack.push(32)
-			return {status: Status.Ok, value: ''}
-		},
-
-		'CHAR': () => {
-			return {status: Status.Ok, value: ''}
-		},
-
-		// String
-
-		'."': () => {
-			return this.runMode === RunMode.Interpret
-				? {status: Status.Fail, value: ' No Interpretation'}
-				: {status: Status.Ok, value: ''}
-		},
-
-		// Output
-
-		'CR': () => {
-			return {status: Status.Ok, value: '\n'}
-		},
-
-		'EMIT': () => {
-			const charCode = this.dStack.pop()
-			this.output(String.fromCharCode(charCode))
-			return {status: Status.Ok, value: ''}
-		},
-
-		'SPACE': () => {
-			return {status: Status.Ok, value: ' '}
-		},
-
-		'SPACES': () => {
-			const count = this.dStack.pop()
-			return {status: Status.Ok, value: ' '.repeat(count)}
-		},
-
-		// Numbers
-
-		'+': () => {
-			const n2 = this.dStack.pop()
-			const n1 = this.dStack.pop()
-			this.dStack.push(n1 + n2)
-			return {status: Status.Ok, value: ''}
-		},
-
-		'-': () => {
-			const n2 = this.dStack.pop()
-			const n1 = this.dStack.pop()
-			this.dStack.push(n1 - n2)
-			return {status: Status.Ok, value: ''}
-		},
-
-		'*': () => {
-			const n2 = this.dStack.pop()
-			const n1 = this.dStack.pop()
-			this.dStack.push(n1 * n2)
-			return {status: Status.Ok, value: ''}
-		},
-
-		'/': () => {
-			const n2 = this.dStack.pop()
-			const n1 = this.dStack.pop()
-			this.dStack.push(n1 / n2)
-			return {status: Status.Ok, value: ''}
-		},
-
-		'ABS': () => {
-			const n1 = this.dStack.pop()
-			this.dStack.push(Math.abs(n1))
-			return {status: Status.Ok, value: ''}
-		},
-
-		// Stack manipulation
-
-		'.': () => {
-			return {status: Status.Ok, value: this.dStack.pop().toString() + ' '}
-		},
-
-		'DEPTH': () => {
-			this.dStack.push(this.dStack.depth())
-			return {status: Status.Ok, value: ''}
-		},
-
-		'DUP': () => {
-			this.dStack.push(this.dStack.pick(0))
-			return {status: Status.Ok, value: ''}
-		},
-
-		'OVER': () => {
-			this.dStack.push(this.dStack.pick(1))
-			return {status: Status.Ok, value: ''}
-		},
-
-		'DROP': () => {
-			this.dStack.pop()
-			return {status: Status.Ok, value: ''}
-		},
-
-		'SWAP': () => {
-			const n2 = this.dStack.pop()
-			const n1 = this.dStack.pop()
-			this.dStack.push(n2)
-			this.dStack.push(n1)
-			return {status: Status.Ok, value: ''}
-		},
-
-		'ROT': () => {
-			const n3 = this.dStack.pop()
-			const n2 = this.dStack.pop()
-			const n1 = this.dStack.pop()
-			this.dStack.push(n2)
-			this.dStack.push(n3)
-			this.dStack.push(n1)
-			return {status: Status.Ok, value: ''}
-		},
-
-		'?DUP': () => {
-			const n = this.dStack.pick(0)
-			if (n !== 0)
-				this.dStack.push(this.dStack.pick(0))
-			return {status: Status.Ok, value: ''}
-		},
-
-		'NIP': () => {
-			// ( x1 x2 -- x2 )
-			const n2 = this.dStack.pop()
-			this.dStack.pop() // n1
-			this.dStack.push(n2)
-			return {status: Status.Ok, value: ''}
-		},
-
-		'TUCK': () => {
-			// ( x1 x2 -- x2 x1 x2 )
-			const n2 = this.dStack.pop()
-			const n1 = this.dStack.pop()
-			this.dStack.push(n2)
-			this.dStack.push(n1)
-			this.dStack.push(n2)
-			return {status: Status.Ok, value: ''}
-		},
-
-		'2DROP': () => {
-			// ( x1 x2 -- )
-			this.dStack.pop()
-			this.dStack.pop()
-			return {status: Status.Ok, value: ''}
-		},
-
-		'2DUP': () => {
-			// ( x1 x2 -- x1 x2 x1 x2 )
-			const n2 = this.dStack.pop()
-			const n1 = this.dStack.pop()
-			this.dStack.push(n1)
-			this.dStack.push(n2)
-			this.dStack.push(n1)
-			this.dStack.push(n2)
-			return {status: Status.Ok, value: ''}
-		},
-
-		'2SWAP': () => {
-			// ( x1 x2 x3 x4 -- x3 x4 x1 x2 )
-			const n4 = this.dStack.pop()
-			const n3 = this.dStack.pop()
-			const n2 = this.dStack.pop()
-			const n1 = this.dStack.pop()
-			this.dStack.push(n3)
-			this.dStack.push(n4)
-			this.dStack.push(n1)
-			this.dStack.push(n2)
-			return {status: Status.Ok, value: ''}
-		},
-
-		'2OVER': () => {
-			// ( x1 x2 x3 x4 --  x1 x2 x3 x4 x1 x2 )
-			const n4 = this.dStack.pop()
-			const n3 = this.dStack.pop()
-			const n2 = this.dStack.pop()
-			const n1 = this.dStack.pop()
-			this.dStack.push(n1)
-			this.dStack.push(n2)
-			this.dStack.push(n3)
-			this.dStack.push(n4)
-			this.dStack.push(n1)
-			this.dStack.push(n2)
-			return {status: Status.Ok, value: ''}
-		},
-
-		// Return stack
-
-		'>R': () => {
-			// ( x -- ) ( R: -- x )
-			const n1 = this.dStack.pop()
-			this.rStack.push(n1)
-			return {status: Status.Ok, value: ''}
-		},
-
-		'R@': () => {
-			// ( -- x ) ( R: x -- x )
-			const n1 = this.rStack.pick(0)
-			this.dStack.push(n1)
-			return {status: Status.Ok, value: ''}
-		},
-
-		'R>': () => {
-			// ( -- x ) ( R: x -- )
-			const n1 = this.rStack.pop()
-			this.dStack.push(n1)
-			return {status: Status.Ok, value: ''}
-		},
-
-		'2>R': () => {
-			// ( x1 x2 -- ) ( R: -- x1 x2 )
-			const n2 = this.dStack.pop()
-			const n1 = this.dStack.pop()
-			this.rStack.push(n1)
-			this.rStack.push(n2)
-			return {status: Status.Ok, value: ''}
-		},
-
-		'2R@': () => {
-			// ( -- x1 x2 ) ( R: x1 x2 -- x1 x2 )
-			const n2 = this.rStack.pick(1)
-			const n1 = this.rStack.pick(0)
-			this.dStack.push(n1)
-			this.dStack.push(n2)
-			return {status: Status.Ok, value: ''}
-		},
-
-		'2R>': () => {
-			// ( -- x1 x2 ) ( R: x1 x2 -- )
-			const n2 = this.rStack.pop()
-			const n1 = this.rStack.pop()
-			this.dStack.push(n1)
-			this.dStack.push(n2)
-			return {status: Status.Ok, value: ''}
-		},
-
-		// Comparison
-
-		'=': () => {
-			const n2 = this.dStack.pop()
-			const n1 = this.dStack.pop()
-			this.dStack.push(n1 === n2 ? this.TRUE : this.FALSE)
-			return {status: Status.Ok, value: ''}
-		},
-
-		'<>': () => {
-			const n2 = this.dStack.pop()
-			const n1 = this.dStack.pop()
-			this.dStack.push(n1 !== n2 ? this.TRUE : this.FALSE)
-			return {status: Status.Ok, value: ''}
-		},
-
-		'>': () => {
-			const n2 = this.dStack.pop()
-			const n1 = this.dStack.pop()
-			this.dStack.push(n1 > n2 ? this.TRUE : this.FALSE)
-			return {status: Status.Ok, value: ''}
-		},
-
-		'<': () => {
-			const n2 = this.dStack.pop()
-			const n1 = this.dStack.pop()
-			this.dStack.push(n1 < n2 ? this.TRUE : this.FALSE)
-			return {status: Status.Ok, value: ''}
-		},
-
-		// DO
-
-		'I': () => {
-			this.dStack.push( this.rStack.pick(0) )
-			return {status: Status.Ok, value: ''}
-		},
-
-		'J': () => {
-			this.dStack.push( this.rStack.pick(1) )
-			return {status: Status.Ok, value: ''}
-		},
-
-		'LEAVE': () => {
-			this.isLeaveActivated = true
-			return {status: Status.Ok, value: ''}
-		},
-
-		// Tools
-
-		'.S': () => {
-			return {status: Status.Ok, value: this.printStack()}
-		},
+		this.isLeave = false
 	}
 }

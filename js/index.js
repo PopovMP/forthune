@@ -1,5 +1,6 @@
 "use strict";
-// noinspection JSUnusedGlobalSymbols
+
+// noinspection JSUnusedGlobalSymbols,JSUnusedLocalSymbols
 class Application {
     // noinspection JSUnusedGlobalSymbols
     constructor() {
@@ -107,11 +108,10 @@ var TokenKind;
 (function (TokenKind) {
     TokenKind[TokenKind["Character"] = 0] = "Character";
     TokenKind[TokenKind["Comment"] = 1] = "Comment";
-    TokenKind[TokenKind["Keyword"] = 2] = "Keyword";
-    TokenKind[TokenKind["LineComment"] = 3] = "LineComment";
-    TokenKind[TokenKind["Number"] = 4] = "Number";
-    TokenKind[TokenKind["String"] = 5] = "String";
-    TokenKind[TokenKind["Word"] = 6] = "Word";
+    TokenKind[TokenKind["LineComment"] = 2] = "LineComment";
+    TokenKind[TokenKind["Number"] = 3] = "Number";
+    TokenKind[TokenKind["String"] = 4] = "String";
+    TokenKind[TokenKind["Word"] = 5] = "Word";
 })(TokenKind || (TokenKind = {}));
 var RunMode;
 (function (RunMode) {
@@ -121,337 +121,327 @@ var RunMode;
 })(RunMode || (RunMode = {}));
 class Dictionary {
 }
-Dictionary.Words = {
-    '(': 'paren',
-    '*': 'start',
-    '+': 'plus',
-    '+LOOP': 'plus-loop',
-    '-': 'minus',
-    '."': 'dot-quote',
-    '.': 'dot',
-    '/': 'slash',
-    ':': 'colon',
-    ';': 'semicolon',
-    '<': 'less-than',
-    '=': 'equals',
-    '>': 'greater-than',
-    'ABS': 'abs',
-    'BL': 'bl',
-    'CHAR': 'char',
-    'CR': 'cr',
-    'DEPTH': 'depth',
-    'DO': 'do',
-    'DROP': 'drop',
-    'DUP': 'dupe',
-    'ELSE': 'else',
-    'EMIT': 'emit',
-    'I': 'i',
-    'IF': 'if',
-    'J': 'j',
-    'LEAVE': 'leave',
-    'LOOP': 'loop',
-    'MOD': 'mod',
-    'OVER': 'over',
-    'ROT': 'rot',
-    'SPACE': 'space',
-    'SPACES': 'spaces',
-    'SWAP': 'swap',
-    'THEN': 'then',
-    '?DUP': 'question-dupe',
-    '2DROP': 'two-drop',
-    '2DUP': 'two-dupe',
-    '2SWAP': 'two-swap',
-    '2OVER': 'two-over',
-    '>R': 'to-r',
-    'R@': 'r-fetch',
-    'R>': 'r-from',
-    '2>R': 'two-to-r',
-    '2R@': 'two-r-fetch',
-    '2R>': 'two-r-from',
-    // Core extension
-    '\\': 'backslash',
-    '.(': 'dot-paren',
-    '<>': 'not-equals',
-    '?DO': 'question-do',
-    'NIP': 'nip',
-    'TUCK': 'tuck',
+Dictionary.colonDef = {};
+Dictionary.words = {
+    // Comments
+    '(': () => {
+        return { status: 0 /* Status.Ok */, value: '' };
+    },
+    '.(': (env) => {
+        return env.runMode === RunMode.Interpret
+            ? { status: 1 /* Status.Fail */, value: ' .( No Interpretation' }
+            : { status: 0 /* Status.Ok */, value: '' };
+    },
+    '\\': () => {
+        return { status: 0 /* Status.Ok */, value: '' };
+    },
+    // Char
+    'BL': (env) => {
+        // Put the ASCII code of space in Stack
+        env.dStack.push(32);
+        return { status: 0 /* Status.Ok */, value: '' };
+    },
+    'CHAR': () => {
+        return { status: 0 /* Status.Ok */, value: '' };
+    },
+    // String
+    '."': (env) => {
+        return env.runMode === RunMode.Interpret
+            ? { status: 1 /* Status.Fail */, value: ' ."  No Interpretation' }
+            : { status: 0 /* Status.Ok */, value: '' };
+    },
+    // Output
+    'CR': () => {
+        return { status: 0 /* Status.Ok */, value: '\n' };
+    },
+    'EMIT': (env) => {
+        const charCode = env.dStack.pop();
+        const char = String.fromCharCode(charCode);
+        return { status: 0 /* Status.Ok */, value: char };
+    },
+    'SPACE': () => {
+        return { status: 0 /* Status.Ok */, value: ' ' };
+    },
+    'SPACES': (env) => {
+        const count = env.dStack.pop();
+        return { status: 0 /* Status.Ok */, value: ' '.repeat(count) };
+    },
+    // Numbers
+    '+': (env) => {
+        const n2 = env.dStack.pop();
+        const n1 = env.dStack.pop();
+        env.dStack.push(n1 + n2);
+        return { status: 0 /* Status.Ok */, value: '' };
+    },
+    '-': (env) => {
+        const n2 = env.dStack.pop();
+        const n1 = env.dStack.pop();
+        env.dStack.push(n1 - n2);
+        return { status: 0 /* Status.Ok */, value: '' };
+    },
+    '*': (env) => {
+        const n2 = env.dStack.pop();
+        const n1 = env.dStack.pop();
+        env.dStack.push(n1 * n2);
+        return { status: 0 /* Status.Ok */, value: '' };
+    },
+    '/': (env) => {
+        const n2 = env.dStack.pop();
+        const n1 = env.dStack.pop();
+        env.dStack.push(n1 / n2);
+        return { status: 0 /* Status.Ok */, value: '' };
+    },
+    'ABS': (env) => {
+        const n1 = env.dStack.pop();
+        env.dStack.push(Math.abs(n1));
+        return { status: 0 /* Status.Ok */, value: '' };
+    },
+    // Stack manipulation
+    '.': (env) => {
+        return { status: 0 /* Status.Ok */, value: env.dStack.pop().toString() + ' ' };
+    },
+    'DEPTH': (env) => {
+        env.dStack.push(env.dStack.depth());
+        return { status: 0 /* Status.Ok */, value: '' };
+    },
+    'DUP': (env) => {
+        env.dStack.push(env.dStack.pick(0));
+        return { status: 0 /* Status.Ok */, value: '' };
+    },
+    'OVER': (env) => {
+        env.dStack.push(env.dStack.pick(1));
+        return { status: 0 /* Status.Ok */, value: '' };
+    },
+    'DROP': (env) => {
+        env.dStack.pop();
+        return { status: 0 /* Status.Ok */, value: '' };
+    },
+    'SWAP': (env) => {
+        const n2 = env.dStack.pop();
+        const n1 = env.dStack.pop();
+        env.dStack.push(n2);
+        env.dStack.push(n1);
+        return { status: 0 /* Status.Ok */, value: '' };
+    },
+    'ROT': (env) => {
+        const n3 = env.dStack.pop();
+        const n2 = env.dStack.pop();
+        const n1 = env.dStack.pop();
+        env.dStack.push(n2);
+        env.dStack.push(n3);
+        env.dStack.push(n1);
+        return { status: 0 /* Status.Ok */, value: '' };
+    },
+    '?DUP': (env) => {
+        const n = env.dStack.pick(0);
+        if (n !== 0)
+            env.dStack.push(env.dStack.pick(0));
+        return { status: 0 /* Status.Ok */, value: '' };
+    },
+    'NIP': (env) => {
+        // ( x1 x2 -- x2 )
+        const n2 = env.dStack.pop();
+        env.dStack.pop(); // n1
+        env.dStack.push(n2);
+        return { status: 0 /* Status.Ok */, value: '' };
+    },
+    'TUCK': (env) => {
+        // ( x1 x2 -- x2 x1 x2 )
+        const n2 = env.dStack.pop();
+        const n1 = env.dStack.pop();
+        env.dStack.push(n2);
+        env.dStack.push(n1);
+        env.dStack.push(n2);
+        return { status: 0 /* Status.Ok */, value: '' };
+    },
+    '2DROP': (env) => {
+        // ( x1 x2 -- )
+        env.dStack.pop();
+        env.dStack.pop();
+        return { status: 0 /* Status.Ok */, value: '' };
+    },
+    '2DUP': (env) => {
+        // ( x1 x2 -- x1 x2 x1 x2 )
+        const n2 = env.dStack.pop();
+        const n1 = env.dStack.pop();
+        env.dStack.push(n1);
+        env.dStack.push(n2);
+        env.dStack.push(n1);
+        env.dStack.push(n2);
+        return { status: 0 /* Status.Ok */, value: '' };
+    },
+    '2SWAP': (env) => {
+        // ( x1 x2 x3 x4 -- x3 x4 x1 x2 )
+        const n4 = env.dStack.pop();
+        const n3 = env.dStack.pop();
+        const n2 = env.dStack.pop();
+        const n1 = env.dStack.pop();
+        env.dStack.push(n3);
+        env.dStack.push(n4);
+        env.dStack.push(n1);
+        env.dStack.push(n2);
+        return { status: 0 /* Status.Ok */, value: '' };
+    },
+    '2OVER': (env) => {
+        // ( x1 x2 x3 x4 --  x1 x2 x3 x4 x1 x2 )
+        const n4 = env.dStack.pop();
+        const n3 = env.dStack.pop();
+        const n2 = env.dStack.pop();
+        const n1 = env.dStack.pop();
+        env.dStack.push(n1);
+        env.dStack.push(n2);
+        env.dStack.push(n3);
+        env.dStack.push(n4);
+        env.dStack.push(n1);
+        env.dStack.push(n2);
+        return { status: 0 /* Status.Ok */, value: '' };
+    },
+    // Return stack
+    '>R': (env) => {
+        // ( x -- ) ( R: -- x )
+        if (env.runMode === RunMode.Interpret)
+            return { status: 1 /* Status.Fail */, value: ' >R  No Interpretation' };
+        const n1 = env.dStack.pop();
+        env.rStack.push(n1);
+        return { status: 0 /* Status.Ok */, value: '' };
+    },
+    'R@': (env) => {
+        // ( -- x ) ( R: x -- x )
+        if (env.runMode === RunMode.Interpret)
+            return { status: 1 /* Status.Fail */, value: ' R@  No Interpretation' };
+        const n1 = env.rStack.pick(0);
+        env.dStack.push(n1);
+        return { status: 0 /* Status.Ok */, value: '' };
+    },
+    'R>': (env) => {
+        // ( -- x ) ( R: x -- )
+        if (env.runMode === RunMode.Interpret)
+            return { status: 1 /* Status.Fail */, value: ' R>  No Interpretation' };
+        const n1 = env.rStack.pop();
+        env.dStack.push(n1);
+        return { status: 0 /* Status.Ok */, value: '' };
+    },
+    '2>R': (env) => {
+        // ( x1 x2 -- ) ( R: -- x1 x2 )
+        if (env.runMode === RunMode.Interpret)
+            return { status: 1 /* Status.Fail */, value: ' 2>R  No Interpretation' };
+        const n2 = env.dStack.pop();
+        const n1 = env.dStack.pop();
+        env.rStack.push(n1);
+        env.rStack.push(n2);
+        return { status: 0 /* Status.Ok */, value: '' };
+    },
+    '2R@': (env) => {
+        // ( -- x1 x2 ) ( R: x1 x2 -- x1 x2 )
+        if (env.runMode === RunMode.Interpret)
+            return { status: 1 /* Status.Fail */, value: ' 2R@  No Interpretation' };
+        const n2 = env.rStack.pick(1);
+        const n1 = env.rStack.pick(0);
+        env.dStack.push(n1);
+        env.dStack.push(n2);
+        return { status: 0 /* Status.Ok */, value: '' };
+    },
+    '2R>': (env) => {
+        // ( -- x1 x2 ) ( R: x1 x2 -- )
+        if (env.runMode === RunMode.Interpret)
+            return { status: 1 /* Status.Fail */, value: ' 2R>  No Interpretation' };
+        const n2 = env.rStack.pop();
+        const n1 = env.rStack.pop();
+        env.dStack.push(n1);
+        env.dStack.push(n2);
+        return { status: 0 /* Status.Ok */, value: '' };
+    },
+    // Comparison
+    '=': (env) => {
+        const n2 = env.dStack.pop();
+        const n1 = env.dStack.pop();
+        env.dStack.push(n1 === n2 ? -1 : 0);
+        return { status: 0 /* Status.Ok */, value: '' };
+    },
+    '<>': (env) => {
+        const n2 = env.dStack.pop();
+        const n1 = env.dStack.pop();
+        env.dStack.push(n1 !== n2 ? -1 : 0);
+        return { status: 0 /* Status.Ok */, value: '' };
+    },
+    '>': (env) => {
+        const n2 = env.dStack.pop();
+        const n1 = env.dStack.pop();
+        env.dStack.push(n1 > n2 ? -1 : 0);
+        return { status: 0 /* Status.Ok */, value: '' };
+    },
+    '<': (env) => {
+        const n2 = env.dStack.pop();
+        const n1 = env.dStack.pop();
+        env.dStack.push(n1 < n2 ? -1 : 0);
+        return { status: 0 /* Status.Ok */, value: '' };
+    },
+    // DO
+    'DO': (env) => {
+        return env.runMode === RunMode.Interpret
+            ? { status: 1 /* Status.Fail */, value: ' DO  No Interpretation' }
+            : { status: 0 /* Status.Ok */, value: '' };
+    },
+    '?DO': (env) => {
+        return env.runMode === RunMode.Interpret
+            ? { status: 1 /* Status.Fail */, value: ' ?DO  No Interpretation' }
+            : { status: 0 /* Status.Ok */, value: '' };
+    },
+    'I': (env) => {
+        if (env.runMode === RunMode.Interpret)
+            return { status: 1 /* Status.Fail */, value: ' I  No Interpretation' };
+        env.dStack.push(env.rStack.pick(0));
+        return { status: 0 /* Status.Ok */, value: '' };
+    },
+    'J': (env) => {
+        if (env.runMode === RunMode.Interpret)
+            return { status: 1 /* Status.Fail */, value: ' J  No Interpretation' };
+        env.dStack.push(env.rStack.pick(1));
+        return { status: 0 /* Status.Ok */, value: '' };
+    },
+    'LEAVE': (env) => {
+        return env.runMode === RunMode.Interpret
+            ? { status: 1 /* Status.Fail */, value: ' LEAVE No Interpretation' }
+            : { status: 0 /* Status.Ok */, value: '' };
+    },
+    'LOOP': (env) => {
+        return env.runMode === RunMode.Interpret
+            ? { status: 1 /* Status.Fail */, value: ' LOOP No Interpretation' }
+            : { status: 0 /* Status.Ok */, value: '' };
+    },
+    '+LOOP': (env) => {
+        return env.runMode === RunMode.Interpret
+            ? { status: 1 /* Status.Fail */, value: ' +LOOP No Interpretation' }
+            : { status: 0 /* Status.Ok */, value: '' };
+    },
+    // IF
+    'IF': (env) => {
+        return env.runMode === RunMode.Interpret
+            ? { status: 1 /* Status.Fail */, value: ' IF  No Interpretation' }
+            : { status: 0 /* Status.Ok */, value: '' };
+    },
+    'ELSE': (env) => {
+        return env.runMode === RunMode.Interpret
+            ? { status: 1 /* Status.Fail */, value: ' ELSE  No Interpretation' }
+            : { status: 0 /* Status.Ok */, value: '' };
+    },
+    'THEN': (env) => {
+        return env.runMode === RunMode.Interpret
+            ? { status: 1 /* Status.Fail */, value: ' THEN  No Interpretation' }
+            : { status: 0 /* Status.Ok */, value: '' };
+    },
     // Tools
-    '.S': 'dot-s',
+    '.S': (env) => {
+        return { status: 0 /* Status.Ok */, value: env.dStack.print() };
+    },
 };
-Dictionary.CompileOnlyWords = [
-    '.(', '."', '?DO', 'DO', 'I', 'J', 'LEAVE', 'LOOP', '+LOOP', ';', 'IF', 'ELSE', 'THEN',
-    '>R', 'R@', 'R>', '2>R', '2R@', '2R>',
-];
 class Interpreter {
     constructor(capacity, output) {
-        this.TRUE = -1;
-        this.FALSE = 0;
-        this.colonDef = {};
-        this.keyword = {
-            // Comments
-            '(': () => {
-                return { status: 0 /* Status.Ok */, value: '' };
-            },
-            '.(': () => {
-                return this.runMode === RunMode.Interpret
-                    ? { status: 1 /* Status.Fail */, value: ' No Interpretation' }
-                    : { status: 0 /* Status.Ok */, value: '' };
-            },
-            '\\': () => {
-                return { status: 0 /* Status.Ok */, value: '' };
-            },
-            // Char
-            'BL': () => {
-                // Put the ASCII code of space in Stack
-                this.dStack.push(32);
-                return { status: 0 /* Status.Ok */, value: '' };
-            },
-            'CHAR': () => {
-                return { status: 0 /* Status.Ok */, value: '' };
-            },
-            // String
-            '."': () => {
-                return this.runMode === RunMode.Interpret
-                    ? { status: 1 /* Status.Fail */, value: ' No Interpretation' }
-                    : { status: 0 /* Status.Ok */, value: '' };
-            },
-            // Output
-            'CR': () => {
-                return { status: 0 /* Status.Ok */, value: '\n' };
-            },
-            'EMIT': () => {
-                const charCode = this.dStack.pop();
-                this.output(String.fromCharCode(charCode));
-                return { status: 0 /* Status.Ok */, value: '' };
-            },
-            'SPACE': () => {
-                return { status: 0 /* Status.Ok */, value: ' ' };
-            },
-            'SPACES': () => {
-                const count = this.dStack.pop();
-                return { status: 0 /* Status.Ok */, value: ' '.repeat(count) };
-            },
-            // Numbers
-            '+': () => {
-                const n2 = this.dStack.pop();
-                const n1 = this.dStack.pop();
-                this.dStack.push(n1 + n2);
-                return { status: 0 /* Status.Ok */, value: '' };
-            },
-            '-': () => {
-                const n2 = this.dStack.pop();
-                const n1 = this.dStack.pop();
-                this.dStack.push(n1 - n2);
-                return { status: 0 /* Status.Ok */, value: '' };
-            },
-            '*': () => {
-                const n2 = this.dStack.pop();
-                const n1 = this.dStack.pop();
-                this.dStack.push(n1 * n2);
-                return { status: 0 /* Status.Ok */, value: '' };
-            },
-            '/': () => {
-                const n2 = this.dStack.pop();
-                const n1 = this.dStack.pop();
-                this.dStack.push(n1 / n2);
-                return { status: 0 /* Status.Ok */, value: '' };
-            },
-            'ABS': () => {
-                const n1 = this.dStack.pop();
-                this.dStack.push(Math.abs(n1));
-                return { status: 0 /* Status.Ok */, value: '' };
-            },
-            // Stack manipulation
-            '.': () => {
-                return { status: 0 /* Status.Ok */, value: this.dStack.pop().toString() + ' ' };
-            },
-            'DEPTH': () => {
-                this.dStack.push(this.dStack.depth());
-                return { status: 0 /* Status.Ok */, value: '' };
-            },
-            'DUP': () => {
-                this.dStack.push(this.dStack.pick(0));
-                return { status: 0 /* Status.Ok */, value: '' };
-            },
-            'OVER': () => {
-                this.dStack.push(this.dStack.pick(1));
-                return { status: 0 /* Status.Ok */, value: '' };
-            },
-            'DROP': () => {
-                this.dStack.pop();
-                return { status: 0 /* Status.Ok */, value: '' };
-            },
-            'SWAP': () => {
-                const n2 = this.dStack.pop();
-                const n1 = this.dStack.pop();
-                this.dStack.push(n2);
-                this.dStack.push(n1);
-                return { status: 0 /* Status.Ok */, value: '' };
-            },
-            'ROT': () => {
-                const n3 = this.dStack.pop();
-                const n2 = this.dStack.pop();
-                const n1 = this.dStack.pop();
-                this.dStack.push(n2);
-                this.dStack.push(n3);
-                this.dStack.push(n1);
-                return { status: 0 /* Status.Ok */, value: '' };
-            },
-            '?DUP': () => {
-                const n = this.dStack.pick(0);
-                if (n !== 0)
-                    this.dStack.push(this.dStack.pick(0));
-                return { status: 0 /* Status.Ok */, value: '' };
-            },
-            'NIP': () => {
-                // ( x1 x2 -- x2 )
-                const n2 = this.dStack.pop();
-                this.dStack.pop(); // n1
-                this.dStack.push(n2);
-                return { status: 0 /* Status.Ok */, value: '' };
-            },
-            'TUCK': () => {
-                // ( x1 x2 -- x2 x1 x2 )
-                const n2 = this.dStack.pop();
-                const n1 = this.dStack.pop();
-                this.dStack.push(n2);
-                this.dStack.push(n1);
-                this.dStack.push(n2);
-                return { status: 0 /* Status.Ok */, value: '' };
-            },
-            '2DROP': () => {
-                // ( x1 x2 -- )
-                this.dStack.pop();
-                this.dStack.pop();
-                return { status: 0 /* Status.Ok */, value: '' };
-            },
-            '2DUP': () => {
-                // ( x1 x2 -- x1 x2 x1 x2 )
-                const n2 = this.dStack.pop();
-                const n1 = this.dStack.pop();
-                this.dStack.push(n1);
-                this.dStack.push(n2);
-                this.dStack.push(n1);
-                this.dStack.push(n2);
-                return { status: 0 /* Status.Ok */, value: '' };
-            },
-            '2SWAP': () => {
-                // ( x1 x2 x3 x4 -- x3 x4 x1 x2 )
-                const n4 = this.dStack.pop();
-                const n3 = this.dStack.pop();
-                const n2 = this.dStack.pop();
-                const n1 = this.dStack.pop();
-                this.dStack.push(n3);
-                this.dStack.push(n4);
-                this.dStack.push(n1);
-                this.dStack.push(n2);
-                return { status: 0 /* Status.Ok */, value: '' };
-            },
-            '2OVER': () => {
-                // ( x1 x2 x3 x4 --  x1 x2 x3 x4 x1 x2 )
-                const n4 = this.dStack.pop();
-                const n3 = this.dStack.pop();
-                const n2 = this.dStack.pop();
-                const n1 = this.dStack.pop();
-                this.dStack.push(n1);
-                this.dStack.push(n2);
-                this.dStack.push(n3);
-                this.dStack.push(n4);
-                this.dStack.push(n1);
-                this.dStack.push(n2);
-                return { status: 0 /* Status.Ok */, value: '' };
-            },
-            // Return stack
-            '>R': () => {
-                // ( x -- ) ( R: -- x )
-                const n1 = this.dStack.pop();
-                this.rStack.push(n1);
-                return { status: 0 /* Status.Ok */, value: '' };
-            },
-            'R@': () => {
-                // ( -- x ) ( R: x -- x )
-                const n1 = this.rStack.pick(0);
-                this.dStack.push(n1);
-                return { status: 0 /* Status.Ok */, value: '' };
-            },
-            'R>': () => {
-                // ( -- x ) ( R: x -- )
-                const n1 = this.rStack.pop();
-                this.dStack.push(n1);
-                return { status: 0 /* Status.Ok */, value: '' };
-            },
-            '2>R': () => {
-                // ( x1 x2 -- ) ( R: -- x1 x2 )
-                const n2 = this.dStack.pop();
-                const n1 = this.dStack.pop();
-                this.rStack.push(n1);
-                this.rStack.push(n2);
-                return { status: 0 /* Status.Ok */, value: '' };
-            },
-            '2R@': () => {
-                // ( -- x1 x2 ) ( R: x1 x2 -- x1 x2 )
-                const n2 = this.rStack.pick(1);
-                const n1 = this.rStack.pick(0);
-                this.dStack.push(n1);
-                this.dStack.push(n2);
-                return { status: 0 /* Status.Ok */, value: '' };
-            },
-            '2R>': () => {
-                // ( -- x1 x2 ) ( R: x1 x2 -- )
-                const n2 = this.rStack.pop();
-                const n1 = this.rStack.pop();
-                this.dStack.push(n1);
-                this.dStack.push(n2);
-                return { status: 0 /* Status.Ok */, value: '' };
-            },
-            // Comparison
-            '=': () => {
-                const n2 = this.dStack.pop();
-                const n1 = this.dStack.pop();
-                this.dStack.push(n1 === n2 ? this.TRUE : this.FALSE);
-                return { status: 0 /* Status.Ok */, value: '' };
-            },
-            '<>': () => {
-                const n2 = this.dStack.pop();
-                const n1 = this.dStack.pop();
-                this.dStack.push(n1 !== n2 ? this.TRUE : this.FALSE);
-                return { status: 0 /* Status.Ok */, value: '' };
-            },
-            '>': () => {
-                const n2 = this.dStack.pop();
-                const n1 = this.dStack.pop();
-                this.dStack.push(n1 > n2 ? this.TRUE : this.FALSE);
-                return { status: 0 /* Status.Ok */, value: '' };
-            },
-            '<': () => {
-                const n2 = this.dStack.pop();
-                const n1 = this.dStack.pop();
-                this.dStack.push(n1 < n2 ? this.TRUE : this.FALSE);
-                return { status: 0 /* Status.Ok */, value: '' };
-            },
-            // DO
-            'I': () => {
-                this.dStack.push(this.rStack.pick(0));
-                return { status: 0 /* Status.Ok */, value: '' };
-            },
-            'J': () => {
-                this.dStack.push(this.rStack.pick(1));
-                return { status: 0 /* Status.Ok */, value: '' };
-            },
-            'LEAVE': () => {
-                this.isLeaveActivated = true;
-                return { status: 0 /* Status.Ok */, value: '' };
-            },
-            // Tools
-            '.S': () => {
-                return { status: 0 /* Status.Ok */, value: this.printStack() };
-            },
-        };
         this.dStack = new Stack(capacity);
         this.rStack = new Stack(capacity);
         this.output = output;
         this.runMode = RunMode.Interpret;
-        this.isLeaveActivated = false;
+        this.isLeave = false;
         this.tempColonDef = { name: '', tokens: [] };
     }
     interpret(tokens, lineText) {
@@ -471,7 +461,7 @@ class Interpreter {
                         case TokenKind.LineComment:
                         case TokenKind.String:
                             break;
-                        case TokenKind.Keyword: {
+                        case TokenKind.Word: {
                             const wordName = token.value.toUpperCase();
                             if (wordName === ':') {
                                 if (i === tokens.length - 1 ||
@@ -488,37 +478,29 @@ class Interpreter {
                                 this.runMode = RunMode.Compile;
                                 continue;
                             }
-                            if (Dictionary.CompileOnlyWords.includes(wordName)) {
-                                this.die(lineText, token.value + ' No Interpretation');
-                                return;
+                            if (Dictionary.words.hasOwnProperty(wordName)) {
+                                const env = { runMode: this.runMode, dStack: this.dStack, rStack: this.rStack };
+                                const res = Dictionary.words[wordName](env);
+                                outText += res.value;
+                                if (res.status === 1 /* Status.Fail */) {
+                                    this.die(lineText, outText);
+                                    return;
+                                }
+                                break;
                             }
-                            if (!this.keyword.hasOwnProperty(wordName)) {
-                                this.die(lineText, token.value + ' Unknown keyword');
-                                return;
+                            if (Dictionary.colonDef.hasOwnProperty(wordName)) {
+                                this.runMode = RunMode.Run;
+                                const res = this.runTokens(Dictionary.colonDef[wordName].tokens);
+                                this.runMode = RunMode.Interpret;
+                                outText += res.value;
+                                if (res.status === 1 /* Status.Fail */) {
+                                    this.die(lineText, outText);
+                                    return;
+                                }
+                                break;
                             }
-                            const res = this.keyword[wordName]();
-                            outText += res.value;
-                            if (res.status === 1 /* Status.Fail */) {
-                                this.die(lineText, outText);
-                                return;
-                            }
-                            break;
-                        }
-                        case TokenKind.Word: {
-                            const wordName = token.value.toUpperCase();
-                            if (!this.colonDef.hasOwnProperty(wordName)) {
-                                this.die(lineText, token.value + ' Unknown word');
-                                return;
-                            }
-                            this.runMode = RunMode.Run;
-                            const res = this.runTokens(this.colonDef[wordName].tokens);
-                            this.runMode = RunMode.Interpret;
-                            outText += res.value;
-                            if (res.status === 1 /* Status.Fail */) {
-                                this.die(lineText, outText);
-                                return;
-                            }
-                            break;
+                            this.die(lineText, token.value + '  Unknown word');
+                            return;
                         }
                         default:
                             this.die(lineText, token.value + ' Interpret mode: Unreachable');
@@ -531,7 +513,7 @@ class Interpreter {
                         return;
                     }
                     if (token.value === ';') {
-                        this.colonDef[this.tempColonDef.name] = {
+                        Dictionary.colonDef[this.tempColonDef.name] = {
                             name: this.tempColonDef.name,
                             tokens: this.tempColonDef.tokens.slice()
                         };
@@ -550,23 +532,27 @@ class Interpreter {
                         case TokenKind.Number:
                         case TokenKind.Character:
                         case TokenKind.String:
-                        case TokenKind.Keyword:
                             this.tempColonDef.tokens.push(token);
                             break;
                         case TokenKind.Word:
-                            if (this.colonDef.hasOwnProperty(token.value.toUpperCase())) {
+                            const wordName = token.value.toUpperCase();
+                            if (Dictionary.words.hasOwnProperty(wordName)) {
                                 this.tempColonDef.tokens.push(token);
                                 break;
                             }
-                            this.die(lineText, token.value + ' ?');
+                            if (Dictionary.colonDef.hasOwnProperty(wordName)) {
+                                this.tempColonDef.tokens.push(token);
+                                break;
+                            }
+                            this.die(lineText, token.value + '  Unknown word');
                             return;
                         default:
-                            this.die(lineText, token.value + ' Compile mode: Unreachable');
+                            this.die(lineText, token.value + '  Compile mode: Unreachable');
                             return;
                     }
                 }
                 else if (this.runMode === RunMode.Run) {
-                    this.die(lineText, token.value + ' You should not be in Run mode here');
+                    this.die(lineText, token.value + '  You should not be in Run mode here');
                     return;
                 }
             }
@@ -599,9 +585,9 @@ class Interpreter {
                 case TokenKind.String:
                     outText += token.value;
                     break;
-                case TokenKind.Keyword: {
+                case TokenKind.Word:
                     const wordName = token.value.toUpperCase();
-                    if (this.isLeaveActivated)
+                    if (this.isLeave)
                         break;
                     if (wordName === 'IF') {
                         let thenIndex = i + 1;
@@ -672,7 +658,7 @@ class Interpreter {
                         const upwards = limit > counter;
                         if (isQuestionDup && counter === limit) {
                             i = loopIndex;
-                            this.isLeaveActivated = false;
+                            this.isLeave = false;
                             continue;
                         }
                         if (!isPlusLoop && !upwards)
@@ -681,7 +667,7 @@ class Interpreter {
                             this.rStack.push(counter);
                             const res = this.runTokens(tokens.slice(i + 1, loopIndex));
                             this.rStack.pop();
-                            if (this.isLeaveActivated)
+                            if (this.isLeave)
                                 break;
                             outText += res.value;
                             if (res.status === 1 /* Status.Fail */)
@@ -689,27 +675,29 @@ class Interpreter {
                             counter += isPlusLoop ? this.dStack.pop() : 1;
                         }
                         i = loopIndex;
-                        this.isLeaveActivated = false;
+                        this.isLeave = false;
                         continue;
                     }
-                    if (!this.keyword.hasOwnProperty(wordName))
-                        return { status: 1 /* Status.Fail */, value: token.value + ' Unknown keyword' };
-                    const res = this.keyword[wordName]();
-                    outText += res.value;
-                    if (res.status === 1 /* Status.Fail */)
-                        return { status: 1 /* Status.Fail */, value: outText };
-                    break;
-                }
-                case TokenKind.Word: {
-                    const wordName = token.value.toUpperCase();
-                    if (!this.colonDef.hasOwnProperty(wordName))
-                        return { status: 1 /* Status.Fail */, value: token.value + ' Unknown word' };
-                    const res = this.runTokens(this.colonDef[wordName].tokens);
-                    outText += res.value;
-                    if (res.status === 1 /* Status.Fail */)
-                        return { status: 1 /* Status.Fail */, value: outText };
-                    break;
-                }
+                    if (Dictionary.words.hasOwnProperty(wordName)) {
+                        const env = { runMode: this.runMode, dStack: this.dStack, rStack: this.rStack };
+                        const res = Dictionary.words[wordName](env);
+                        outText += res.value;
+                        if (res.status === 1 /* Status.Fail */)
+                            return { status: 1 /* Status.Fail */, value: outText };
+                        if (wordName === 'LEAVE') {
+                            this.isLeave = true;
+                            return { status: 0 /* Status.Ok */, value: outText };
+                        }
+                        break;
+                    }
+                    if (Dictionary.colonDef.hasOwnProperty(wordName)) {
+                        const res = this.runTokens(Dictionary.colonDef[wordName].tokens);
+                        outText += res.value;
+                        if (res.status === 1 /* Status.Fail */)
+                            return { status: 1 /* Status.Fail */, value: outText };
+                        break;
+                    }
+                    return { status: 1 /* Status.Fail */, value: `${outText} ${token.value}  Unknown word` };
                 default:
                     throw new Error('runTokens:  Unreachable');
             }
@@ -721,7 +709,7 @@ class Interpreter {
         this.rStack.clear();
         this.output(`${lineText} ${message}\n`);
         this.runMode = RunMode.Interpret;
-        this.isLeaveActivated = false;
+        this.isLeave = false;
     }
 }
 class Stack {
@@ -815,9 +803,7 @@ class Tokenizer {
                     // Eat word delimited by <space>
                     const toIndex = this.findIndex(codeLine, ' ', index);
                     const word = codeLine.slice(index, toIndex);
-                    if (Dictionary.Words.hasOwnProperty(word.toUpperCase()))
-                        tokens.push({ kind: TokenKind.Keyword, value: word, pos });
-                    else if (word.match(/^[+-]?\d+$/))
+                    if (word.match(/^[+-]?\d+$/))
                         tokens.push({ kind: TokenKind.Number, value: word, pos });
                     else
                         tokens.push({ kind: TokenKind.Word, value: word, pos });

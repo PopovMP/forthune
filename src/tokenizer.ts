@@ -61,9 +61,7 @@ class Tokenizer
 					// Eat word delimited by <space>
 					const toIndex = this.findIndex(codeLine, ' ', index)
 					const word    = codeLine.slice(index, toIndex)
-					if (Dictionary.Words.hasOwnProperty(word.toUpperCase()))
-						tokens.push({kind: TokenKind.Keyword, value: word, pos})
-					else if (word.match(/^[+-]?\d+$/))
+					if (word.match(/^[+-]?\d+$/))
 						tokens.push({kind: TokenKind.Number, value: word, pos})
 					else
 						tokens.push({kind: TokenKind.Word, value: word, pos})
