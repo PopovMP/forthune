@@ -400,5 +400,22 @@ class Dictionary
 		'.S': (env: Environment) => {
 			return {status: Status.Ok, value: env.dStack.print()}
 		},
+
+		'WORDS': () => {
+			const words = [
+				...Object.keys(Dictionary.colonDef),
+				...Object.keys(Dictionary.words),
+			].sort()
+
+			const output = []
+
+			for (let i = 0; i < words.length; i++) {
+				if (i % 6 === 0)
+					output.push('\n')
+				output.push(words[i].padEnd(10, ' '))
+			}
+
+			return {status: Status.Ok, value: output.join('') + '\n'}
+		},
 	}
 }
