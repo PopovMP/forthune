@@ -705,7 +705,7 @@ class Interpreter {
                         tokens: []
                     };
                     env.runMode = RunMode.Compile;
-                    return { status: 0 /* Status.Ok */, value: token.value };
+                    return { status: 0 /* Status.Ok */, value: '' };
                 }
                 if (Dictionary.words.hasOwnProperty(wordName)) {
                     return Dictionary.words[wordName](env);

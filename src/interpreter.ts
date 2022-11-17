@@ -35,7 +35,7 @@ class Interpreter
 
 					env.runMode = RunMode.Compile
 
-					return {status: Status.Ok, value: token.value}
+					return {status: Status.Ok, value: ''}
 				}
 
 				if (Dictionary.words.hasOwnProperty(wordName)) {
