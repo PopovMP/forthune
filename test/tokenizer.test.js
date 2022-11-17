@@ -45,6 +45,11 @@ describe('tokenize', () => {
 			'( foo )')
 	})
 
+	it('char', () => {
+		tok('char foo"',
+			'char f')
+	})
+
 	it('string', () => {
 		tok('." foo"',
 			'." foo"')

@@ -1,6 +1,6 @@
 class Dictionary
 {
-	public static readonly CoreWord: {[word: string]: string} = {
+	public static readonly Words: {[word: string]: string} = {
 		'('     : 'paren',
 		'*'     : 'start',
 		'+'     : 'plus',
@@ -37,16 +37,14 @@ class Dictionary
 		'SWAP'  : 'swap',
 		'THEN'  : 'then',
 		'?DUP'  : 'question-dupe',
-	}
 
-	public static readonly CoreExtensionWord: {[word: string]: string} = {
+		// Core extension
 		'\\'   : 'backslash',
 		'.('   : 'dot-paren',
 		'<>'   : 'not-equals',
 		'?DO'  : 'question-do',
-	}
 
-	public static readonly ToolsWord: {[word: string]: string} = {
+		// Tools
 		'.S'   : 'dot-s',
 	}
 

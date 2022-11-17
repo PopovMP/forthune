@@ -2,82 +2,76 @@ class Tokenizer
 {
 	public static tokenizeLine(codeLine: string, lineNum: number): Token[]
 	{
-		const keywords = [
-			...Object.keys(Dictionary.CoreWord),
-			...Object.keys(Dictionary.CoreExtensionWord),
-			...Object.keys(Dictionary.ToolsWord),
-		]
-
 		const tokens: Token[] = []
 
-		let fromIndex = 0
-		let prevWord  = ''
-		while (fromIndex < codeLine.length) {
-			const ch0 = codeLine[fromIndex]
+		let index    = 0
+		let prevWord = ''
 
-			// Eat leading spaces
-			if (prevWord !== '."' && (ch0 === ' ' || ch0 === '\t')) {
-				fromIndex += 1
-				continue
+		while (index < codeLine.length) {
+			// Eat leading white space
+			if (prevWord !== '."') {
+				while (codeLine[index] === ' ' || codeLine[index] === '\t') {
+					if (index >= codeLine.length)
+						break
+					index += 1
+				}
 			}
 
-			let toIndex = fromIndex
+			const pos = {line: lineNum, col: index}
 
-			// Immediate words
-			switch (prevWord.toUpperCase()) {
-				case '\\': // Eat line comment delimited by <newline>
-					while (toIndex < codeLine.length)
-						toIndex += 1
+			switch (prevWord) {
+				case '\\': {
+					// Eat line comment delimited by <newline>
+					const toIndex = this.findIndex(codeLine, '\n', index)
+					const comment = codeLine.slice(index, toIndex)
+					tokens.push({kind: TokenKind.LineComment, value: comment, pos})
+					index    = toIndex + 1
+					prevWord = ''
 					break
-				case '(':
-				case '.(': // Eat comment delimited by <paren>
-					while (codeLine[toIndex] !== ')' && toIndex < codeLine.length)
-						toIndex += 1
+				}
+				case  '(':
+				case '.(': {
+					// Eat comment delimited by <paren>
+					const toIndex = this.findIndex(codeLine, ')', index)
+					const comment = codeLine.slice(index, toIndex)
+					tokens.push({kind: TokenKind.Comment, value: comment, pos})
+					index    = toIndex + 1
+					prevWord = ''
 					break
-				case '."': // Eat string delimited by <comma>
-					while (codeLine[toIndex] !== '"' && toIndex < codeLine.length)
-						toIndex += 1
+				}
+				case 'CHAR': {
+					// Eat character delimited by <space>
+					const toIndex = this.findIndex(codeLine, ' ', index)
+					const char    = codeLine.slice(index, toIndex).slice(0, 1)
+					tokens.push({kind: TokenKind.Character, value: char, pos})
+					index    = toIndex + 1
+					prevWord = ''
 					break
-				case 'CHAR': // Eat character delimited by <space>
-					while (codeLine[toIndex] !== ' ' && codeLine[toIndex] !== '\t' && toIndex < codeLine.length)
-						toIndex += 1
+				}
+				case '."': {
+					// Eat string delimited by <comma>
+					const toIndex = this.findIndex(codeLine, '"', index)
+					const text    = codeLine.slice(index, toIndex)
+					tokens.push({kind: TokenKind.String, value: text, pos})
+					index    = toIndex + 1
+					prevWord = ''
 					break
-				default: // Eat word delimited by <space>
-					while (codeLine[toIndex] !== ' ' && codeLine[toIndex] !== '\t' && toIndex < codeLine.length)
-						toIndex += 1
+				}
+				default: {
+					// Eat word delimited by <space>
+					const toIndex = this.findIndex(codeLine, ' ', index)
+					const word    = codeLine.slice(index, toIndex)
+					if (Dictionary.Words.hasOwnProperty(word.toUpperCase()))
+						tokens.push({kind: TokenKind.Keyword, value: word, pos})
+					else if (word.match(/^[+-]?\d+$/))
+						tokens.push({kind: TokenKind.Number, value: word, pos})
+					else
+						tokens.push({kind: TokenKind.Word, value: word, pos})
+					index    = toIndex + 1
+					prevWord = word.toUpperCase()
 					break
+				}
 			}
-
-			const pos = {line: lineNum, col: fromIndex}
-
-			const currentWord = codeLine.slice(fromIndex, toIndex)
-			fromIndex = toIndex + 1
-
-			switch (prevWord.toUpperCase()) {
-				case '\\': // Line comment
-					tokens.push({kind: TokenKind.LineComment, value: currentWord, pos})
-					break
-				case '(': // Comment
-				case '.(':
-					tokens.push({kind: TokenKind.Comment, value: currentWord, pos})
-					break
-				case '."': // String
-					tokens.push({kind: TokenKind.String, value: currentWord, pos})
-					break
-				case 'CHAR': // Character
-					tokens.push({kind: TokenKind.Character, value: currentWord, pos})
-					break
-				default:
-					if (keywords.includes(currentWord.toUpperCase())) // Known word
-						tokens.push({kind: TokenKind.Keyword, value: currentWord, pos})
-					else if (currentWord.match(/^[+-]?\d+$/)) // Number
-						tokens.push({kind: TokenKind.Number, value: currentWord, pos})
-					else // Unknown word
-						tokens.push({kind: TokenKind.Word, value: currentWord, pos})
-					break
-			}
-
-			prevWord = currentWord
 		}
 
 		return tokens
@@ -92,6 +86,16 @@ class Tokenizer
 				default               : return token.value
 			}
 		}).join(' ')
+	}
+
+	private static findIndex(text: string, delimiter: string, fromIndex: number): number
+	{
+		let i = fromIndex
+
+		while (text[i] !== delimiter && i < text.length)
+			i += 1
+
+		return i
 	}
 }
 

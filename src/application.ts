@@ -52,7 +52,7 @@ class Application
 			const cmdText = this.inputLine.value
 			this.inputLine.value = ''
 
-			this.compileCode(cmdText)
+			this.compileCodeLine(cmdText, 0)
 
 			return
 		}
@@ -90,17 +90,18 @@ class Application
 		this.importFile.value = ''
 	}
 
+	private trimText(text: string, maxLines: number)
+	{
+		return text.split('\n').slice(- maxLines).join('\n')
+	}
+
 	private output(text: string): void
 	{
-		const outputText = this.outputBuffer + text
-		const outSplit = outputText.split('\n')
-		while (outSplit.length > this.OUT_BUFFER_LINES)
-			outSplit.shift()
-		this.outputBuffer = outSplit.join('\n')
+		this.outputBuffer = this.trimText(this.outputBuffer + text, this.OUT_BUFFER_LINES)
 		this.outputLog.innerText = this.outputBuffer
 	}
 
-	private compileCode(cmdText: string): void
+	private compileCodeLine(cmdText: string, lineNum: number): void
 	{
 		if (cmdText !== '' && (this.inputBuffer.length === 0 ||
 			this.inputBuffer[this.inputBuffer.length-1] !== cmdText)) {
@@ -108,7 +109,7 @@ class Application
 			this.inputIndex = this.inputBuffer.length - 1
 		}
 
-		const tokens = Tokenizer.tokenizeLine(cmdText, 0)
+		const tokens = Tokenizer.tokenizeLine(cmdText, lineNum)
 		this.interpreter.interpret(tokens, cmdText)
 
 		this.stackView.innerText = this.interpreter.printStack()
@@ -130,17 +131,15 @@ class Application
 		event.target.removeEventListener('load', this.fileReader_load)
 
 		try {
-			this.onFileLoaded(fileName, event.target.result)
-		} catch (error: any) {
-			this.output(`${fileName} ${(error as Error).message}\n`)
+			this.output(`${fileName}  File loaded\n`)
+
+			const codeLines = event.target.result.split(/\r?\n/g)
+
+			for (let i = 0; i < codeLines.length; i += 1)
+				this.compileCodeLine(codeLines[i], i)
 		}
-	}
-
-	private onFileLoaded(fileName: string, fileContent: string): void {
-		this.output(`${fileName}  File loaded\n`)
-
-		for (const line of fileContent.split(/\r?\n/g)) {
-			this.compileCode(line)
+		catch (error: any) {
+			this.output(`${fileName} ${(error as Error).message}\n`)
 		}
 	}
 }
