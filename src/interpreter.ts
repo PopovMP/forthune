@@ -500,6 +500,120 @@ class Interpreter
 			return {status: Status.Ok, value: ''}
 		},
 
+		'NIP': () => {
+			// ( x1 x2 -- x2 )
+			const n2 = this.dStack.pop()
+			this.dStack.pop() // n1
+			this.dStack.push(n2)
+			return {status: Status.Ok, value: ''}
+		},
+
+		'TUCK': () => {
+			// ( x1 x2 -- x2 x1 x2 )
+			const n2 = this.dStack.pop()
+			const n1 = this.dStack.pop()
+			this.dStack.push(n2)
+			this.dStack.push(n1)
+			this.dStack.push(n2)
+			return {status: Status.Ok, value: ''}
+		},
+
+		'2DROP': () => {
+			// ( x1 x2 -- )
+			this.dStack.pop()
+			this.dStack.pop()
+			return {status: Status.Ok, value: ''}
+		},
+
+		'2DUP': () => {
+			// ( x1 x2 -- x1 x2 x1 x2 )
+			const n2 = this.dStack.pop()
+			const n1 = this.dStack.pop()
+			this.dStack.push(n1)
+			this.dStack.push(n2)
+			this.dStack.push(n1)
+			this.dStack.push(n2)
+			return {status: Status.Ok, value: ''}
+		},
+
+		'2SWAP': () => {
+			// ( x1 x2 x3 x4 -- x3 x4 x1 x2 )
+			const n4 = this.dStack.pop()
+			const n3 = this.dStack.pop()
+			const n2 = this.dStack.pop()
+			const n1 = this.dStack.pop()
+			this.dStack.push(n3)
+			this.dStack.push(n4)
+			this.dStack.push(n1)
+			this.dStack.push(n2)
+			return {status: Status.Ok, value: ''}
+		},
+
+		'2OVER': () => {
+			// ( x1 x2 x3 x4 --  x1 x2 x3 x4 x1 x2 )
+			const n4 = this.dStack.pop()
+			const n3 = this.dStack.pop()
+			const n2 = this.dStack.pop()
+			const n1 = this.dStack.pop()
+			this.dStack.push(n1)
+			this.dStack.push(n2)
+			this.dStack.push(n3)
+			this.dStack.push(n4)
+			this.dStack.push(n1)
+			this.dStack.push(n2)
+			return {status: Status.Ok, value: ''}
+		},
+
+		// Return stack
+
+		'>R': () => {
+			// ( x -- ) ( R: -- x )
+			const n1 = this.dStack.pop()
+			this.rStack.push(n1)
+			return {status: Status.Ok, value: ''}
+		},
+
+		'R@': () => {
+			// ( -- x ) ( R: x -- x )
+			const n1 = this.rStack.pick(0)
+			this.dStack.push(n1)
+			return {status: Status.Ok, value: ''}
+		},
+
+		'R>': () => {
+			// ( -- x ) ( R: x -- )
+			const n1 = this.rStack.pop()
+			this.dStack.push(n1)
+			return {status: Status.Ok, value: ''}
+		},
+
+		'2>R': () => {
+			// ( x1 x2 -- ) ( R: -- x1 x2 )
+			const n2 = this.dStack.pop()
+			const n1 = this.dStack.pop()
+			this.rStack.push(n1)
+			this.rStack.push(n2)
+			return {status: Status.Ok, value: ''}
+		},
+
+		'2R@': () => {
+			// ( -- x1 x2 ) ( R: x1 x2 -- x1 x2 )
+			const n2 = this.rStack.pick(1)
+			const n1 = this.rStack.pick(0)
+			this.dStack.push(n1)
+			this.dStack.push(n2)
+			return {status: Status.Ok, value: ''}
+		},
+
+		'2R>': () => {
+			// ( -- x1 x2 ) ( R: x1 x2 -- )
+			const n2 = this.rStack.pop()
+			const n1 = this.rStack.pop()
+			this.dStack.push(n1)
+			this.dStack.push(n2)
+			return {status: Status.Ok, value: ''}
+		},
+
 		// Comparison
 
 		'=': () => {

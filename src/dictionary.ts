@@ -37,18 +37,31 @@ class Dictionary
 		'SWAP'  : 'swap',
 		'THEN'  : 'then',
 		'?DUP'  : 'question-dupe',
+		'2DROP' : 'two-drop',
+		'2DUP'  : 'two-dupe',
+		'2SWAP' : 'two-swap',
+		'2OVER' : 'two-over',
+		'>R'    : 'to-r',
+		'R@'    : 'r-fetch',
+		'R>'    : 'r-from',
+		'2>R'   : 'two-to-r',
+		'2R@'   : 'two-r-fetch',
+		'2R>'   : 'two-r-from',
 
 		// Core extension
 		'\\'   : 'backslash',
 		'.('   : 'dot-paren',
 		'<>'   : 'not-equals',
 		'?DO'  : 'question-do',
+		'NIP'  : 'nip',
+		'TUCK' : 'tuck',
 
 		// Tools
 		'.S'   : 'dot-s',
 	}
 
 	public static readonly CompileOnlyWords = [
-		'.(', '."', '?DO', 'DO', 'I', 'J', 'LEAVE', 'LOOP', '+LOOP', ';', 'IF', 'ELSE', 'THEN'
+		'.(', '."', '?DO', 'DO', 'I', 'J', 'LEAVE', 'LOOP', '+LOOP', ';', 'IF', 'ELSE', 'THEN',
+		'>R', 'R@', 'R>', '2>R', '2R@', '2R>',
 	]
 }
