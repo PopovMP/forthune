@@ -1,16 +1,16 @@
 // noinspection JSUnusedGlobalSymbols
 class Application
 {
-	private readonly interpreter: Interpreter
-	private readonly screen     : HTMLElement
-	private readonly outputLog  : HTMLElement
-	private readonly inputLine  : HTMLInputElement
-	private readonly importFile : HTMLInputElement
-	private readonly stackView  : HTMLElement
-	private readonly wordsElem  : HTMLElement
+	private readonly forth: Forth
+
+	private readonly screen    : HTMLElement
+	private readonly outputLog : HTMLElement
+	private readonly inputLine : HTMLInputElement
+	private readonly importFile: HTMLInputElement
+	private readonly stackView : HTMLElement
+	private readonly wordsElem : HTMLElement
 
 	private readonly OUT_BUFFER_LINES = 24
-	private readonly STACK_CAPACITY   = 1024
 	private readonly inputBuffer: string[]
 
 	private inputIndex  : number
@@ -19,7 +19,7 @@ class Application
 	// noinspection JSUnusedGlobalSymbols
 	constructor()
 	{
-		this.interpreter = new Interpreter(this.STACK_CAPACITY, this.output.bind(this))
+		this.forth = new Forth(this.output.bind(this))
 
 		this.screen      = document.getElementById('screen')      as HTMLElement
 		this.outputLog   = document.getElementById('output-log')  as HTMLElement
@@ -35,7 +35,7 @@ class Application
 		this.importFile.addEventListener('change', this.importFile_change.bind(this))
 		this.outputLog.innerText = ''
 		this.inputLine.value     = ''
-		this.stackView.innerText = this.interpreter.printStack()
+		this.stackView.innerText = this.forth.printStack()
 
 		this.outputLog.addEventListener('click', () => this.inputLine.focus())
 		this.screen.addEventListener('click', () => this.inputLine.focus())
@@ -110,12 +110,13 @@ class Application
 		}
 
 		const tokens = Tokenizer.tokenizeLine(cmdText, lineNum)
-		this.interpreter.interpret(tokens, cmdText)
+		this.forth.run(tokens, cmdText)
 
-		this.stackView.innerText = this.interpreter.printStack()
+		this.stackView.innerText = this.forth.printStack()
 	}
 
-	private readFile(file: File): void {
+	private readFile(file: File): void
+	{
 		const isFile: boolean = file instanceof File
 		if (!isFile) return
 
@@ -124,7 +125,8 @@ class Application
 		fileReader.readAsText(file, 'ascii')
 	}
 
-	private fileReader_load(fileName: string, event: any): void {
+	private fileReader_load(fileName: string, event: any): void
+	{
 		event.stopPropagation()
 		event.preventDefault()
 

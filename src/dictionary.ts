@@ -340,9 +340,11 @@ class Dictionary
 		},
 
 		'LEAVE': (env: Environment) => {
-			return env.runMode === RunMode.Interpret
-				? {status: Status.Fail, value: ' LEAVE No Interpretation'}
-				: {status: Status.Ok, value: ''}
+			if (env.runMode === RunMode.Interpret)
+				return {status: Status.Fail, value: ' LEAVE  No Interpretation'}
+
+			env.isLeave = true
+			return {status: Status.Ok, value: ''}
 		},
 
 		'LOOP': (env: Environment) => {

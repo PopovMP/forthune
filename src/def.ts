@@ -1,8 +1,11 @@
 interface Environment
 {
 	runMode: RunMode,
+	isLeave: boolean
 	dStack : Stack
 	rStack : Stack
+	tempDef: ColonDef
+	output : (text: string) => void
 }
 
 interface Position

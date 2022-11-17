@@ -1,12 +1,10 @@
 "use strict";
-
-// noinspection JSUnusedGlobalSymbols,JSUnusedLocalSymbols
+// noinspection JSUnusedGlobalSymbols
 class Application {
     // noinspection JSUnusedGlobalSymbols
     constructor() {
         this.OUT_BUFFER_LINES = 24;
-        this.STACK_CAPACITY = 1024;
-        this.interpreter = new Interpreter(this.STACK_CAPACITY, this.output.bind(this));
+        this.forth = new Forth(this.output.bind(this));
         this.screen = document.getElementById('screen');
         this.outputLog = document.getElementById('output-log');
         this.inputLine = document.getElementById('input-line');
@@ -20,7 +18,7 @@ class Application {
         this.importFile.addEventListener('change', this.importFile_change.bind(this));
         this.outputLog.innerText = '';
         this.inputLine.value = '';
-        this.stackView.innerText = this.interpreter.printStack();
+        this.stackView.innerText = this.forth.printStack();
         this.outputLog.addEventListener('click', () => this.inputLine.focus());
         this.screen.addEventListener('click', () => this.inputLine.focus());
         document.addEventListener('click', () => this.inputLine.focus());
@@ -73,8 +71,8 @@ class Application {
             this.inputIndex = this.inputBuffer.length - 1;
         }
         const tokens = Tokenizer.tokenizeLine(cmdText, lineNum);
-        this.interpreter.interpret(tokens, cmdText);
-        this.stackView.innerText = this.interpreter.printStack();
+        this.forth.run(tokens, cmdText);
+        this.stackView.innerText = this.forth.printStack();
     }
     readFile(file) {
         const isFile = file instanceof File;
@@ -97,6 +95,51 @@ class Application {
         catch (error) {
             this.output(`${fileName} ${error.message}\n`);
         }
+    }
+}
+class Compiler {
+    static compile(tokens, index, env) {
+        const token = tokens[index];
+        if (token.value === ':') {
+            return { status: 1 /* Status.Fail */, value: token.value + '  Nested definition' };
+        }
+        if (token.value === ';') {
+            Dictionary.colonDef[env.tempDef.name] = {
+                name: env.tempDef.name,
+                tokens: env.tempDef.tokens.slice()
+            };
+            env.tempDef = { name: '', tokens: [] };
+            env.runMode = RunMode.Interpret;
+            return { status: 0 /* Status.Ok */, value: '' };
+        }
+        if (token.kind === TokenKind.Comment &&
+            index > 0 && tokens[index - 1].value === '.(') {
+            return { status: 0 /* Status.Ok */, value: token.value };
+        }
+        switch (token.kind) {
+            case TokenKind.Comment:
+            case TokenKind.LineComment:
+                break;
+            case TokenKind.Number:
+            case TokenKind.Character:
+            case TokenKind.String:
+                env.tempDef.tokens.push(token);
+                break;
+            case TokenKind.Word:
+                const wordName = token.value.toUpperCase();
+                if (Dictionary.words.hasOwnProperty(wordName)) {
+                    env.tempDef.tokens.push(token);
+                    break;
+                }
+                if (Dictionary.colonDef.hasOwnProperty(wordName)) {
+                    env.tempDef.tokens.push(token);
+                    break;
+                }
+                return { status: 1 /* Status.Fail */, value: token.value + '  Unknown word' };
+            default:
+                return { status: 1 /* Status.Fail */, value: token.value + '  Compile mode: Unreachable' };
+        }
+        return { status: 0 /* Status.Ok */, value: '' };
     }
 }
 var Status;
@@ -400,9 +443,10 @@ Dictionary.words = {
         return { status: 0 /* Status.Ok */, value: '' };
     },
     'LEAVE': (env) => {
-        return env.runMode === RunMode.Interpret
-            ? { status: 1 /* Status.Fail */, value: ' LEAVE No Interpretation' }
-            : { status: 0 /* Status.Ok */, value: '' };
+        if (env.runMode === RunMode.Interpret)
+            return { status: 1 /* Status.Fail */, value: ' LEAVE  No Interpretation' };
+        env.isLeave = true;
+        return { status: 0 /* Status.Ok */, value: '' };
     },
     'LOOP': (env) => {
         return env.runMode === RunMode.Interpret
@@ -435,159 +479,27 @@ Dictionary.words = {
         return { status: 0 /* Status.Ok */, value: env.dStack.print() };
     },
 };
-class Interpreter {
-    constructor(capacity, output) {
-        this.dStack = new Stack(capacity);
-        this.rStack = new Stack(capacity);
-        this.output = output;
-        this.runMode = RunMode.Interpret;
-        this.isLeave = false;
-        this.tempColonDef = { name: '', tokens: [] };
-    }
-    interpret(tokens, lineText) {
-        let outText = '';
-        try {
-            for (let i = 0; i < tokens.length; i += 1) {
-                const token = tokens[i];
-                if (this.runMode === RunMode.Interpret) {
-                    switch (token.kind) {
-                        case TokenKind.Number:
-                            this.dStack.push(parseInt(token.value));
-                            break;
-                        case TokenKind.Character:
-                            this.dStack.push(token.value.charCodeAt(0));
-                            break;
-                        case TokenKind.Comment:
-                        case TokenKind.LineComment:
-                        case TokenKind.String:
-                            break;
-                        case TokenKind.Word: {
-                            const wordName = token.value.toUpperCase();
-                            if (wordName === ':') {
-                                if (i === tokens.length - 1 ||
-                                    tokens[i + 1].kind !== TokenKind.Word ||
-                                    tokens[i + 1].value === ';') {
-                                    this.die(lineText, token.value + ' Empty definition name');
-                                    return;
-                                }
-                                this.tempColonDef = {
-                                    name: tokens[i + 1].value.toUpperCase(),
-                                    tokens: []
-                                };
-                                i += 1; // Eat def name
-                                this.runMode = RunMode.Compile;
-                                continue;
-                            }
-                            if (Dictionary.words.hasOwnProperty(wordName)) {
-                                const env = { runMode: this.runMode, dStack: this.dStack, rStack: this.rStack };
-                                const res = Dictionary.words[wordName](env);
-                                outText += res.value;
-                                if (res.status === 1 /* Status.Fail */) {
-                                    this.die(lineText, outText);
-                                    return;
-                                }
-                                break;
-                            }
-                            if (Dictionary.colonDef.hasOwnProperty(wordName)) {
-                                this.runMode = RunMode.Run;
-                                const res = this.runTokens(Dictionary.colonDef[wordName].tokens);
-                                this.runMode = RunMode.Interpret;
-                                outText += res.value;
-                                if (res.status === 1 /* Status.Fail */) {
-                                    this.die(lineText, outText);
-                                    return;
-                                }
-                                break;
-                            }
-                            this.die(lineText, token.value + '  Unknown word');
-                            return;
-                        }
-                        default:
-                            this.die(lineText, token.value + ' Interpret mode: Unreachable');
-                            return;
-                    }
-                }
-                else if (this.runMode === RunMode.Compile) {
-                    if (token.value === ':') {
-                        this.die(lineText, token.value + ' Nested definition');
-                        return;
-                    }
-                    if (token.value === ';') {
-                        Dictionary.colonDef[this.tempColonDef.name] = {
-                            name: this.tempColonDef.name,
-                            tokens: this.tempColonDef.tokens.slice()
-                        };
-                        this.tempColonDef = { name: '', tokens: [] };
-                        this.runMode = RunMode.Interpret;
-                        continue;
-                    }
-                    if (token.kind === TokenKind.Comment && i > 0 && tokens[i - 1].value === '.(') {
-                        outText += token.value;
-                        continue;
-                    }
-                    switch (token.kind) {
-                        case TokenKind.Comment:
-                        case TokenKind.LineComment:
-                            break;
-                        case TokenKind.Number:
-                        case TokenKind.Character:
-                        case TokenKind.String:
-                            this.tempColonDef.tokens.push(token);
-                            break;
-                        case TokenKind.Word:
-                            const wordName = token.value.toUpperCase();
-                            if (Dictionary.words.hasOwnProperty(wordName)) {
-                                this.tempColonDef.tokens.push(token);
-                                break;
-                            }
-                            if (Dictionary.colonDef.hasOwnProperty(wordName)) {
-                                this.tempColonDef.tokens.push(token);
-                                break;
-                            }
-                            this.die(lineText, token.value + '  Unknown word');
-                            return;
-                        default:
-                            this.die(lineText, token.value + '  Compile mode: Unreachable');
-                            return;
-                    }
-                }
-                else if (this.runMode === RunMode.Run) {
-                    this.die(lineText, token.value + '  You should not be in Run mode here');
-                    return;
-                }
-            }
-        }
-        catch (e) {
-            this.die(lineText, e.message);
-            return;
-        }
-        const status = this.runMode === RunMode.Interpret ? 'ok' : 'compiling';
-        const message = outText === '' ? '' : outText.endsWith(' ') ? outText : outText + ' ';
-        this.output(`${lineText} ${message} ${status}\n`);
-    }
-    printStack() {
-        return this.dStack.print();
-    }
-    runTokens(tokens) {
+class Executor {
+    static run(tokens, env) {
         let outText = '';
         for (let i = 0; i < tokens.length; i++) {
             const token = tokens[i];
             switch (token.kind) {
                 case TokenKind.Number:
-                    this.dStack.push(parseInt(token.value));
+                    env.dStack.push(parseInt(token.value));
                     break;
                 case TokenKind.Comment:
                 case TokenKind.LineComment:
                     break;
                 case TokenKind.Character:
-                    this.dStack.push(token.value.charCodeAt(0));
+                    env.dStack.push(token.value.charCodeAt(0));
                     break;
                 case TokenKind.String:
                     outText += token.value;
                     break;
                 case TokenKind.Word:
                     const wordName = token.value.toUpperCase();
-                    if (this.isLeave)
+                    if (env.isLeave)
                         break;
                     if (wordName === 'IF') {
                         let thenIndex = i + 1;
@@ -616,10 +528,10 @@ class Interpreter {
                             if (ifDepth === 1 && loopWord === 'ELSE')
                                 break;
                         }
-                        const flag = this.dStack.pop();
+                        const flag = env.dStack.pop();
                         if (flag === 0) {
                             if (elseIndex < thenIndex) {
-                                const res = this.runTokens(tokens.slice(elseIndex + 1, thenIndex));
+                                const res = Executor.run(tokens.slice(elseIndex + 1, thenIndex), env);
                                 outText += res.value;
                                 if (res.status === 1 /* Status.Fail */)
                                     return { status: 1 /* Status.Fail */, value: outText };
@@ -628,7 +540,7 @@ class Interpreter {
                             continue;
                         }
                         else {
-                            const res = this.runTokens(tokens.slice(i + 1, elseIndex));
+                            const res = Executor.run(tokens.slice(i + 1, elseIndex), env);
                             outText += res.value;
                             if (res.status === 1 /* Status.Fail */)
                                 return { status: 1 /* Status.Fail */, value: outText };
@@ -653,45 +565,42 @@ class Interpreter {
                                 break;
                         }
                         const isPlusLoop = tokens[loopIndex].value.toUpperCase() === '+LOOP';
-                        let counter = this.dStack.pop();
-                        const limit = this.dStack.pop();
+                        let counter = env.dStack.pop();
+                        const limit = env.dStack.pop();
                         const upwards = limit > counter;
                         if (isQuestionDup && counter === limit) {
                             i = loopIndex;
-                            this.isLeave = false;
+                            env.isLeave = false;
                             continue;
                         }
                         if (!isPlusLoop && !upwards)
                             return { status: 1 /* Status.Fail */, value: ' LOOP wrong range' };
                         while (upwards ? counter < limit : counter >= limit) {
-                            this.rStack.push(counter);
-                            const res = this.runTokens(tokens.slice(i + 1, loopIndex));
-                            this.rStack.pop();
-                            if (this.isLeave)
+                            env.rStack.push(counter);
+                            const res = Executor.run(tokens.slice(i + 1, loopIndex), env);
+                            env.rStack.pop();
+                            if (env.isLeave)
                                 break;
                             outText += res.value;
                             if (res.status === 1 /* Status.Fail */)
                                 return { status: 1 /* Status.Fail */, value: outText };
-                            counter += isPlusLoop ? this.dStack.pop() : 1;
+                            counter += isPlusLoop ? env.dStack.pop() : 1;
                         }
                         i = loopIndex;
-                        this.isLeave = false;
+                        env.isLeave = false;
                         continue;
                     }
                     if (Dictionary.words.hasOwnProperty(wordName)) {
-                        const env = { runMode: this.runMode, dStack: this.dStack, rStack: this.rStack };
                         const res = Dictionary.words[wordName](env);
                         outText += res.value;
                         if (res.status === 1 /* Status.Fail */)
                             return { status: 1 /* Status.Fail */, value: outText };
-                        if (wordName === 'LEAVE') {
-                            this.isLeave = true;
+                        if (env.isLeave)
                             return { status: 0 /* Status.Ok */, value: outText };
-                        }
                         break;
                     }
                     if (Dictionary.colonDef.hasOwnProperty(wordName)) {
-                        const res = this.runTokens(Dictionary.colonDef[wordName].tokens);
+                        const res = Executor.run(Dictionary.colonDef[wordName].tokens, env);
                         outText += res.value;
                         if (res.status === 1 /* Status.Fail */)
                             return { status: 1 /* Status.Fail */, value: outText };
@@ -704,12 +613,115 @@ class Interpreter {
         }
         return { status: 0 /* Status.Ok */, value: outText };
     }
+}
+class Forth {
+    constructor(output) {
+        this.STACK_CAPACITY = 1024;
+        this.env = {
+            runMode: RunMode.Interpret,
+            isLeave: false,
+            dStack: new Stack(this.STACK_CAPACITY),
+            rStack: new Stack(this.STACK_CAPACITY),
+            tempDef: { name: '', tokens: [] },
+            output,
+        };
+    }
+    run(tokens, lineText) {
+        let outText = '';
+        try {
+            for (let i = 0; i < tokens.length; i += 1) {
+                const token = tokens[i];
+                switch (this.env.runMode) {
+                    case RunMode.Interpret: {
+                        const res = Interpreter.run(tokens, i, this.env);
+                        outText += res.value;
+                        if (res.status === 1 /* Status.Fail */) {
+                            this.die(lineText, outText);
+                            return;
+                        }
+                        // Increment i because the definition name is eaten by Interpreter
+                        if (token.value === ':')
+                            i += 1;
+                        break;
+                    }
+                    case RunMode.Compile: {
+                        const res = Compiler.compile(tokens, i, this.env);
+                        outText += res.value;
+                        if (res.status === 1 /* Status.Fail */) {
+                            this.die(lineText, outText);
+                            return;
+                        }
+                        break;
+                    }
+                    case RunMode.Run:
+                        this.die(lineText, token.value + '  You should not be in Run mode here');
+                        return;
+                }
+            }
+        }
+        catch (e) {
+            this.die(lineText, e.message);
+            return;
+        }
+        const status = this.env.runMode === RunMode.Interpret ? 'ok' : 'compiling';
+        const message = outText === '' ? '' : outText.endsWith(' ') ? outText : outText + ' ';
+        this.env.output(`${lineText} ${message} ${status}\n`);
+    }
+    printStack() {
+        return this.env.dStack.print();
+    }
     die(lineText, message) {
-        this.dStack.clear();
-        this.rStack.clear();
-        this.output(`${lineText} ${message}\n`);
-        this.runMode = RunMode.Interpret;
-        this.isLeave = false;
+        this.env.dStack.clear();
+        this.env.rStack.clear();
+        this.env.output(`${lineText} ${message}\n`);
+        this.env.runMode = RunMode.Interpret;
+        this.env.isLeave = false;
+    }
+}
+class Interpreter {
+    static run(tokens, index, env) {
+        const token = tokens[index];
+        switch (token.kind) {
+            case TokenKind.Number:
+                env.dStack.push(parseInt(token.value));
+                break;
+            case TokenKind.Character:
+                env.dStack.push(token.value.charCodeAt(0));
+                break;
+            case TokenKind.Comment:
+            case TokenKind.LineComment:
+            case TokenKind.String:
+                break;
+            case TokenKind.Word: {
+                const wordName = token.value.toUpperCase();
+                if (wordName === ':') {
+                    if (index === tokens.length - 1 ||
+                        tokens[index + 1].kind !== TokenKind.Word ||
+                        tokens[index + 1].value === ';') {
+                        return { status: 1 /* Status.Fail */, value: token.value + '  Empty definition name' };
+                    }
+                    env.tempDef = {
+                        name: tokens[index + 1].value.toUpperCase(),
+                        tokens: []
+                    };
+                    env.runMode = RunMode.Compile;
+                    return { status: 0 /* Status.Ok */, value: token.value };
+                }
+                if (Dictionary.words.hasOwnProperty(wordName)) {
+                    return Dictionary.words[wordName](env);
+                }
+                if (Dictionary.colonDef.hasOwnProperty(wordName)) {
+                    env.runMode = RunMode.Run;
+                    const res = Executor.run(Dictionary.colonDef[wordName].tokens, env);
+                    env.runMode = RunMode.Interpret;
+                    return res;
+                }
+                return { status: 1 /* Status.Fail */, value: token.value + '  Unknown word' };
+            }
+            default:
+                return { status: 1 /* Status.Fail */, value: token.value + '  Interpret mode: Unreachable' };
+        }
+        return { status: 0 /* Status.Ok */, value: '' };
     }
 }
 class Stack {
