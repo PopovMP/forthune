@@ -1,12 +1,13 @@
 interface Environment
 {
-	runMode: RunMode,
-	isLeave: boolean
-	dStack : Stack
-	rStack : Stack
-	value  : {[name: string]: number}
-	tempDef: ColonDef
-	output : (text: string) => void
+	runMode : RunMode,
+	isLeave : boolean
+	dStack  : Stack
+	rStack  : Stack
+	value   : {[name: string]: number}
+	constant: {[name: string]: number}
+	tempDef : ColonDef
+	output  : (text: string) => void
 }
 
 interface Position
@@ -47,6 +48,7 @@ enum TokenKind {
 	String,
 	Word,
 	Value,
+	Constant,
 }
 
 enum RunMode {

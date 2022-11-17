@@ -30,9 +30,12 @@ class Executor
 					if (env.isLeave)
 						break
 
-					if (wordName === 'VALUE' || wordName === 'TO') {
+					if (wordName === 'CONSTANT' || wordName === 'VALUE')
+						return {status: Status.Fail, value: ` ${wordName}  used in execution mode`}
+
+					if (wordName === 'TO') {
 						if (i >= tokens.length || tokens[i+1].kind !== TokenKind.Value)
-							return {status: Status.Fail, value: ` ${wordName}  used without name`}
+							return {status: Status.Fail, value: ` TO  used without name`}
 
 						const valName = tokens[i+1].value.toUpperCase()
 						env.value[valName] = env.dStack.pop()
@@ -156,6 +159,11 @@ class Executor
 
 					if (env.value.hasOwnProperty(wordName)) {
 						env.dStack.push(env.value[wordName])
+						continue
+					}
+
+					if (env.constant.hasOwnProperty(wordName)) {
+						env.dStack.push(env.constant[wordName])
 						continue
 					}
 

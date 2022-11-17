@@ -34,6 +34,7 @@ class Compiler
 			case TokenKind.Character:
 			case TokenKind.String:
 			case TokenKind.Value:
+			case TokenKind.Constant:
 				env.tempDef.tokens.push(token)
 				break
 

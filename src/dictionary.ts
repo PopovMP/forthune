@@ -289,6 +289,12 @@ class Dictionary
 			return {status: Status.Ok, value: ''}
 		},
 
+		// Constant
+
+		'CONSTANT': () => {
+			return {status: Status.Ok, value: ''}
+		},
+
 		// Comparison
 
 		'=': (env: Environment) => {

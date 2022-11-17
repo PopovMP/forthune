@@ -49,11 +49,20 @@ class Tokenizer
 					break
 				}
 				case 'VALUE':
-				case 'TO'   :{
+				case 'TO'   : {
 					// Eat VALUE's name delimited by <space>
 					const toIndex   = this.findIndex(codeLine, ' ', index)
 					const valueName = codeLine.slice(index, toIndex).toUpperCase()
 					tokens.push({kind: TokenKind.Value, value: valueName, pos})
+					index    = toIndex + 1
+					prevWord = ''
+					break
+				}
+				case 'CONSTANT': {
+					// Eat CONSTANT's name delimited by <space>
+					const toIndex   = this.findIndex(codeLine, ' ', index)
+					const constName = codeLine.slice(index, toIndex).toUpperCase()
+					tokens.push({kind: TokenKind.Constant, value: constName, pos})
 					index    = toIndex + 1
 					prevWord = ''
 					break

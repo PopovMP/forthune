@@ -30,6 +30,15 @@ class Interpreter
 					break
 				}
 
+				if (wordName === 'CONSTANT') {
+					if (index >= tokens.length || tokens[index+1].kind !== TokenKind.Constant)
+						return {status: Status.Fail, value: ` CONSTANT  used without name`}
+
+					const constName = tokens[index+1].value.toUpperCase()
+					env.constant[constName] = env.dStack.pop()
+					break
+				}
+
 				if (wordName === ':') {
 					if (index === tokens.length-1 ||
 						tokens[index+1].kind !== TokenKind.Word ||
@@ -59,6 +68,11 @@ class Interpreter
 
 				if (env.value.hasOwnProperty(wordName)) {
 					env.dStack.push(env.value[wordName])
+					return {status: Status.Ok, value: ''}
+				}
+
+				if (env.constant.hasOwnProperty(wordName)) {
+					env.dStack.push(env.constant[wordName])
 					return {status: Status.Ok, value: ''}
 				}
 
