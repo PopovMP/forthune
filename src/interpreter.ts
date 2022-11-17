@@ -21,6 +21,15 @@ class Interpreter
 			case TokenKind.Word: {
 				const wordName = token.value.toUpperCase()
 
+				if (wordName === 'VALUE' || wordName === 'TO') {
+					if (index >= tokens.length || tokens[index+1].kind !== TokenKind.Value)
+						return {status: Status.Fail, value: ` ${wordName}  used without name`}
+
+					const valName = tokens[index+1].value.toUpperCase()
+					env.value[valName] = env.dStack.pop()
+					break
+				}
+
 				if (wordName === ':') {
 					if (index === tokens.length-1 ||
 						tokens[index+1].kind !== TokenKind.Word ||
@@ -38,10 +47,6 @@ class Interpreter
 					return {status: Status.Ok, value: ''}
 				}
 
-				if (Dictionary.words.hasOwnProperty(wordName)) {
-					return Dictionary.words[wordName](env)
-				}
-
 				if (Dictionary.colonDef.hasOwnProperty(wordName)) {
 					env.runMode = RunMode.Run
 
@@ -50,6 +55,15 @@ class Interpreter
 					env.runMode = RunMode.Interpret
 
 					return res
+				}
+
+				if (env.value.hasOwnProperty(wordName)) {
+					env.dStack.push(env.value[wordName])
+					return {status: Status.Ok, value: ''}
+				}
+
+				if (Dictionary.words.hasOwnProperty(wordName)) {
+					return Dictionary.words[wordName](env)
 				}
 
 				return {status: Status.Fail, value: token.value + '  Unknown word'}

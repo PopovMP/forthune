@@ -6,6 +6,7 @@ class Executor
 
 		for (let i = 0; i < tokens.length; i++) {
 			const token = tokens[i]
+
 			switch (token.kind) {
 				case TokenKind.Number:
 					env.dStack.push(parseInt(token.value))
@@ -28,6 +29,16 @@ class Executor
 
 					if (env.isLeave)
 						break
+
+					if (wordName === 'VALUE' || wordName === 'TO') {
+						if (i >= tokens.length || tokens[i+1].kind !== TokenKind.Value)
+							return {status: Status.Fail, value: ` ${wordName}  used without name`}
+
+						const valName = tokens[i+1].value.toUpperCase()
+						env.value[valName] = env.dStack.pop()
+						i += 1 // Eat value name
+						break
+					}
 
 					if (wordName === 'IF') {
 						let thenIndex = i + 1
@@ -86,7 +97,7 @@ class Executor
 					if (wordName === 'DO' || wordName === '?DO') {
 						const isQuestionDup = wordName === '?DO'
 						let loopIndex = i + 1
-						let doDepth = 1
+						let doDepth   = 1
 
 						while (true) {
 							loopIndex += 1
@@ -135,6 +146,19 @@ class Executor
 						continue
 					}
 
+					if (Dictionary.colonDef.hasOwnProperty(wordName)) {
+						const res = Executor.run(Dictionary.colonDef[wordName].tokens, env)
+						outText += res.value
+						if (res.status === Status.Fail)
+							return {status: Status.Fail, value: outText}
+						break
+					}
+
+					if (env.value.hasOwnProperty(wordName)) {
+						env.dStack.push(env.value[wordName])
+						continue
+					}
+
 					if (Dictionary.words.hasOwnProperty(wordName) ) {
 						const res = Dictionary.words[wordName](env)
 						outText += res.value
@@ -142,14 +166,6 @@ class Executor
 							return {status: Status.Fail, value: outText}
 						if (env.isLeave)
 							return {status: Status.Ok, value: outText}
-						break
-					}
-
-					if (Dictionary.colonDef.hasOwnProperty(wordName)) {
-						const res = Executor.run(Dictionary.colonDef[wordName].tokens, env)
-						outText += res.value
-						if (res.status === Status.Fail)
-							return {status: Status.Fail, value: outText}
 						break
 					}
 

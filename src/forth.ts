@@ -10,6 +10,7 @@ class Forth
 			isLeave: false,
 			dStack : new Stack(this.STACK_CAPACITY),
 			rStack : new Stack(this.STACK_CAPACITY),
+			value  : {},
 			tempDef: {name: '', tokens: []},
 			output,
 		}
@@ -32,8 +33,9 @@ class Forth
 							return
 						}
 
-						// Increment i because the definition name is eaten by Interpreter
-						if (token.value === ':')
+						// Increment i because the name is eaten by Interpreter / Executor
+						const wordName = token.value.toUpperCase()
+						if ([ ':', 'VALUE', 'TO'].includes(wordName) )
 							i += 1
 
 						break

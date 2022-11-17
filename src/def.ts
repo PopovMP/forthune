@@ -4,6 +4,7 @@ interface Environment
 	isLeave: boolean
 	dStack : Stack
 	rStack : Stack
+	value  : {[name: string]: number}
 	tempDef: ColonDef
 	output : (text: string) => void
 }
@@ -45,6 +46,7 @@ enum TokenKind {
 	Number,
 	String,
 	Word,
+	Value,
 }
 
 enum RunMode {

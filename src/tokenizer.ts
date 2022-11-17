@@ -48,6 +48,16 @@ class Tokenizer
 					prevWord = ''
 					break
 				}
+				case 'VALUE':
+				case 'TO'   :{
+					// Eat VALUE's name delimited by <space>
+					const toIndex   = this.findIndex(codeLine, ' ', index)
+					const valueName = codeLine.slice(index, toIndex).toUpperCase()
+					tokens.push({kind: TokenKind.Value, value: valueName, pos})
+					index    = toIndex + 1
+					prevWord = ''
+					break
+				}
 				case '."': {
 					// Eat string delimited by <comma>
 					const toIndex = this.findIndex(codeLine, '"', index)

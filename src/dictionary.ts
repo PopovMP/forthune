@@ -279,6 +279,16 @@ class Dictionary
 			return {status: Status.Ok, value: ''}
 		},
 
+		// Values
+
+		'VALUE': () => {
+			return {status: Status.Ok, value: ''}
+		},
+
+		'TO': () => {
+			return {status: Status.Ok, value: ''}
+		},
+
 		// Comparison
 
 		'=': (env: Environment) => {

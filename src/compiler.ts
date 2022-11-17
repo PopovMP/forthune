@@ -33,18 +33,16 @@ class Compiler
 			case TokenKind.Number:
 			case TokenKind.Character:
 			case TokenKind.String:
+			case TokenKind.Value:
 				env.tempDef.tokens.push(token)
 				break
 
 			case TokenKind.Word:
 				const wordName = token.value.toUpperCase()
 
-				if (Dictionary.words.hasOwnProperty(wordName)) {
-					env.tempDef.tokens.push(token)
-					break
-				}
-
-				if (Dictionary.colonDef.hasOwnProperty(wordName)) {
+				if (Dictionary.words   .hasOwnProperty(wordName) ||
+					Dictionary.colonDef.hasOwnProperty(wordName) ||
+					env.value.hasOwnProperty(wordName)) {
 					env.tempDef.tokens.push(token)
 					break
 				}

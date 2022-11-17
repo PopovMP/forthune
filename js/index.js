@@ -123,15 +123,14 @@ class Compiler {
             case TokenKind.Number:
             case TokenKind.Character:
             case TokenKind.String:
+            case TokenKind.Value:
                 env.tempDef.tokens.push(token);
                 break;
             case TokenKind.Word:
                 const wordName = token.value.toUpperCase();
-                if (Dictionary.words.hasOwnProperty(wordName)) {
-                    env.tempDef.tokens.push(token);
-                    break;
-                }
-                if (Dictionary.colonDef.hasOwnProperty(wordName)) {
+                if (Dictionary.words.hasOwnProperty(wordName) ||
+                    Dictionary.colonDef.hasOwnProperty(wordName) ||
+                    env.value.hasOwnProperty(wordName)) {
                     env.tempDef.tokens.push(token);
                     break;
                 }
@@ -155,6 +154,7 @@ var TokenKind;
     TokenKind[TokenKind["Number"] = 3] = "Number";
     TokenKind[TokenKind["String"] = 4] = "String";
     TokenKind[TokenKind["Word"] = 5] = "Word";
+    TokenKind[TokenKind["Value"] = 6] = "Value";
 })(TokenKind || (TokenKind = {}));
 var RunMode;
 (function (RunMode) {
@@ -394,6 +394,13 @@ Dictionary.words = {
         env.dStack.push(n2);
         return { status: 0 /* Status.Ok */, value: '' };
     },
+    // Values
+    'VALUE': () => {
+        return { status: 0 /* Status.Ok */, value: '' };
+    },
+    'TO': () => {
+        return { status: 0 /* Status.Ok */, value: '' };
+    },
     // Comparison
     '=': (env) => {
         const n2 = env.dStack.pop();
@@ -501,6 +508,14 @@ class Executor {
                     const wordName = token.value.toUpperCase();
                     if (env.isLeave)
                         break;
+                    if (wordName === 'VALUE' || wordName === 'TO') {
+                        if (i >= tokens.length || tokens[i + 1].kind !== TokenKind.Value)
+                            return { status: 1 /* Status.Fail */, value: ` ${wordName}  used without name` };
+                        const valName = tokens[i + 1].value.toUpperCase();
+                        env.value[valName] = env.dStack.pop();
+                        i += 1; // Eat value name
+                        break;
+                    }
                     if (wordName === 'IF') {
                         let thenIndex = i + 1;
                         let ifDepth = 1;
@@ -590,6 +605,17 @@ class Executor {
                         env.isLeave = false;
                         continue;
                     }
+                    if (Dictionary.colonDef.hasOwnProperty(wordName)) {
+                        const res = Executor.run(Dictionary.colonDef[wordName].tokens, env);
+                        outText += res.value;
+                        if (res.status === 1 /* Status.Fail */)
+                            return { status: 1 /* Status.Fail */, value: outText };
+                        break;
+                    }
+                    if (env.value.hasOwnProperty(wordName)) {
+                        env.dStack.push(env.value[wordName]);
+                        continue;
+                    }
                     if (Dictionary.words.hasOwnProperty(wordName)) {
                         const res = Dictionary.words[wordName](env);
                         outText += res.value;
@@ -597,13 +623,6 @@ class Executor {
                             return { status: 1 /* Status.Fail */, value: outText };
                         if (env.isLeave)
                             return { status: 0 /* Status.Ok */, value: outText };
-                        break;
-                    }
-                    if (Dictionary.colonDef.hasOwnProperty(wordName)) {
-                        const res = Executor.run(Dictionary.colonDef[wordName].tokens, env);
-                        outText += res.value;
-                        if (res.status === 1 /* Status.Fail */)
-                            return { status: 1 /* Status.Fail */, value: outText };
                         break;
                     }
                     return { status: 1 /* Status.Fail */, value: `${outText} ${token.value}  Unknown word` };
@@ -622,6 +641,7 @@ class Forth {
             isLeave: false,
             dStack: new Stack(this.STACK_CAPACITY),
             rStack: new Stack(this.STACK_CAPACITY),
+            value: {},
             tempDef: { name: '', tokens: [] },
             output,
         };
@@ -639,8 +659,9 @@ class Forth {
                             this.die(lineText, outText);
                             return;
                         }
-                        // Increment i because the definition name is eaten by Interpreter
-                        if (token.value === ':')
+                        // Increment i because the name is eaten by Interpreter / Executor
+                        const wordName = token.value.toUpperCase();
+                        if ([':', 'VALUE', 'TO'].includes(wordName))
                             i += 1;
                         break;
                     }
@@ -694,6 +715,13 @@ class Interpreter {
                 break;
             case TokenKind.Word: {
                 const wordName = token.value.toUpperCase();
+                if (wordName === 'VALUE' || wordName === 'TO') {
+                    if (index >= tokens.length || tokens[index + 1].kind !== TokenKind.Value)
+                        return { status: 1 /* Status.Fail */, value: ` ${wordName}  used without name` };
+                    const valName = tokens[index + 1].value.toUpperCase();
+                    env.value[valName] = env.dStack.pop();
+                    break;
+                }
                 if (wordName === ':') {
                     if (index === tokens.length - 1 ||
                         tokens[index + 1].kind !== TokenKind.Word ||
@@ -707,14 +735,18 @@ class Interpreter {
                     env.runMode = RunMode.Compile;
                     return { status: 0 /* Status.Ok */, value: '' };
                 }
-                if (Dictionary.words.hasOwnProperty(wordName)) {
-                    return Dictionary.words[wordName](env);
-                }
                 if (Dictionary.colonDef.hasOwnProperty(wordName)) {
                     env.runMode = RunMode.Run;
                     const res = Executor.run(Dictionary.colonDef[wordName].tokens, env);
                     env.runMode = RunMode.Interpret;
                     return res;
+                }
+                if (env.value.hasOwnProperty(wordName)) {
+                    env.dStack.push(env.value[wordName]);
+                    return { status: 0 /* Status.Ok */, value: '' };
+                }
+                if (Dictionary.words.hasOwnProperty(wordName)) {
+                    return Dictionary.words[wordName](env);
                 }
                 return { status: 1 /* Status.Fail */, value: token.value + '  Unknown word' };
             }
@@ -798,6 +830,16 @@ class Tokenizer {
                     const toIndex = this.findIndex(codeLine, ' ', index);
                     const char = codeLine.slice(index, toIndex).slice(0, 1);
                     tokens.push({ kind: TokenKind.Character, value: char, pos });
+                    index = toIndex + 1;
+                    prevWord = '';
+                    break;
+                }
+                case 'VALUE':
+                case 'TO': {
+                    // Eat VALUE's name delimited by <space>
+                    const toIndex = this.findIndex(codeLine, ' ', index);
+                    const valueName = codeLine.slice(index, toIndex).toUpperCase();
+                    tokens.push({ kind: TokenKind.Value, value: valueName, pos });
                     index = toIndex + 1;
                     prevWord = '';
                     break;
