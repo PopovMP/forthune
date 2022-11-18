@@ -70,7 +70,7 @@ class Application {
             this.inputBuffer.push(cmdText);
             this.inputIndex = this.inputBuffer.length - 1;
         }
-        const tokens = Tokenizer.tokenizeLine(cmdText, lineNum);
+        const tokens = Parser.parseLine(cmdText, lineNum);
         this.forth.run(tokens, cmdText);
         this.stackView.innerText = this.forth.printStack();
     }
@@ -100,10 +100,11 @@ class Application {
 class Compiler {
     static compile(tokens, index, env) {
         const token = tokens[index];
-        if (token.value === ':') {
-            return { status: 1 /* Status.Fail */, value: token.value + '  Nested definition' };
-        }
-        if (token.value === ';') {
+        if (token.error)
+            return { status: 1 /* Status.Fail */, value: `${token.value} ${token.error}` };
+        if (token.word === ':')
+            return { status: 1 /* Status.Fail */, value: `:  Nested Definition` };
+        if (token.word === ';') {
             Dictionary.colonDef[env.tempDef.name] = {
                 name: env.tempDef.name,
                 tokens: env.tempDef.tokens.slice()
@@ -112,32 +113,23 @@ class Compiler {
             env.runMode = RunMode.Interpret;
             return { status: 0 /* Status.Ok */, value: '' };
         }
-        if (token.kind === TokenKind.Comment &&
-            index > 0 && tokens[index - 1].value === '.(') {
-            return { status: 0 /* Status.Ok */, value: token.value };
-        }
+        if (token.kind === TokenKind.DotComment)
+            return { status: 0 /* Status.Ok */, value: token.content };
         switch (token.kind) {
             case TokenKind.Comment:
             case TokenKind.LineComment:
                 break;
-            case TokenKind.Number:
-            case TokenKind.Character:
-            case TokenKind.String:
-            case TokenKind.Value:
-            case TokenKind.Constant:
-                env.tempDef.tokens.push(token);
-                break;
             case TokenKind.Word:
-                const wordName = token.value.toUpperCase();
-                if (Dictionary.words.hasOwnProperty(wordName) ||
-                    Dictionary.colonDef.hasOwnProperty(wordName) ||
-                    env.value.hasOwnProperty(wordName)) {
+                if (Dictionary.words.hasOwnProperty(token.word) ||
+                    Dictionary.colonDef.hasOwnProperty(token.word) ||
+                    env.value.hasOwnProperty(token.word) ||
+                    env.constant.hasOwnProperty(token.word)) {
                     env.tempDef.tokens.push(token);
                     break;
                 }
-                return { status: 1 /* Status.Fail */, value: token.value + '  Unknown word' };
+                return { status: 1 /* Status.Fail */, value: `${token.value}  Unknown word` };
             default:
-                return { status: 1 /* Status.Fail */, value: token.value + '  Compile mode: Unreachable' };
+                env.tempDef.tokens.push(token);
         }
         return { status: 0 /* Status.Ok */, value: '' };
     }
@@ -150,13 +142,18 @@ var Status;
 var TokenKind;
 (function (TokenKind) {
     TokenKind[TokenKind["Character"] = 0] = "Character";
-    TokenKind[TokenKind["Comment"] = 1] = "Comment";
-    TokenKind[TokenKind["LineComment"] = 2] = "LineComment";
-    TokenKind[TokenKind["Number"] = 3] = "Number";
-    TokenKind[TokenKind["String"] = 4] = "String";
-    TokenKind[TokenKind["Word"] = 5] = "Word";
-    TokenKind[TokenKind["Value"] = 6] = "Value";
-    TokenKind[TokenKind["Constant"] = 7] = "Constant";
+    TokenKind[TokenKind["ColonDef"] = 1] = "ColonDef";
+    TokenKind[TokenKind["Comment"] = 2] = "Comment";
+    TokenKind[TokenKind["Constant"] = 3] = "Constant";
+    TokenKind[TokenKind["Create"] = 4] = "Create";
+    TokenKind[TokenKind["DotComment"] = 5] = "DotComment";
+    TokenKind[TokenKind["LineComment"] = 6] = "LineComment";
+    TokenKind[TokenKind["Number"] = 7] = "Number";
+    TokenKind[TokenKind["String"] = 8] = "String";
+    TokenKind[TokenKind["Value"] = 9] = "Value";
+    TokenKind[TokenKind["ValueTo"] = 10] = "ValueTo";
+    TokenKind[TokenKind["Variable"] = 11] = "Variable";
+    TokenKind[TokenKind["Word"] = 12] = "Word";
 })(TokenKind || (TokenKind = {}));
 var RunMode;
 (function (RunMode) {
@@ -328,7 +325,7 @@ Dictionary.words = {
         return { status: 0 /* Status.Ok */, value: '' };
     },
     '2OVER': (env) => {
-        // ( x1 x2 x3 x4 --  x1 x2 x3 x4 x1 x2 )
+        // ( x1 x2 x3 x4 -- x1 x2 x3 x4 x1 x2 )
         const n4 = env.dStack.pop();
         const n3 = env.dStack.pop();
         const n2 = env.dStack.pop();
@@ -463,12 +460,12 @@ Dictionary.words = {
     },
     'LOOP': (env) => {
         return env.runMode === RunMode.Interpret
-            ? { status: 1 /* Status.Fail */, value: ' LOOP No Interpretation' }
+            ? { status: 1 /* Status.Fail */, value: ' LOOP  No Interpretation' }
             : { status: 0 /* Status.Ok */, value: '' };
     },
     '+LOOP': (env) => {
         return env.runMode === RunMode.Interpret
-            ? { status: 1 /* Status.Fail */, value: ' +LOOP No Interpretation' }
+            ? { status: 1 /* Status.Fail */, value: ' +LOOP  No Interpretation' }
             : { status: 0 /* Status.Ok */, value: '' };
     },
     // IF
@@ -510,34 +507,34 @@ class Executor {
         let outText = '';
         for (let i = 0; i < tokens.length; i++) {
             const token = tokens[i];
+            if (token.error)
+                return { status: 1 /* Status.Fail */, value: ` ${token.value} ${token.error}` };
             switch (token.kind) {
                 case TokenKind.Number:
-                    env.dStack.push(parseInt(token.value));
-                    break;
-                case TokenKind.Comment:
-                case TokenKind.LineComment:
+                    env.dStack.push(Number(token.value));
                     break;
                 case TokenKind.Character:
                     env.dStack.push(token.value.charCodeAt(0));
                     break;
-                case TokenKind.String:
-                    outText += token.value;
+                case TokenKind.LineComment:
+                case TokenKind.Comment:
+                case TokenKind.DotComment:
                     break;
+                case TokenKind.String:
+                    outText += token.content;
+                    break;
+                case TokenKind.Value:
+                case TokenKind.Constant:
+                    return { status: 1 /* Status.Fail */, value: ` ${token.word}  No Execution` };
+                case TokenKind.ValueTo:
+                    env.value[token.content.toUpperCase()] = env.dStack.pop();
+                    break;
+                case TokenKind.ColonDef:
+                    return { status: 1 /* Status.Fail */, value: ` ${token.word}  No Execution` };
                 case TokenKind.Word:
-                    const wordName = token.value.toUpperCase();
                     if (env.isLeave)
                         break;
-                    if (wordName === 'CONSTANT' || wordName === 'VALUE')
-                        return { status: 1 /* Status.Fail */, value: ` ${wordName}  used in execution mode` };
-                    if (wordName === 'TO') {
-                        if (i >= tokens.length || tokens[i + 1].kind !== TokenKind.Value)
-                            return { status: 1 /* Status.Fail */, value: ` TO  used without name` };
-                        const valName = tokens[i + 1].value.toUpperCase();
-                        env.value[valName] = env.dStack.pop();
-                        i += 1; // Eat value name
-                        break;
-                    }
-                    if (wordName === 'IF') {
+                    if (token.word === 'IF') {
                         let thenIndex = i + 1;
                         let ifDepth = 1;
                         while (true) {
@@ -584,8 +581,8 @@ class Executor {
                             continue;
                         }
                     }
-                    if (wordName === 'DO' || wordName === '?DO') {
-                        const isQuestionDup = wordName === '?DO';
+                    if (token.word === 'DO' || token.word === '?DO') {
+                        const isQuestionDup = token.word === '?DO';
                         let loopIndex = i + 1;
                         let doDepth = 1;
                         while (true) {
@@ -626,23 +623,23 @@ class Executor {
                         env.isLeave = false;
                         continue;
                     }
-                    if (Dictionary.colonDef.hasOwnProperty(wordName)) {
-                        const res = Executor.run(Dictionary.colonDef[wordName].tokens, env);
+                    if (Dictionary.colonDef.hasOwnProperty(token.word)) {
+                        const res = Executor.run(Dictionary.colonDef[token.word].tokens, env);
                         outText += res.value;
                         if (res.status === 1 /* Status.Fail */)
                             return { status: 1 /* Status.Fail */, value: outText };
                         break;
                     }
-                    if (env.value.hasOwnProperty(wordName)) {
-                        env.dStack.push(env.value[wordName]);
+                    if (env.value.hasOwnProperty(token.word)) {
+                        env.dStack.push(env.value[token.word]);
                         continue;
                     }
-                    if (env.constant.hasOwnProperty(wordName)) {
-                        env.dStack.push(env.constant[wordName]);
+                    if (env.constant.hasOwnProperty(token.word)) {
+                        env.dStack.push(env.constant[token.word]);
                         continue;
                     }
-                    if (Dictionary.words.hasOwnProperty(wordName)) {
-                        const res = Dictionary.words[wordName](env);
+                    if (Dictionary.words.hasOwnProperty(token.word)) {
+                        const res = Dictionary.words[token.word](env);
                         outText += res.value;
                         if (res.status === 1 /* Status.Fail */)
                             return { status: 1 /* Status.Fail */, value: outText };
@@ -652,7 +649,7 @@ class Executor {
                     }
                     return { status: 1 /* Status.Fail */, value: `${outText} ${token.value}  Unknown word` };
                 default:
-                    throw new Error('runTokens:  Unreachable');
+                    return { status: 1 /* Status.Fail */, value: `${outText} ${token.value}  Unknown TokenKind` };
             }
         }
         return { status: 0 /* Status.Ok */, value: outText };
@@ -677,6 +674,11 @@ class Forth {
         try {
             for (let i = 0; i < tokens.length; i += 1) {
                 const token = tokens[i];
+                if (token.error) {
+                    outText += ` ${token.value}  ${token.error}`;
+                    this.die(lineText, outText);
+                    return;
+                }
                 switch (this.env.runMode) {
                     case RunMode.Interpret: {
                         const res = Interpreter.run(tokens, i, this.env);
@@ -685,10 +687,6 @@ class Forth {
                             this.die(lineText, outText);
                             return;
                         }
-                        // Increment i because the name is eaten by Interpreter / Executor
-                        const wordName = token.value.toUpperCase();
-                        if ([':', 'VALUE', 'TO', 'CONSTANT'].includes(wordName))
-                            i += 1;
                         break;
                     }
                     case RunMode.Compile: {
@@ -728,71 +726,202 @@ class Forth {
 class Interpreter {
     static run(tokens, index, env) {
         const token = tokens[index];
+        if (token.error)
+            return { status: 1 /* Status.Fail */, value: `${token.value} ${token.error}` };
         switch (token.kind) {
             case TokenKind.Number:
-                env.dStack.push(parseInt(token.value));
+                env.dStack.push(Number(token.value));
                 break;
             case TokenKind.Character:
                 env.dStack.push(token.value.charCodeAt(0));
                 break;
-            case TokenKind.Comment:
             case TokenKind.LineComment:
+            case TokenKind.Comment:
+                break;
+            case TokenKind.DotComment:
             case TokenKind.String:
+                return { status: 1 /* Status.Fail */, value: `${token.word} No Interpretation` };
+            case TokenKind.Value:
+            case TokenKind.ValueTo:
+                env.value[token.content.toUpperCase()] = env.dStack.pop();
+                break;
+            case TokenKind.Constant:
+                env.constant[token.content.toUpperCase()] = env.dStack.pop();
+                break;
+            case TokenKind.ColonDef:
+                env.tempDef = { name: token.content.toUpperCase(), tokens: [] };
+                env.runMode = RunMode.Compile;
                 break;
             case TokenKind.Word: {
-                const wordName = token.value.toUpperCase();
-                if (wordName === 'VALUE' || wordName === 'TO') {
-                    if (index >= tokens.length || tokens[index + 1].kind !== TokenKind.Value)
-                        return { status: 1 /* Status.Fail */, value: ` ${wordName}  used without name` };
-                    const valName = tokens[index + 1].value.toUpperCase();
-                    env.value[valName] = env.dStack.pop();
-                    break;
-                }
-                if (wordName === 'CONSTANT') {
-                    if (index >= tokens.length || tokens[index + 1].kind !== TokenKind.Constant)
-                        return { status: 1 /* Status.Fail */, value: ` CONSTANT  used without name` };
-                    const constName = tokens[index + 1].value.toUpperCase();
-                    env.constant[constName] = env.dStack.pop();
-                    break;
-                }
-                if (wordName === ':') {
-                    if (index === tokens.length - 1 ||
-                        tokens[index + 1].kind !== TokenKind.Word ||
-                        tokens[index + 1].value === ';') {
-                        return { status: 1 /* Status.Fail */, value: token.value + '  Empty definition name' };
-                    }
-                    env.tempDef = {
-                        name: tokens[index + 1].value.toUpperCase(),
-                        tokens: []
-                    };
-                    env.runMode = RunMode.Compile;
-                    return { status: 0 /* Status.Ok */, value: '' };
-                }
-                if (Dictionary.colonDef.hasOwnProperty(wordName)) {
+                if (Dictionary.words.hasOwnProperty(token.word))
+                    return Dictionary.words[token.word](env);
+                if (Dictionary.colonDef.hasOwnProperty(token.word)) {
                     env.runMode = RunMode.Run;
-                    const res = Executor.run(Dictionary.colonDef[wordName].tokens, env);
+                    const res = Executor.run(Dictionary.colonDef[token.word].tokens, env);
                     env.runMode = RunMode.Interpret;
                     return res;
                 }
-                if (env.value.hasOwnProperty(wordName)) {
-                    env.dStack.push(env.value[wordName]);
-                    return { status: 0 /* Status.Ok */, value: '' };
+                if (env.value.hasOwnProperty(token.word)) {
+                    env.dStack.push(env.value[token.word]);
+                    break;
                 }
-                if (env.constant.hasOwnProperty(wordName)) {
-                    env.dStack.push(env.constant[wordName]);
-                    return { status: 0 /* Status.Ok */, value: '' };
+                if (env.constant.hasOwnProperty(token.word)) {
+                    env.dStack.push(env.constant[token.word]);
+                    break;
                 }
-                if (Dictionary.words.hasOwnProperty(wordName)) {
-                    return Dictionary.words[wordName](env);
-                }
-                return { status: 1 /* Status.Fail */, value: token.value + '  Unknown word' };
+                return { status: 1 /* Status.Fail */, value: `${token.value}  Unknown word` };
             }
             default:
-                return { status: 1 /* Status.Fail */, value: token.value + '  Interpret mode: Unreachable' };
+                return { status: 1 /* Status.Fail */, value: `${token.value}  Unknown TokenKind` };
         }
         return { status: 0 /* Status.Ok */, value: '' };
     }
 }
+class Parser {
+    static parseLine(codeLine, lineNum) {
+        const tokens = [];
+        const code = codeLine.trimStart();
+        let index = 0;
+        while (index < code.length) {
+            if (code[index] === ' ') {
+                index += 1;
+                continue;
+            }
+            let toIndex = code.indexOf(' ', index);
+            if (toIndex === -1)
+                toIndex = code.length;
+            const value = code.slice(index, toIndex);
+            const word = value.trimStart().toUpperCase();
+            const pos = { line: lineNum, col: index };
+            index = toIndex;
+            // Words with content
+            if (Parser.contentWords.hasOwnProperty(word)) {
+                const grammar = Parser.contentWords[word];
+                toIndex += 1;
+                if (grammar.trimStart) {
+                    while (code[toIndex] === ' ')
+                        toIndex += 1;
+                }
+                let endIndex = code.indexOf(grammar.delimiter, toIndex + 1);
+                index = endIndex + 1; // Eat the delimiter
+                if (endIndex === -1) {
+                    index = code.length;
+                    endIndex = code.length;
+                    if (grammar.strict) {
+                        tokens.push({ kind: grammar.kind, error: 'Not Closed', content: '', value, word, pos });
+                        continue;
+                    }
+                }
+                let content = code.slice(toIndex, endIndex);
+                if (!grammar.empty && content.length === 0) {
+                    tokens.push({ kind: grammar.kind, error: 'Empty', content: '', value, word, pos });
+                    continue;
+                }
+                tokens.push({ kind: grammar.kind, error: '', content, value, word, pos });
+            }
+            else {
+                const isNumber = value.match(/^[+-]?\d+(?:.?\d+)?$/);
+                const kind = isNumber ? TokenKind.Number : TokenKind.Word;
+                tokens.push({ kind, error: '', content: '', value, word, pos });
+            }
+        }
+        return tokens;
+    }
+    static stringify(tokens) {
+        return tokens.map((token) => {
+            let value = token.value;
+            if (Parser.contentWords.hasOwnProperty(token.word)) {
+                const grammar = Parser.contentWords[token.word];
+                value += ' ' + token.content;
+                if (grammar.delimiter === '"' || grammar.delimiter === ')')
+                    value += grammar.delimiter;
+            }
+            return value;
+        }).join(' ');
+    }
+}
+Parser.contentWords = {
+    '\\': {
+        kind: TokenKind.LineComment,
+        delimiter: '\n',
+        trimStart: false,
+        strict: false,
+        empty: true,
+    },
+    ':': {
+        kind: TokenKind.ColonDef,
+        delimiter: ' ',
+        trimStart: true,
+        strict: false,
+        empty: false,
+    },
+    '(': {
+        kind: TokenKind.Comment,
+        delimiter: ')',
+        trimStart: false,
+        strict: true,
+        empty: true,
+    },
+    '.(': {
+        kind: TokenKind.DotComment,
+        delimiter: ')',
+        trimStart: false,
+        strict: true,
+        empty: true,
+    },
+    '."': {
+        kind: TokenKind.String,
+        delimiter: '"',
+        trimStart: false,
+        strict: true,
+        empty: true,
+    },
+    'CHAR': {
+        kind: TokenKind.Character,
+        delimiter: ' ',
+        trimStart: true,
+        strict: false,
+        empty: false,
+    },
+    'CONSTANT': {
+        kind: TokenKind.Constant,
+        delimiter: ' ',
+        trimStart: true,
+        strict: false,
+        empty: false,
+    },
+    'CREATE': {
+        kind: TokenKind.Create,
+        delimiter: ' ',
+        trimStart: true,
+        strict: false,
+        empty: false,
+    },
+    'VALUE': {
+        kind: TokenKind.Value,
+        delimiter: ' ',
+        trimStart: true,
+        strict: false,
+        empty: false,
+    },
+    'VARIABLE': {
+        kind: TokenKind.Variable,
+        delimiter: ' ',
+        trimStart: true,
+        strict: false,
+        empty: false,
+    },
+    'TO': {
+        kind: TokenKind.ValueTo,
+        delimiter: ' ',
+        trimStart: true,
+        strict: false,
+        empty: false,
+    },
+};
+module.exports = {
+    Parser
+};
 class Stack {
     constructor(capacity) {
         this.holder = new Array(capacity);
@@ -827,111 +956,4 @@ class Stack {
         return this.holder.slice(0, this.index).join(' ') + ' <- Top';
     }
 }
-class Tokenizer {
-    static tokenizeLine(codeLine, lineNum) {
-        const tokens = [];
-        let index = 0;
-        let prevWord = '';
-        while (index < codeLine.length) {
-            // Eat leading white space
-            if (prevWord !== '."') {
-                while (codeLine[index] === ' ' || codeLine[index] === '\t') {
-                    if (index >= codeLine.length)
-                        break;
-                    index += 1;
-                }
-            }
-            const pos = { line: lineNum, col: index };
-            switch (prevWord) {
-                case '\\': {
-                    // Eat line comment delimited by <newline>
-                    const toIndex = this.findIndex(codeLine, '\n', index);
-                    const comment = codeLine.slice(index, toIndex);
-                    tokens.push({ kind: TokenKind.LineComment, value: comment, pos });
-                    index = toIndex + 1;
-                    prevWord = '';
-                    break;
-                }
-                case '(':
-                case '.(': {
-                    // Eat comment delimited by <paren>
-                    const toIndex = this.findIndex(codeLine, ')', index);
-                    const comment = codeLine.slice(index, toIndex);
-                    tokens.push({ kind: TokenKind.Comment, value: comment, pos });
-                    index = toIndex + 1;
-                    prevWord = '';
-                    break;
-                }
-                case 'CHAR': {
-                    // Eat character delimited by <space>
-                    const toIndex = this.findIndex(codeLine, ' ', index);
-                    const char = codeLine.slice(index, toIndex).slice(0, 1);
-                    tokens.push({ kind: TokenKind.Character, value: char, pos });
-                    index = toIndex + 1;
-                    prevWord = '';
-                    break;
-                }
-                case 'VALUE':
-                case 'TO': {
-                    // Eat VALUE's name delimited by <space>
-                    const toIndex = this.findIndex(codeLine, ' ', index);
-                    const valueName = codeLine.slice(index, toIndex).toUpperCase();
-                    tokens.push({ kind: TokenKind.Value, value: valueName, pos });
-                    index = toIndex + 1;
-                    prevWord = '';
-                    break;
-                }
-                case 'CONSTANT': {
-                    // Eat CONSTANT's name delimited by <space>
-                    const toIndex = this.findIndex(codeLine, ' ', index);
-                    const constName = codeLine.slice(index, toIndex).toUpperCase();
-                    tokens.push({ kind: TokenKind.Constant, value: constName, pos });
-                    index = toIndex + 1;
-                    prevWord = '';
-                    break;
-                }
-                case '."': {
-                    // Eat string delimited by <comma>
-                    const toIndex = this.findIndex(codeLine, '"', index);
-                    const text = codeLine.slice(index, toIndex);
-                    tokens.push({ kind: TokenKind.String, value: text, pos });
-                    index = toIndex + 1;
-                    prevWord = '';
-                    break;
-                }
-                default: {
-                    // Eat word delimited by <space>
-                    const toIndex = this.findIndex(codeLine, ' ', index);
-                    const word = codeLine.slice(index, toIndex);
-                    if (word.match(/^[+-]?\d+$/))
-                        tokens.push({ kind: TokenKind.Number, value: word, pos });
-                    else
-                        tokens.push({ kind: TokenKind.Word, value: word, pos });
-                    index = toIndex + 1;
-                    prevWord = word.toUpperCase();
-                    break;
-                }
-            }
-        }
-        return tokens;
-    }
-    static stringify(tokens) {
-        return tokens.map((token) => {
-            switch (token.kind) {
-                case TokenKind.Comment: return token.value + ')';
-                case TokenKind.String: return token.value + '"';
-                default: return token.value;
-            }
-        }).join(' ');
-    }
-    static findIndex(text, delimiter, fromIndex) {
-        let i = fromIndex;
-        while (text[i] !== delimiter && i < text.length)
-            i += 1;
-        return i;
-    }
-}
-module.exports = {
-    Tokenizer
-};
 //# sourceMappingURL=index.js.map

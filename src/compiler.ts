@@ -4,11 +4,13 @@ class Compiler
 	{
 		const token: Token = tokens[index]
 
-		if (token.value === ':') {
-			return {status: Status.Fail, value: token.value + '  Nested definition'}
-		}
+		if (token.error)
+			return {status: Status.Fail, value: `${token.value} ${token.error}`}
 
-		if (token.value === ';') {
+		if (token.word === ':')
+			return {status: Status.Fail, value: `:  Nested Definition`}
+
+		if (token.word === ';') {
 			Dictionary.colonDef[env.tempDef.name] = {
 				name  : env.tempDef.name,
 				tokens: env.tempDef.tokens.slice()
@@ -20,38 +22,26 @@ class Compiler
 			return {status: Status.Ok, value: ''}
 		}
 
-		if (token.kind === TokenKind.Comment &&
-			index > 0 && tokens[index-1].value === '.(') {
-			return {status: Status.Ok, value: token.value}
-		}
+		if (token.kind === TokenKind.DotComment)
+			return {status: Status.Ok, value: token.content}
 
 		switch (token.kind) {
 			case TokenKind.Comment:
 			case TokenKind.LineComment:
 				break
 
-			case TokenKind.Number:
-			case TokenKind.Character:
-			case TokenKind.String:
-			case TokenKind.Value:
-			case TokenKind.Constant:
-				env.tempDef.tokens.push(token)
-				break
-
 			case TokenKind.Word:
-				const wordName = token.value.toUpperCase()
-
-				if (Dictionary.words   .hasOwnProperty(wordName) ||
-					Dictionary.colonDef.hasOwnProperty(wordName) ||
-					env.value.hasOwnProperty(wordName)) {
+				if (Dictionary.words   .hasOwnProperty(token.word) ||
+					Dictionary.colonDef.hasOwnProperty(token.word) ||
+					env.value          .hasOwnProperty(token.word) ||
+					env.constant       .hasOwnProperty(token.word)) {
 					env.tempDef.tokens.push(token)
 					break
 				}
-
-				return {status: Status.Fail, value: token.value + '  Unknown word'}
+				return {status: Status.Fail, value: `${token.value}  Unknown word`}
 
 			default:
-				return {status: Status.Fail, value: token.value + '  Compile mode: Unreachable'}
+				env.tempDef.tokens.push(token)
 		}
 
 		return {status: Status.Ok, value: ''}

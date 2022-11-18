@@ -16,13 +16,6 @@ interface Position
 	col : number
 }
 
-interface Token
-{
-	kind : TokenKind
-	value: string
-	pos  : Position
-}
-
 interface ExecResult
 {
 	status: Status
@@ -42,13 +35,35 @@ const enum Status {
 
 enum TokenKind {
 	Character,
+	ColonDef,
 	Comment,
+	Constant,
+	Create,
+	DotComment,
 	LineComment,
 	Number,
 	String,
-	Word,
 	Value,
-	Constant,
+	ValueTo,
+	Variable,
+	Word,
+}
+
+interface TokenGrammar {
+	kind     : TokenKind,
+	delimiter: string,
+	trimStart: boolean,
+	strict   : boolean, // true - requires closing with delimiter
+	empty    : boolean,
+}
+
+interface Token {
+	kind   : TokenKind,
+	error  : string,
+	value  : string,
+	word   : string, // value.toUppercase()
+	content: string, // string content or definition / variable name
+	pos    : Position
 }
 
 enum RunMode {

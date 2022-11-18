@@ -25,25 +25,29 @@ class Forth
 			for (let i = 0; i < tokens.length; i += 1) {
 				const token = tokens[i]
 
+				if (token.error) {
+					outText += ` ${token.value}  ${token.error}`
+					this.die(lineText, outText)
+					return
+				}
+
 				switch (this.env.runMode) {
 					case RunMode.Interpret: {
+
 						const res = Interpreter.run(tokens, i, this.env)
+
 						outText += res.value
 						if (res.status === Status.Fail) {
 							this.die(lineText, outText)
 							return
 						}
-
-						// Increment i because the name is eaten by Interpreter / Executor
-						const wordName = token.value.toUpperCase()
-						if ([ ':', 'VALUE', 'TO', 'CONSTANT'].includes(wordName) )
-							i += 1
-
 						break
 					}
 
 					case RunMode.Compile: {
+
 						const res = Compiler.compile(tokens, i, this.env)
+
 						outText += res.value
 						if (res.status === Status.Fail) {
 							this.die(lineText, outText)

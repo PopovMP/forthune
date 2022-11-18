@@ -197,7 +197,7 @@ class Dictionary
 		},
 
 		'2OVER': (env: Environment) => {
-			// ( x1 x2 x3 x4 --  x1 x2 x3 x4 x1 x2 )
+			// ( x1 x2 x3 x4 -- x1 x2 x3 x4 x1 x2 )
 			const n4 = env.dStack.pop()
 			const n3 = env.dStack.pop()
 			const n2 = env.dStack.pop()
@@ -365,13 +365,13 @@ class Dictionary
 
 		'LOOP': (env: Environment) => {
 			return env.runMode === RunMode.Interpret
-				? {status: Status.Fail, value: ' LOOP No Interpretation'}
+				? {status: Status.Fail, value: ' LOOP  No Interpretation'}
 				: {status: Status.Ok, value: ''}
 		},
 
 		'+LOOP': (env: Environment) => {
 			return env.runMode === RunMode.Interpret
-				? {status: Status.Fail, value: ' +LOOP No Interpretation'}
+				? {status: Status.Fail, value: ' +LOOP  No Interpretation'}
 				: {status: Status.Ok, value: ''}
 		},
 

@@ -5,45 +5,45 @@ class Executor
 		let outText = ''
 
 		for (let i = 0; i < tokens.length; i++) {
-			const token = tokens[i]
+			const token: Token = tokens[i]
+
+			if (token.error)
+				return {status: Status.Fail, value: ` ${token.value} ${token.error}`}
 
 			switch (token.kind) {
 				case TokenKind.Number:
-					env.dStack.push(parseInt(token.value))
-					break
-
-				case TokenKind.Comment:
-				case TokenKind.LineComment:
+					env.dStack.push( Number(token.value) )
 					break
 
 				case TokenKind.Character:
-					env.dStack.push(token.value.charCodeAt(0))
+					env.dStack.push( token.value.charCodeAt(0) )
+					break
+
+				case TokenKind.LineComment:
+				case TokenKind.Comment:
+				case TokenKind.DotComment:
 					break
 
 				case TokenKind.String:
-					outText += token.value
+					outText += token.content
 					break
 
-				case TokenKind.Word:
-					const wordName = token.value.toUpperCase()
+				case TokenKind.Value:
+				case TokenKind.Constant:
+					return {status: Status.Fail, value: ` ${token.word}  No Execution`}
 
+				case TokenKind.ValueTo:
+					env.value[token.content.toUpperCase()] = env.dStack.pop()
+					break
+
+				case TokenKind.ColonDef:
+					return {status: Status.Fail, value: ` ${token.word}  No Execution`}
+
+				case TokenKind.Word:
 					if (env.isLeave)
 						break
 
-					if (wordName === 'CONSTANT' || wordName === 'VALUE')
-						return {status: Status.Fail, value: ` ${wordName}  used in execution mode`}
-
-					if (wordName === 'TO') {
-						if (i >= tokens.length || tokens[i+1].kind !== TokenKind.Value)
-							return {status: Status.Fail, value: ` TO  used without name`}
-
-						const valName = tokens[i+1].value.toUpperCase()
-						env.value[valName] = env.dStack.pop()
-						i += 1 // Eat value name
-						break
-					}
-
-					if (wordName === 'IF') {
+					if (token.word === 'IF') {
 						let thenIndex = i + 1
 						let ifDepth = 1
 						while (true) {
@@ -97,8 +97,8 @@ class Executor
 						}
 					}
 
-					if (wordName === 'DO' || wordName === '?DO') {
-						const isQuestionDup = wordName === '?DO'
+					if (token.word === 'DO' || token.word === '?DO') {
+						const isQuestionDup = token.word === '?DO'
 						let loopIndex = i + 1
 						let doDepth   = 1
 
@@ -149,26 +149,26 @@ class Executor
 						continue
 					}
 
-					if (Dictionary.colonDef.hasOwnProperty(wordName)) {
-						const res = Executor.run(Dictionary.colonDef[wordName].tokens, env)
+					if (Dictionary.colonDef.hasOwnProperty(token.word)) {
+						const res = Executor.run(Dictionary.colonDef[token.word].tokens, env)
 						outText += res.value
 						if (res.status === Status.Fail)
 							return {status: Status.Fail, value: outText}
 						break
 					}
 
-					if (env.value.hasOwnProperty(wordName)) {
-						env.dStack.push(env.value[wordName])
+					if (env.value.hasOwnProperty(token.word)) {
+						env.dStack.push(env.value[token.word])
 						continue
 					}
 
-					if (env.constant.hasOwnProperty(wordName)) {
-						env.dStack.push(env.constant[wordName])
+					if (env.constant.hasOwnProperty(token.word)) {
+						env.dStack.push(env.constant[token.word])
 						continue
 					}
 
-					if (Dictionary.words.hasOwnProperty(wordName) ) {
-						const res = Dictionary.words[wordName](env)
+					if (Dictionary.words.hasOwnProperty(token.word) ) {
+						const res = Dictionary.words[token.word](env)
 						outText += res.value
 						if (res.status === Status.Fail)
 							return {status: Status.Fail, value: outText}
@@ -180,7 +180,7 @@ class Executor
 					return {status: Status.Fail, value: `${outText} ${token.value}  Unknown word`}
 
 				default:
-					throw new Error('runTokens:  Unreachable')
+					return {status: Status.Fail, value: `${outText} ${token.value}  Unknown TokenKind`}
 			}
 		}
 

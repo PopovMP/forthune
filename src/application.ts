@@ -109,7 +109,7 @@ class Application
 			this.inputIndex = this.inputBuffer.length - 1
 		}
 
-		const tokens = Tokenizer.tokenizeLine(cmdText, lineNum)
+		const tokens = Parser.parseLine(cmdText, lineNum)
 		this.forth.run(tokens, cmdText)
 
 		this.stackView.innerText = this.forth.printStack()
