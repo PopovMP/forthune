@@ -1,6 +1,6 @@
 class Forth
 {
-	private readonly STACK_CAPACITY   = 1024
+	private readonly STACK_CAPACITY = 1024
 	private readonly env: Environment
 
 	constructor(output: (text: string) => void)
@@ -31,34 +31,20 @@ class Forth
 					return
 				}
 
-				switch (this.env.runMode) {
-					case RunMode.Interpret: {
+				if (this.env.runMode === RunMode.Run) {
+					this.die(lineText, token.value + ' No Run mode allowed here')
+					return
+				}
 
-						const res = Interpreter.run(tokens, i, this.env)
+				const res = this.env.runMode === RunMode.Interpret
+					? Interpreter.run(tokens, i, this.env)
+					: Compiler.compile(tokens, i, this.env)
 
-						outText += res.value
-						if (res.status === Status.Fail) {
-							this.die(lineText, outText)
-							return
-						}
-						break
-					}
+				outText += res.value
 
-					case RunMode.Compile: {
-
-						const res = Compiler.compile(tokens, i, this.env)
-
-						outText += res.value
-						if (res.status === Status.Fail) {
-							this.die(lineText, outText)
-							return
-						}
-						break
-					}
-
-					case RunMode.Run:
-						this.die(lineText, token.value + '  You should not be in Run mode here')
-						return
+				if (res.status === Status.Fail) {
+					this.die(lineText, outText)
+					return
 				}
 			}
 		}

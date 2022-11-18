@@ -679,28 +679,17 @@ class Forth {
                     this.die(lineText, outText);
                     return;
                 }
-                switch (this.env.runMode) {
-                    case RunMode.Interpret: {
-                        const res = Interpreter.run(tokens, i, this.env);
-                        outText += res.value;
-                        if (res.status === 1 /* Status.Fail */) {
-                            this.die(lineText, outText);
-                            return;
-                        }
-                        break;
-                    }
-                    case RunMode.Compile: {
-                        const res = Compiler.compile(tokens, i, this.env);
-                        outText += res.value;
-                        if (res.status === 1 /* Status.Fail */) {
-                            this.die(lineText, outText);
-                            return;
-                        }
-                        break;
-                    }
-                    case RunMode.Run:
-                        this.die(lineText, token.value + '  You should not be in Run mode here');
-                        return;
+                if (this.env.runMode === RunMode.Run) {
+                    this.die(lineText, token.value + ' No Run mode allowed here');
+                    return;
+                }
+                const res = this.env.runMode === RunMode.Interpret
+                    ? Interpreter.run(tokens, i, this.env)
+                    : Compiler.compile(tokens, i, this.env);
+                outText += res.value;
+                if (res.status === 1 /* Status.Fail */) {
+                    this.die(lineText, outText);
+                    return;
                 }
             }
         }
