@@ -325,23 +325,43 @@ class Dictionary
 			return {status: Status.Ok, value: ''}
 		},
 
+		// BEGIN
+
+		'BEGIN': (env: Environment) => {
+			return env.runMode === RunMode.Interpret
+				? {status: Status.Fail, value: 'BEGIN No Interpretation'}
+				: {status: Status.Ok, value: ''}
+		},
+
+		'WHILE': () => {
+			return {status: Status.Fail, value: 'WHILE Not expected'}
+		},
+
+		'UNTIL': () => {
+			return {status: Status.Fail, value: 'UNTIL Not expected'}
+		},
+
+		'REPEAT': () => {
+			return {status: Status.Fail, value: 'UNTIL Not expected'}
+		},
+
 		// DO
 
 		'DO': (env: Environment) => {
 			return env.runMode === RunMode.Interpret
-				? {status: Status.Fail, value: 'DO  No Interpretation'}
+				? {status: Status.Fail, value: 'DO No Interpretation'}
 				: {status: Status.Ok, value: ''}
 		},
 
 		'?DO': (env: Environment) => {
 			return env.runMode === RunMode.Interpret
-				? {status: Status.Fail, value: '?DO  No Interpretation'}
+				? {status: Status.Fail, value: '?DO No Interpretation'}
 				: {status: Status.Ok, value: ''}
 		},
 
 		'I': (env: Environment) => {
 			if (env.runMode === RunMode.Interpret)
-				return {status: Status.Fail, value: 'I  No Interpretation'}
+				return {status: Status.Fail, value: 'I No Interpretation'}
 
 			env.dStack.push( env.rStack.pick(0) )
 			return {status: Status.Ok, value: ''}
@@ -349,7 +369,7 @@ class Dictionary
 
 		'J': (env: Environment) => {
 			if (env.runMode === RunMode.Interpret)
-				return {status: Status.Fail, value: 'J  No Interpretation'}
+				return {status: Status.Fail, value: 'J No Interpretation'}
 
 			env.dStack.push( env.rStack.pick(1) )
 			return {status: Status.Ok, value: ''}
@@ -357,7 +377,7 @@ class Dictionary
 
 		'LEAVE': (env: Environment) => {
 			if (env.runMode === RunMode.Interpret)
-				return {status: Status.Fail, value: 'LEAVE  No Interpretation'}
+				return {status: Status.Fail, value: 'LEAVE No Interpretation'}
 
 			env.isLeave = true
 			return {status: Status.Ok, value: ''}

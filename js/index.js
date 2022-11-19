@@ -429,32 +429,47 @@ Dictionary.words = {
         env.dStack.push(n1 < n2 ? -1 : 0);
         return { status: 0 /* Status.Ok */, value: '' };
     },
+    // BEGIN
+    'BEGIN': (env) => {
+        return env.runMode === RunMode.Interpret
+            ? { status: 1 /* Status.Fail */, value: 'BEGIN No Interpretation' }
+            : { status: 0 /* Status.Ok */, value: '' };
+    },
+    'WHILE': () => {
+        return { status: 1 /* Status.Fail */, value: 'WHILE Not expected' };
+    },
+    'UNTIL': () => {
+        return { status: 1 /* Status.Fail */, value: 'UNTIL Not expected' };
+    },
+    'REPEAT': () => {
+        return { status: 1 /* Status.Fail */, value: 'UNTIL Not expected' };
+    },
     // DO
     'DO': (env) => {
         return env.runMode === RunMode.Interpret
-            ? { status: 1 /* Status.Fail */, value: 'DO  No Interpretation' }
+            ? { status: 1 /* Status.Fail */, value: 'DO No Interpretation' }
             : { status: 0 /* Status.Ok */, value: '' };
     },
     '?DO': (env) => {
         return env.runMode === RunMode.Interpret
-            ? { status: 1 /* Status.Fail */, value: '?DO  No Interpretation' }
+            ? { status: 1 /* Status.Fail */, value: '?DO No Interpretation' }
             : { status: 0 /* Status.Ok */, value: '' };
     },
     'I': (env) => {
         if (env.runMode === RunMode.Interpret)
-            return { status: 1 /* Status.Fail */, value: 'I  No Interpretation' };
+            return { status: 1 /* Status.Fail */, value: 'I No Interpretation' };
         env.dStack.push(env.rStack.pick(0));
         return { status: 0 /* Status.Ok */, value: '' };
     },
     'J': (env) => {
         if (env.runMode === RunMode.Interpret)
-            return { status: 1 /* Status.Fail */, value: 'J  No Interpretation' };
+            return { status: 1 /* Status.Fail */, value: 'J No Interpretation' };
         env.dStack.push(env.rStack.pick(1));
         return { status: 0 /* Status.Ok */, value: '' };
     },
     'LEAVE': (env) => {
         if (env.runMode === RunMode.Interpret)
-            return { status: 1 /* Status.Fail */, value: 'LEAVE  No Interpretation' };
+            return { status: 1 /* Status.Fail */, value: 'LEAVE No Interpretation' };
         env.isLeave = true;
         return { status: 0 /* Status.Ok */, value: '' };
     },
@@ -537,6 +552,15 @@ class Executor {
                     }
                     if (token.word === 'DO' || token.word === '?DO') {
                         const res = Executor.runDO(tokens, i, env);
+                        outText += res.value;
+                        if (res.status === 1 /* Status.Fail */)
+                            return { status: 1 /* Status.Fail */, value: outText };
+                        if (typeof res.newIndex === 'number')
+                            i = res.newIndex;
+                        break;
+                    }
+                    if (token.word === 'BEGIN') {
+                        const res = Executor.runBEGIN(tokens, i, env);
                         outText += res.value;
                         if (res.status === 1 /* Status.Fail */)
                             return { status: 1 /* Status.Fail */, value: outText };
@@ -628,10 +652,10 @@ class Executor {
             loopIndex += 1;
             if (loopIndex === tokens.length)
                 return { status: 1 /* Status.Fail */, value: 'LOOP Not found' };
-            const loopWord = tokens[loopIndex].value.toUpperCase();
-            if (loopWord === 'DO')
+            const word = tokens[loopIndex].word;
+            if (word === 'DO')
                 doDepth += 1;
-            if (loopWord === 'LOOP' || loopWord === '+LOOP')
+            if (word === 'LOOP' || word === '+LOOP')
                 doDepth -= 1;
             if (doDepth === 0)
                 break;
@@ -663,6 +687,66 @@ class Executor {
         // Continuation
         env.isLeave = false;
         return { status: 0 /* Status.Ok */, value: outText, newIndex: loopIndex };
+    }
+    static runBEGIN(tokens, index, env) {
+        // Find WHILE, REPEAT, or UNTIL index
+        let whileIndex = 0, repeatIndex = 0, untilIndex = 0;
+        let i = index + 1;
+        while (i < tokens.length) {
+            const word = tokens[i].word;
+            if (word === 'WHILE')
+                whileIndex = i;
+            else if (word === 'UNTIL')
+                untilIndex = i;
+            else if (word === 'REPEAT')
+                repeatIndex = i;
+            i += 1;
+        }
+        if (repeatIndex === 0 && whileIndex > 0)
+            return { status: 1 /* Status.Fail */, value: 'WHILE Not found' };
+        if (repeatIndex === 0 && untilIndex === 0)
+            return { status: 1 /* Status.Fail */, value: 'BEGIN Not closed' };
+        if (repeatIndex > 0 && untilIndex > 0)
+            return { status: 1 /* Status.Fail */, value: 'BEGIN Control flow mismatched' };
+        if (untilIndex > 0 && whileIndex > 0)
+            return { status: 1 /* Status.Fail */, value: 'BEGIN Control flow mismatched' };
+        let outText = '';
+        // BEGIN <init-code> <flag> WHILE <body-code> REPEAT
+        if (whileIndex > 0) {
+            const initCode = tokens.slice(index + 1, whileIndex);
+            const bodyCode = tokens.slice(whileIndex + 1, repeatIndex);
+            while (true) {
+                const initRes = Executor.run(initCode, env);
+                outText += initRes.value;
+                if (initRes.status === 1 /* Status.Fail */)
+                    return { status: 1 /* Status.Fail */, value: outText };
+                const flag = env.dStack.pop();
+                if (flag === 0)
+                    break;
+                const bodyRes = Executor.run(bodyCode, env);
+                outText += bodyRes.value;
+                if (bodyRes.status === 1 /* Status.Fail */)
+                    return { status: 1 /* Status.Fail */, value: outText };
+            }
+            // Continuation
+            return { status: 0 /* Status.Ok */, value: outText, newIndex: repeatIndex };
+        }
+        // BEGIN <body-code> <flag> UNTIL
+        if (untilIndex > 0) {
+            const bodyCode = tokens.slice(index + 1, untilIndex);
+            while (true) {
+                const bodyRes = Executor.run(bodyCode, env);
+                outText += bodyRes.value;
+                if (bodyRes.status === 1 /* Status.Fail */)
+                    return { status: 1 /* Status.Fail */, value: outText };
+                const flag = env.dStack.pop();
+                if (flag !== 0)
+                    break;
+            }
+            // Continuation
+            return { status: 0 /* Status.Ok */, value: outText, newIndex: untilIndex };
+        }
+        throw new Error('Unreachable');
     }
 }
 class Forth {
