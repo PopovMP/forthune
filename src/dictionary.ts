@@ -11,7 +11,7 @@ class Dictionary
 
 		'.(': (env: Environment) => {
 			return env.runMode === RunMode.Interpret
-				? {status: Status.Fail, value: ' .( No Interpretation'}
+				? {status: Status.Fail, value: '.( No Interpretation'}
 				: {status: Status.Ok, value: ''}
 		},
 
@@ -216,7 +216,7 @@ class Dictionary
 		'>R': (env: Environment) => {
 			// ( x -- ) ( R: -- x )
 			if (env.runMode === RunMode.Interpret)
-				return {status: Status.Fail, value: ' >R  No Interpretation'}
+				return {status: Status.Fail, value: '>R  No Interpretation'}
 
 			const n1 = env.dStack.pop()
 			env.rStack.push(n1)
@@ -226,7 +226,7 @@ class Dictionary
 		'R@': (env: Environment) => {
 			// ( -- x ) ( R: x -- x )
 			if (env.runMode === RunMode.Interpret)
-				return {status: Status.Fail, value: ' R@  No Interpretation'}
+				return {status: Status.Fail, value: 'R@  No Interpretation'}
 
 			const n1 = env.rStack.pick(0)
 			env.dStack.push(n1)
@@ -236,7 +236,7 @@ class Dictionary
 		'R>': (env: Environment) => {
 			// ( -- x ) ( R: x -- )
 			if (env.runMode === RunMode.Interpret)
-				return {status: Status.Fail, value: ' R>  No Interpretation'}
+				return {status: Status.Fail, value: 'R>  No Interpretation'}
 
 			const n1 = env.rStack.pop()
 			env.dStack.push(n1)
@@ -246,7 +246,7 @@ class Dictionary
 		'2>R': (env: Environment) => {
 			// ( x1 x2 -- ) ( R: -- x1 x2 )
 			if (env.runMode === RunMode.Interpret)
-				return {status: Status.Fail, value: ' 2>R  No Interpretation'}
+				return {status: Status.Fail, value: '2>R  No Interpretation'}
 
 			const n2 = env.dStack.pop()
 			const n1 = env.dStack.pop()
@@ -258,7 +258,7 @@ class Dictionary
 		'2R@': (env: Environment) => {
 			// ( -- x1 x2 ) ( R: x1 x2 -- x1 x2 )
 			if (env.runMode === RunMode.Interpret)
-				return {status: Status.Fail, value: ' 2R@  No Interpretation'}
+				return {status: Status.Fail, value: '2R@  No Interpretation'}
 
 			const n2 = env.rStack.pick(1)
 			const n1 = env.rStack.pick(0)
@@ -270,7 +270,7 @@ class Dictionary
 		'2R>': (env: Environment) => {
 			// ( -- x1 x2 ) ( R: x1 x2 -- )
 			if (env.runMode === RunMode.Interpret)
-				return {status: Status.Fail, value: ' 2R>  No Interpretation'}
+				return {status: Status.Fail, value: '2R>  No Interpretation'}
 
 			const n2 = env.rStack.pop()
 			const n1 = env.rStack.pop()
@@ -329,19 +329,19 @@ class Dictionary
 
 		'DO': (env: Environment) => {
 			return env.runMode === RunMode.Interpret
-				? {status: Status.Fail, value: ' DO  No Interpretation'}
+				? {status: Status.Fail, value: 'DO  No Interpretation'}
 				: {status: Status.Ok, value: ''}
 		},
 
 		'?DO': (env: Environment) => {
 			return env.runMode === RunMode.Interpret
-				? {status: Status.Fail, value: ' ?DO  No Interpretation'}
+				? {status: Status.Fail, value: '?DO  No Interpretation'}
 				: {status: Status.Ok, value: ''}
 		},
 
 		'I': (env: Environment) => {
 			if (env.runMode === RunMode.Interpret)
-				return {status: Status.Fail, value: ' I  No Interpretation'}
+				return {status: Status.Fail, value: 'I  No Interpretation'}
 
 			env.dStack.push( env.rStack.pick(0) )
 			return {status: Status.Ok, value: ''}
@@ -349,7 +349,7 @@ class Dictionary
 
 		'J': (env: Environment) => {
 			if (env.runMode === RunMode.Interpret)
-				return {status: Status.Fail, value: ' J  No Interpretation'}
+				return {status: Status.Fail, value: 'J  No Interpretation'}
 
 			env.dStack.push( env.rStack.pick(1) )
 			return {status: Status.Ok, value: ''}
@@ -357,42 +357,34 @@ class Dictionary
 
 		'LEAVE': (env: Environment) => {
 			if (env.runMode === RunMode.Interpret)
-				return {status: Status.Fail, value: ' LEAVE  No Interpretation'}
+				return {status: Status.Fail, value: 'LEAVE  No Interpretation'}
 
 			env.isLeave = true
 			return {status: Status.Ok, value: ''}
 		},
 
-		'LOOP': (env: Environment) => {
-			return env.runMode === RunMode.Interpret
-				? {status: Status.Fail, value: ' LOOP  No Interpretation'}
-				: {status: Status.Ok, value: ''}
+		'LOOP': () => {
+			return {status: Status.Fail, value: 'LOOP Not expected'}
 		},
 
-		'+LOOP': (env: Environment) => {
-			return env.runMode === RunMode.Interpret
-				? {status: Status.Fail, value: ' +LOOP  No Interpretation'}
-				: {status: Status.Ok, value: ''}
+		'+LOOP': () => {
+			return {status: Status.Fail, value: '+LOOP Not expected'}
 		},
 
 		// IF
 
 		'IF': (env: Environment) => {
 			return env.runMode === RunMode.Interpret
-				? {status: Status.Fail, value: ' IF  No Interpretation'}
+				? {status: Status.Fail, value: 'IF No Interpretation'}
 				: {status: Status.Ok, value: ''}
 		},
 
-		'ELSE': (env: Environment) => {
-			return env.runMode === RunMode.Interpret
-				? {status: Status.Fail, value: ' ELSE  No Interpretation'}
-				: {status: Status.Ok, value: ''}
+		'ELSE': () => {
+			return {status: Status.Fail, value: 'ELSE Not expected'}
 		},
 
-		'THEN': (env: Environment) => {
-			return env.runMode === RunMode.Interpret
-				? {status: Status.Fail, value: ' THEN  No Interpretation'}
-				: {status: Status.Ok, value: ''}
+		'THEN': () => {
+			return {status: Status.Fail, value: 'THEN Not expected'}
 		},
 
 		// Tools

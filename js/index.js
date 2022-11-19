@@ -171,7 +171,7 @@ Dictionary.words = {
     },
     '.(': (env) => {
         return env.runMode === RunMode.Interpret
-            ? { status: 1 /* Status.Fail */, value: ' .( No Interpretation' }
+            ? { status: 1 /* Status.Fail */, value: '.( No Interpretation' }
             : { status: 0 /* Status.Ok */, value: '' };
     },
     '\\': () => {
@@ -342,7 +342,7 @@ Dictionary.words = {
     '>R': (env) => {
         // ( x -- ) ( R: -- x )
         if (env.runMode === RunMode.Interpret)
-            return { status: 1 /* Status.Fail */, value: ' >R  No Interpretation' };
+            return { status: 1 /* Status.Fail */, value: '>R  No Interpretation' };
         const n1 = env.dStack.pop();
         env.rStack.push(n1);
         return { status: 0 /* Status.Ok */, value: '' };
@@ -350,7 +350,7 @@ Dictionary.words = {
     'R@': (env) => {
         // ( -- x ) ( R: x -- x )
         if (env.runMode === RunMode.Interpret)
-            return { status: 1 /* Status.Fail */, value: ' R@  No Interpretation' };
+            return { status: 1 /* Status.Fail */, value: 'R@  No Interpretation' };
         const n1 = env.rStack.pick(0);
         env.dStack.push(n1);
         return { status: 0 /* Status.Ok */, value: '' };
@@ -358,7 +358,7 @@ Dictionary.words = {
     'R>': (env) => {
         // ( -- x ) ( R: x -- )
         if (env.runMode === RunMode.Interpret)
-            return { status: 1 /* Status.Fail */, value: ' R>  No Interpretation' };
+            return { status: 1 /* Status.Fail */, value: 'R>  No Interpretation' };
         const n1 = env.rStack.pop();
         env.dStack.push(n1);
         return { status: 0 /* Status.Ok */, value: '' };
@@ -366,7 +366,7 @@ Dictionary.words = {
     '2>R': (env) => {
         // ( x1 x2 -- ) ( R: -- x1 x2 )
         if (env.runMode === RunMode.Interpret)
-            return { status: 1 /* Status.Fail */, value: ' 2>R  No Interpretation' };
+            return { status: 1 /* Status.Fail */, value: '2>R  No Interpretation' };
         const n2 = env.dStack.pop();
         const n1 = env.dStack.pop();
         env.rStack.push(n1);
@@ -376,7 +376,7 @@ Dictionary.words = {
     '2R@': (env) => {
         // ( -- x1 x2 ) ( R: x1 x2 -- x1 x2 )
         if (env.runMode === RunMode.Interpret)
-            return { status: 1 /* Status.Fail */, value: ' 2R@  No Interpretation' };
+            return { status: 1 /* Status.Fail */, value: '2R@  No Interpretation' };
         const n2 = env.rStack.pick(1);
         const n1 = env.rStack.pick(0);
         env.dStack.push(n1);
@@ -386,7 +386,7 @@ Dictionary.words = {
     '2R>': (env) => {
         // ( -- x1 x2 ) ( R: x1 x2 -- )
         if (env.runMode === RunMode.Interpret)
-            return { status: 1 /* Status.Fail */, value: ' 2R>  No Interpretation' };
+            return { status: 1 /* Status.Fail */, value: '2R>  No Interpretation' };
         const n2 = env.rStack.pop();
         const n1 = env.rStack.pop();
         env.dStack.push(n1);
@@ -432,57 +432,49 @@ Dictionary.words = {
     // DO
     'DO': (env) => {
         return env.runMode === RunMode.Interpret
-            ? { status: 1 /* Status.Fail */, value: ' DO  No Interpretation' }
+            ? { status: 1 /* Status.Fail */, value: 'DO  No Interpretation' }
             : { status: 0 /* Status.Ok */, value: '' };
     },
     '?DO': (env) => {
         return env.runMode === RunMode.Interpret
-            ? { status: 1 /* Status.Fail */, value: ' ?DO  No Interpretation' }
+            ? { status: 1 /* Status.Fail */, value: '?DO  No Interpretation' }
             : { status: 0 /* Status.Ok */, value: '' };
     },
     'I': (env) => {
         if (env.runMode === RunMode.Interpret)
-            return { status: 1 /* Status.Fail */, value: ' I  No Interpretation' };
+            return { status: 1 /* Status.Fail */, value: 'I  No Interpretation' };
         env.dStack.push(env.rStack.pick(0));
         return { status: 0 /* Status.Ok */, value: '' };
     },
     'J': (env) => {
         if (env.runMode === RunMode.Interpret)
-            return { status: 1 /* Status.Fail */, value: ' J  No Interpretation' };
+            return { status: 1 /* Status.Fail */, value: 'J  No Interpretation' };
         env.dStack.push(env.rStack.pick(1));
         return { status: 0 /* Status.Ok */, value: '' };
     },
     'LEAVE': (env) => {
         if (env.runMode === RunMode.Interpret)
-            return { status: 1 /* Status.Fail */, value: ' LEAVE  No Interpretation' };
+            return { status: 1 /* Status.Fail */, value: 'LEAVE  No Interpretation' };
         env.isLeave = true;
         return { status: 0 /* Status.Ok */, value: '' };
     },
-    'LOOP': (env) => {
-        return env.runMode === RunMode.Interpret
-            ? { status: 1 /* Status.Fail */, value: ' LOOP  No Interpretation' }
-            : { status: 0 /* Status.Ok */, value: '' };
+    'LOOP': () => {
+        return { status: 1 /* Status.Fail */, value: 'LOOP Not expected' };
     },
-    '+LOOP': (env) => {
-        return env.runMode === RunMode.Interpret
-            ? { status: 1 /* Status.Fail */, value: ' +LOOP  No Interpretation' }
-            : { status: 0 /* Status.Ok */, value: '' };
+    '+LOOP': () => {
+        return { status: 1 /* Status.Fail */, value: '+LOOP Not expected' };
     },
     // IF
     'IF': (env) => {
         return env.runMode === RunMode.Interpret
-            ? { status: 1 /* Status.Fail */, value: ' IF  No Interpretation' }
+            ? { status: 1 /* Status.Fail */, value: 'IF No Interpretation' }
             : { status: 0 /* Status.Ok */, value: '' };
     },
-    'ELSE': (env) => {
-        return env.runMode === RunMode.Interpret
-            ? { status: 1 /* Status.Fail */, value: ' ELSE  No Interpretation' }
-            : { status: 0 /* Status.Ok */, value: '' };
+    'ELSE': () => {
+        return { status: 1 /* Status.Fail */, value: 'ELSE Not expected' };
     },
-    'THEN': (env) => {
-        return env.runMode === RunMode.Interpret
-            ? { status: 1 /* Status.Fail */, value: ' THEN  No Interpretation' }
-            : { status: 0 /* Status.Ok */, value: '' };
+    'THEN': () => {
+        return { status: 1 /* Status.Fail */, value: 'THEN Not expected' };
     },
     // Tools
     '.S': (env) => {
