@@ -238,6 +238,54 @@ Dictionary.words = {
         env.dStack.push(Math.abs(n1));
         return { status: 0 /* Status.Ok */, value: '' };
     },
+    'MOD': (env) => {
+        const n2 = env.dStack.pop();
+        const n1 = env.dStack.pop();
+        env.dStack.push(n1 % n2);
+        return { status: 0 /* Status.Ok */, value: '' };
+    },
+    'MAX': (env) => {
+        const n2 = env.dStack.pop();
+        const n1 = env.dStack.pop();
+        env.dStack.push(Math.max(n1, n2));
+        return { status: 0 /* Status.Ok */, value: '' };
+    },
+    'MIN': (env) => {
+        const n2 = env.dStack.pop();
+        const n1 = env.dStack.pop();
+        env.dStack.push(Math.min(n1, n2));
+        return { status: 0 /* Status.Ok */, value: '' };
+    },
+    'NEGATE': (env) => {
+        const n1 = env.dStack.pop();
+        env.dStack.push(-n1);
+        return { status: 0 /* Status.Ok */, value: '' };
+    },
+    'INVERT': (env) => {
+        const n1 = env.dStack.pop();
+        env.dStack.push(~n1);
+        return { status: 0 /* Status.Ok */, value: '' };
+    },
+    '1+': (env) => {
+        const n1 = env.dStack.pop();
+        env.dStack.push(n1 + 1);
+        return { status: 0 /* Status.Ok */, value: '' };
+    },
+    '1-': (env) => {
+        const n1 = env.dStack.pop();
+        env.dStack.push(n1 - 1);
+        return { status: 0 /* Status.Ok */, value: '' };
+    },
+    '2*': (env) => {
+        const n1 = env.dStack.pop();
+        env.dStack.push(n1 << 1);
+        return { status: 0 /* Status.Ok */, value: '' };
+    },
+    '2/': (env) => {
+        const n1 = env.dStack.pop();
+        env.dStack.push(n1 >> 1);
+        return { status: 0 /* Status.Ok */, value: '' };
+    },
     // Stack manipulation
     '.': (env) => {
         return { status: 0 /* Status.Ok */, value: env.dStack.pop().toString() + ' ' };
@@ -427,6 +475,38 @@ Dictionary.words = {
         const n2 = env.dStack.pop();
         const n1 = env.dStack.pop();
         env.dStack.push(n1 < n2 ? -1 : 0);
+        return { status: 0 /* Status.Ok */, value: '' };
+    },
+    '0=': (env) => {
+        const n1 = env.dStack.pop();
+        env.dStack.push(n1 === 0 ? -1 : 0);
+        return { status: 0 /* Status.Ok */, value: '' };
+    },
+    '0>': (env) => {
+        const n1 = env.dStack.pop();
+        env.dStack.push(n1 > 0 ? -1 : 0);
+        return { status: 0 /* Status.Ok */, value: '' };
+    },
+    '0<': (env) => {
+        const n1 = env.dStack.pop();
+        env.dStack.push(n1 < 0 ? -1 : 0);
+        return { status: 0 /* Status.Ok */, value: '' };
+    },
+    '0<>': (env) => {
+        const n1 = env.dStack.pop();
+        env.dStack.push(n1 !== 0 ? -1 : 0);
+        return { status: 0 /* Status.Ok */, value: '' };
+    },
+    'AND': (env) => {
+        const n2 = env.dStack.pop();
+        const n1 = env.dStack.pop();
+        env.dStack.push(n1 === n2 ? n1 : Math.abs(n1) === Math.abs(n2) ? Math.abs(n1) : 0);
+        return { status: 0 /* Status.Ok */, value: '' };
+    },
+    'OR': (env) => {
+        const n2 = env.dStack.pop();
+        const n1 = env.dStack.pop();
+        env.dStack.push(n1 || n2);
         return { status: 0 /* Status.Ok */, value: '' };
     },
     // BEGIN

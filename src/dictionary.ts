@@ -96,6 +96,63 @@ class Dictionary
 			return {status: Status.Ok, value: ''}
 		},
 
+		'MOD': (env: Environment) => {
+			const n2 = env.dStack.pop()
+			const n1 = env.dStack.pop()
+			env.dStack.push(n1 % n2)
+			return {status: Status.Ok, value: ''}
+		},
+
+		'MAX': (env: Environment) => {
+			const n2 = env.dStack.pop()
+			const n1 = env.dStack.pop()
+			env.dStack.push(Math.max(n1, n2))
+			return {status: Status.Ok, value: ''}
+		},
+
+		'MIN': (env: Environment) => {
+			const n2 = env.dStack.pop()
+			const n1 = env.dStack.pop()
+			env.dStack.push(Math.min(n1, n2))
+			return {status: Status.Ok, value: ''}
+		},
+
+		'NEGATE': (env: Environment) => {
+			const n1 = env.dStack.pop()
+			env.dStack.push(-n1)
+			return {status: Status.Ok, value: ''}
+		},
+
+		'INVERT': (env: Environment) => {
+			const n1 = env.dStack.pop()
+			env.dStack.push(~n1)
+			return {status: Status.Ok, value: ''}
+		},
+
+		'1+': (env: Environment) => {
+			const n1 = env.dStack.pop()
+			env.dStack.push(n1 + 1)
+			return {status: Status.Ok, value: ''}
+		},
+
+		'1-': (env: Environment) => {
+			const n1 = env.dStack.pop()
+			env.dStack.push(n1 - 1)
+			return {status: Status.Ok, value: ''}
+		},
+
+		'2*': (env: Environment) => {
+			const n1 = env.dStack.pop()
+			env.dStack.push(n1 << 1)
+			return {status: Status.Ok, value: ''}
+		},
+
+		'2/': (env: Environment) => {
+			const n1 = env.dStack.pop()
+			env.dStack.push(n1 >> 1)
+			return {status: Status.Ok, value: ''}
+		},
+
 		// Stack manipulation
 
 		'.': (env: Environment) => {
@@ -322,6 +379,44 @@ class Dictionary
 			const n2 = env.dStack.pop()
 			const n1 = env.dStack.pop()
 			env.dStack.push(n1 < n2 ? -1 : 0)
+			return {status: Status.Ok, value: ''}
+		},
+
+		'0=': (env: Environment) => {
+			const n1 = env.dStack.pop()
+			env.dStack.push(n1 === 0 ? -1 : 0)
+			return {status: Status.Ok, value: ''}
+		},
+
+		'0>': (env: Environment) => {
+			const n1 = env.dStack.pop()
+			env.dStack.push(n1 > 0 ? -1 : 0)
+			return {status: Status.Ok, value: ''}
+		},
+
+		'0<': (env: Environment) => {
+			const n1 = env.dStack.pop()
+			env.dStack.push(n1 < 0 ? -1 : 0)
+			return {status: Status.Ok, value: ''}
+		},
+
+		'0<>': (env: Environment) => {
+			const n1 = env.dStack.pop()
+			env.dStack.push(n1 !== 0 ? -1 : 0)
+			return {status: Status.Ok, value: ''}
+		},
+
+		'AND': (env: Environment) => {
+			const n2 = env.dStack.pop()
+			const n1 = env.dStack.pop()
+			env.dStack.push(n1 === n2 ? n1 : Math.abs(n1) === Math.abs(n2) ? Math.abs(n1) : 0)
+			return {status: Status.Ok, value: ''}
+		},
+
+		'OR': (env: Environment) => {
+			const n2 = env.dStack.pop()
+			const n1 = env.dStack.pop()
+			env.dStack.push(n1 || n2)
 			return {status: Status.Ok, value: ''}
 		},
 
