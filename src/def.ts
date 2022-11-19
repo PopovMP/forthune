@@ -20,6 +20,7 @@ interface ExecResult
 {
 	status: Status
 	value : string
+	newIndex ?: number
 }
 
 interface ColonDef

@@ -32,7 +32,7 @@ class Forth
 				}
 
 				if (this.env.runMode === RunMode.Run) {
-					this.die(lineText, token.value + ' No Run mode allowed here')
+					this.die(lineText, token.value + ' Forth: Run mode not allowed here')
 					return
 				}
 
@@ -68,7 +68,7 @@ class Forth
 	{
 		this.env.dStack.clear()
 		this.env.rStack.clear()
-		this.env.output(`${lineText} ${message}\n`)
+		this.env.output(`${lineText}  ${message}\n`)
 		this.env.runMode = RunMode.Interpret
 		this.env.isLeave = false
 	}

@@ -8,7 +8,7 @@ class Compiler
 			return {status: Status.Fail, value: `${token.value} ${token.error}`}
 
 		if (token.word === ':')
-			return {status: Status.Fail, value: `:  Nested Definition`}
+			return {status: Status.Fail, value: `: Nested definition`}
 
 		if (token.word === ';') {
 			Dictionary.colonDef[env.tempDef.name] = {
@@ -38,7 +38,7 @@ class Compiler
 					env.tempDef.tokens.push(token)
 					break
 				}
-				return {status: Status.Fail, value: `${token.value}  Unknown word`}
+				return {status: Status.Fail, value: `${token.value} Unknown word`}
 
 			default:
 				env.tempDef.tokens.push(token)

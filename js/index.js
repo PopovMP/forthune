@@ -103,7 +103,7 @@ class Compiler {
         if (token.error)
             return { status: 1 /* Status.Fail */, value: `${token.value} ${token.error}` };
         if (token.word === ':')
-            return { status: 1 /* Status.Fail */, value: `:  Nested Definition` };
+            return { status: 1 /* Status.Fail */, value: `: Nested definition` };
         if (token.word === ';') {
             Dictionary.colonDef[env.tempDef.name] = {
                 name: env.tempDef.name,
@@ -127,7 +127,7 @@ class Compiler {
                     env.tempDef.tokens.push(token);
                     break;
                 }
-                return { status: 1 /* Status.Fail */, value: `${token.value}  Unknown word` };
+                return { status: 1 /* Status.Fail */, value: `${token.value} Unknown word` };
             default:
                 env.tempDef.tokens.push(token);
         }
@@ -514,7 +514,7 @@ class Executor {
                     env.dStack.push(Number(token.value));
                     break;
                 case TokenKind.Character:
-                    env.dStack.push(token.value.charCodeAt(0));
+                    env.dStack.push(token.content.charCodeAt(0));
                     break;
                 case TokenKind.LineComment:
                 case TokenKind.Comment:
@@ -525,61 +525,23 @@ class Executor {
                     break;
                 case TokenKind.Value:
                 case TokenKind.Constant:
-                    return { status: 1 /* Status.Fail */, value: ` ${token.word}  No Execution` };
+                    return { status: 1 /* Status.Fail */, value: `${token.value} No Execution` };
                 case TokenKind.ValueTo:
                     env.value[token.content.toUpperCase()] = env.dStack.pop();
                     break;
                 case TokenKind.ColonDef:
-                    return { status: 1 /* Status.Fail */, value: ` ${token.word}  No Execution` };
+                    return { status: 1 /* Status.Fail */, value: `: No Execution` };
                 case TokenKind.Word:
                     if (env.isLeave)
                         break;
                     if (token.word === 'IF') {
-                        let thenIndex = i + 1;
-                        let ifDepth = 1;
-                        while (true) {
-                            thenIndex += 1;
-                            if (thenIndex === tokens.length)
-                                return { status: 1 /* Status.Fail */, value: ' THEN not found' };
-                            const loopWord = tokens[thenIndex].value.toUpperCase();
-                            if (loopWord === 'IF')
-                                ifDepth += 1;
-                            if (loopWord === 'THEN')
-                                ifDepth -= 1;
-                            if (ifDepth === 0)
-                                break;
-                        }
-                        let elseIndex = i + 1;
-                        ifDepth = 1;
-                        while (elseIndex < thenIndex) {
-                            elseIndex += 1;
-                            const loopWord = tokens[elseIndex].value.toUpperCase();
-                            if (loopWord === 'IF')
-                                ifDepth += 1;
-                            if (loopWord === 'THEN')
-                                ifDepth -= 1;
-                            if (ifDepth === 1 && loopWord === 'ELSE')
-                                break;
-                        }
-                        const flag = env.dStack.pop();
-                        if (flag === 0) {
-                            if (elseIndex < thenIndex) {
-                                const res = Executor.run(tokens.slice(elseIndex + 1, thenIndex), env);
-                                outText += res.value;
-                                if (res.status === 1 /* Status.Fail */)
-                                    return { status: 1 /* Status.Fail */, value: outText };
-                            }
-                            i = thenIndex + 1;
-                            continue;
-                        }
-                        else {
-                            const res = Executor.run(tokens.slice(i + 1, elseIndex), env);
-                            outText += res.value;
-                            if (res.status === 1 /* Status.Fail */)
-                                return { status: 1 /* Status.Fail */, value: outText };
-                            i = thenIndex + 1;
-                            continue;
-                        }
+                        const res = Executor.runIF(tokens, i, env);
+                        outText += res.value;
+                        if (res.status === 1 /* Status.Fail */)
+                            return { status: 1 /* Status.Fail */, value: outText };
+                        if (typeof res.newIndex === 'number')
+                            i = res.newIndex;
+                        break;
                     }
                     if (token.word === 'DO' || token.word === '?DO') {
                         const isQuestionDup = token.word === '?DO';
@@ -588,7 +550,7 @@ class Executor {
                         while (true) {
                             loopIndex += 1;
                             if (loopIndex === tokens.length)
-                                return { status: 1 /* Status.Fail */, value: ' LOOP not found' };
+                                return { status: 1 /* Status.Fail */, value: 'LOOP E: Not found' };
                             const loopWord = tokens[loopIndex].value.toUpperCase();
                             if (loopWord === 'DO')
                                 doDepth += 1;
@@ -607,7 +569,7 @@ class Executor {
                             continue;
                         }
                         if (!isPlusLoop && !upwards)
-                            return { status: 1 /* Status.Fail */, value: ' LOOP wrong range' };
+                            return { status: 1 /* Status.Fail */, value: 'LOOP E: Wrong range' };
                         while (upwards ? counter < limit : counter >= limit) {
                             env.rStack.push(counter);
                             const res = Executor.run(tokens.slice(i + 1, loopIndex), env);
@@ -647,12 +609,57 @@ class Executor {
                             return { status: 0 /* Status.Ok */, value: outText };
                         break;
                     }
-                    return { status: 1 /* Status.Fail */, value: `${outText} ${token.value}  Unknown word` };
+                    return { status: 1 /* Status.Fail */, value: `${outText} ${token.value} Unknown word` };
                 default:
-                    return { status: 1 /* Status.Fail */, value: `${outText} ${token.value}  Unknown TokenKind` };
+                    return { status: 1 /* Status.Fail */, value: `${outText} ${token.value} Executor: Unknown TokenKind` };
             }
         }
         return { status: 0 /* Status.Ok */, value: outText };
+    }
+    static runIF(tokens, index, env) {
+        // Find THEN index
+        let thenIndex = index + 1;
+        let ifDepth = 1;
+        while (true) {
+            thenIndex += 1;
+            if (thenIndex === tokens.length)
+                return { status: 1 /* Status.Fail */, value: 'THEN Is missing' };
+            const loopWord = tokens[thenIndex].value.toUpperCase();
+            if (loopWord === 'IF')
+                ifDepth += 1;
+            if (loopWord === 'THEN')
+                ifDepth -= 1;
+            if (ifDepth === 0)
+                break;
+        }
+        // Find ELSE index
+        let elseIndex = index + 1;
+        ifDepth = 1;
+        while (elseIndex < thenIndex) {
+            elseIndex += 1;
+            const loopWord = tokens[elseIndex].value.toUpperCase();
+            if (loopWord === 'IF')
+                ifDepth += 1;
+            if (loopWord === 'THEN')
+                ifDepth -= 1;
+            if (ifDepth === 1 && loopWord === 'ELSE')
+                break;
+        }
+        const flag = env.dStack.pop();
+        if (flag) {
+            // Consequent part
+            const consTokens = tokens.slice(index + 1, elseIndex);
+            const res = Executor.run(consTokens, env);
+            return { status: res.status, value: res.value, newIndex: thenIndex };
+        }
+        if (elseIndex < thenIndex) {
+            // Alternative part
+            const altTokens = tokens.slice(elseIndex + 1, thenIndex);
+            const res = Executor.run(altTokens, env);
+            return { status: res.status, value: res.value, newIndex: thenIndex };
+        }
+        // Continuation
+        return { status: 0 /* Status.Ok */, value: '', newIndex: thenIndex };
     }
 }
 class Forth {
@@ -680,7 +687,7 @@ class Forth {
                     return;
                 }
                 if (this.env.runMode === RunMode.Run) {
-                    this.die(lineText, token.value + ' No Run mode allowed here');
+                    this.die(lineText, token.value + ' Forth: Run mode not allowed here');
                     return;
                 }
                 const res = this.env.runMode === RunMode.Interpret
@@ -707,7 +714,7 @@ class Forth {
     die(lineText, message) {
         this.env.dStack.clear();
         this.env.rStack.clear();
-        this.env.output(`${lineText} ${message}\n`);
+        this.env.output(`${lineText}  ${message}\n`);
         this.env.runMode = RunMode.Interpret;
         this.env.isLeave = false;
     }
@@ -722,7 +729,7 @@ class Interpreter {
                 env.dStack.push(Number(token.value));
                 break;
             case TokenKind.Character:
-                env.dStack.push(token.value.charCodeAt(0));
+                env.dStack.push(token.content.charCodeAt(0));
                 break;
             case TokenKind.LineComment:
             case TokenKind.Comment:
@@ -742,8 +749,6 @@ class Interpreter {
                 env.runMode = RunMode.Compile;
                 break;
             case TokenKind.Word: {
-                if (Dictionary.words.hasOwnProperty(token.word))
-                    return Dictionary.words[token.word](env);
                 if (Dictionary.colonDef.hasOwnProperty(token.word)) {
                     env.runMode = RunMode.Run;
                     const res = Executor.run(Dictionary.colonDef[token.word].tokens, env);
@@ -758,10 +763,12 @@ class Interpreter {
                     env.dStack.push(env.constant[token.word]);
                     break;
                 }
-                return { status: 1 /* Status.Fail */, value: `${token.value}  Unknown word` };
+                if (Dictionary.words.hasOwnProperty(token.word))
+                    return Dictionary.words[token.word](env);
+                return { status: 1 /* Status.Fail */, value: `${token.value} Unknown word` };
             }
             default:
-                return { status: 1 /* Status.Fail */, value: `${token.value}  Unknown TokenKind` };
+                return { status: 1 /* Status.Fail */, value: `${token.value} Interpreter: Unknown TokenKind` };
         }
         return { status: 0 /* Status.Ok */, value: '' };
     }

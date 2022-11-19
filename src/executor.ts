@@ -16,7 +16,7 @@ class Executor
 					break
 
 				case TokenKind.Character:
-					env.dStack.push( token.value.charCodeAt(0) )
+					env.dStack.push( token.content.charCodeAt(0) )
 					break
 
 				case TokenKind.LineComment:
@@ -30,71 +30,27 @@ class Executor
 
 				case TokenKind.Value:
 				case TokenKind.Constant:
-					return {status: Status.Fail, value: ` ${token.word}  No Execution`}
+					return {status: Status.Fail, value: `${token.value} No Execution`}
 
 				case TokenKind.ValueTo:
 					env.value[token.content.toUpperCase()] = env.dStack.pop()
 					break
 
 				case TokenKind.ColonDef:
-					return {status: Status.Fail, value: ` ${token.word}  No Execution`}
+					return {status: Status.Fail, value: `: No Execution`}
 
 				case TokenKind.Word:
 					if (env.isLeave)
 						break
 
 					if (token.word === 'IF') {
-						let thenIndex = i + 1
-						let ifDepth = 1
-						while (true) {
-							thenIndex += 1
-							if (thenIndex === tokens.length)
-								return {status: Status.Fail, value: ' THEN not found'}
-							const loopWord = tokens[thenIndex].value.toUpperCase()
-							if (loopWord === 'IF')
-								ifDepth += 1
-							if (loopWord === 'THEN')
-								ifDepth -= 1
-							if (ifDepth === 0)
-								break
-						}
-
-						let elseIndex = i + 1
-						ifDepth = 1
-						while (elseIndex < thenIndex) {
-							elseIndex += 1
-							const loopWord = tokens[elseIndex].value.toUpperCase()
-							if (loopWord === 'IF')
-								ifDepth += 1
-							if (loopWord === 'THEN')
-								ifDepth -= 1
-							if (ifDepth === 1 && loopWord === 'ELSE')
-								break
-						}
-
-						const flag = env.dStack.pop()
-						if (flag === 0) {
-							if (elseIndex < thenIndex) {
-								const res = Executor.run(tokens.slice(elseIndex+1, thenIndex), env)
-								outText += res.value
-
-								if (res.status === Status.Fail)
-									return {status: Status.Fail, value: outText}
-							}
-
-							i = thenIndex + 1
-							continue
-						}
-						else {
-							const res = Executor.run(tokens.slice(i+1, elseIndex), env)
-							outText += res.value
-
-							if (res.status === Status.Fail)
-								return {status: Status.Fail, value: outText}
-
-							i = thenIndex + 1
-							continue
-						}
+						const res = Executor.runIF(tokens, i, env)
+						outText += res.value
+						if (res.status === Status.Fail)
+							return {status: Status.Fail, value: outText}
+						if (typeof res.newIndex === 'number')
+							i = res.newIndex
+						break
 					}
 
 					if (token.word === 'DO' || token.word === '?DO') {
@@ -105,7 +61,7 @@ class Executor
 						while (true) {
 							loopIndex += 1
 							if (loopIndex === tokens.length)
-								return {status: Status.Fail, value: ' LOOP not found'}
+								return {status: Status.Fail, value: 'LOOP E: Not found'}
 							const loopWord = tokens[loopIndex].value.toUpperCase()
 							if (loopWord === 'DO')
 								doDepth += 1
@@ -127,7 +83,7 @@ class Executor
 						}
 
 						if (!isPlusLoop && !upwards)
-							return {status: Status.Fail, value: ' LOOP wrong range'}
+							return {status: Status.Fail, value: 'LOOP E: Wrong range'}
 
 						while (upwards ? counter < limit : counter >= limit) {
 							env.rStack.push(counter)
@@ -177,13 +133,65 @@ class Executor
 						break
 					}
 
-					return {status: Status.Fail, value: `${outText} ${token.value}  Unknown word`}
+					return {status: Status.Fail, value: `${outText} ${token.value} Unknown word`}
 
 				default:
-					return {status: Status.Fail, value: `${outText} ${token.value}  Unknown TokenKind`}
+					return {status: Status.Fail, value: `${outText} ${token.value} Executor: Unknown TokenKind`}
 			}
 		}
 
 		return {status: Status.Ok, value: outText}
+	}
+
+	public static runIF(tokens: Token[], index :number, env: Environment): ExecResult
+	{
+		// Find THEN index
+		let thenIndex = index + 1
+		let ifDepth = 1
+		while (true) {
+			thenIndex += 1
+			if (thenIndex === tokens.length)
+				return {status: Status.Fail, value: 'THEN Is missing'}
+			const loopWord = tokens[thenIndex].value.toUpperCase()
+			if (loopWord === 'IF')
+				ifDepth += 1
+			if (loopWord === 'THEN')
+				ifDepth -= 1
+			if (ifDepth === 0)
+				break
+		}
+
+		// Find ELSE index
+		let elseIndex = index + 1
+		ifDepth = 1
+		while (elseIndex < thenIndex) {
+			elseIndex += 1
+			const loopWord = tokens[elseIndex].value.toUpperCase()
+			if (loopWord === 'IF')
+				ifDepth += 1
+			if (loopWord === 'THEN')
+				ifDepth -= 1
+			if (ifDepth === 1 && loopWord === 'ELSE')
+				break
+		}
+
+		const flag = env.dStack.pop()
+
+		if (flag) {
+			// Consequent part
+			const consTokens = tokens.slice(index+1, elseIndex)
+			const res = Executor.run(consTokens, env)
+			return {status: res.status, value: res.value, newIndex: thenIndex}
+		}
+
+		if (elseIndex < thenIndex) {
+			// Alternative part
+			const altTokens = tokens.slice(elseIndex+1, thenIndex)
+			const res = Executor.run(altTokens, env)
+			return {status: res.status, value: res.value, newIndex: thenIndex}
+		}
+
+		// Continuation
+		return {status: Status.Ok, value: '', newIndex: thenIndex}
 	}
 }

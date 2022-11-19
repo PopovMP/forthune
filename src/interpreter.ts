@@ -13,7 +13,7 @@ class Interpreter
 				break
 
 			case TokenKind.Character:
-				env.dStack.push( token.value.charCodeAt(0) )
+				env.dStack.push( token.content.charCodeAt(0) )
 				break
 
 			case TokenKind.LineComment:
@@ -40,10 +40,7 @@ class Interpreter
 
 			case TokenKind.Word: {
 
-				if (Dictionary.words.hasOwnProperty(token.word))
-					return Dictionary.words[token.word](env)
-
-				if (Dictionary.colonDef.hasOwnProperty(token.word)) {
+				if ( Dictionary.colonDef.hasOwnProperty(token.word) ) {
 					env.runMode = RunMode.Run
 
 					const res = Executor.run(Dictionary.colonDef[token.word].tokens, env)
@@ -63,11 +60,14 @@ class Interpreter
 					break
 				}
 
-				return {status: Status.Fail, value: `${token.value}  Unknown word`}
+				if ( Dictionary.words.hasOwnProperty(token.word) )
+					return Dictionary.words[token.word](env)
+
+				return {status: Status.Fail, value: `${token.value} Unknown word`}
 			}
 
 			default:
-				return {status: Status.Fail, value: `${token.value}  Unknown TokenKind`}
+				return {status: Status.Fail, value: `${token.value} Interpreter: Unknown TokenKind`}
 		}
 
 		return {status: Status.Ok, value: ''}
