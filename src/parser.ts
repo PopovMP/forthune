@@ -30,7 +30,21 @@ class Parser
 			empty    : true,
 		},
 		'."': {
-			kind     : TokenKind.String,
+			kind     : TokenKind.DotQuote,
+			delimiter: '"',
+			trimStart: false,
+			strict   : true,
+			empty    : true,
+		},
+		'C"': {
+			kind     : TokenKind.CQuote,
+			delimiter: '"',
+			trimStart: false,
+			strict   : true,
+			empty    : true,
+		},
+		'S"': {
+			kind     : TokenKind.SQuote,
 			delimiter: '"',
 			trimStart: false,
 			strict   : true,

@@ -2,7 +2,7 @@ class Dictionary
 {
 	public static readonly colonDef: {[word: string]: ColonDef} = {}
 
-	public static readonly words: {[word: string]: (env: Environment) => ExecResult} = {
+	public static readonly words: {[word: string]: (env: Environment, token: Token) => ExecResult} = {
 		// Comments
 
 		'(': () => {
@@ -31,12 +31,72 @@ class Dictionary
 			return {status: Status.Ok, message: ''}
 		},
 
+		'C@': (env: Environment) => {
+			// ( c-addr -- charCode )
+			// Fetch the character code stored at c-addr.
+			const cAddr = env.dStack.pop()
+			if (cAddr < 0 || cAddr >= env.cs)
+				return {status: Status.Fail, message: 'C@ Address out of range'}
+			const charCode = env.cString[cAddr]
+			env.dStack.push(charCode)
+			return {status: Status.Ok, message: ''}
+		},
+
 		// String
 
-		'."': (env: Environment) => {
-			return env.runMode === RunMode.Interpret
-				? {status: Status.Fail, message: ' ."  No Interpretation'}
-				: {status: Status.Ok, message: ''}
+		'."': (env: Environment, token: Token) => {
+			env.output(token.content)
+
+			return {status: Status.Ok, message: ''}
+		},
+
+		'C"': (env: Environment, token: Token) => {
+
+			Dictionary.words['S"'](env, token)
+			env.dStack.pop()               // Drops the string length
+			const cAddr = env.dStack.pop() // Address of the first character
+			env.dStack.push(cAddr-1)       // Address of the leading count byte
+
+			return {status: Status.Ok, message: ''}
+		},
+
+		'S"': (env: Environment, token: Token) => {
+			const text = token.content
+
+			env.cString[env.cs] = text.length
+			env.cs += 1
+
+			env.dStack.push(env.cs)
+			env.dStack.push(text.length)
+
+			for (let i = 0; i < text.length; i += 1) {
+				env.cString[env.cs] = text.charCodeAt(i)
+				env.cs += 1
+			}
+
+			return {status: Status.Ok, message: ''}
+		},
+
+		'COUNT': (env: Environment) => {
+			// ( c-addr1 -- c-addr2 u )
+			// c-addr1 - address of a leading count byte
+			// c-addr2 - address of the first char
+			// u - string length
+			const cAddr1 = env.dStack.pop()
+			const len = env.cString[cAddr1]
+			env.dStack.push(cAddr1 + 1)
+			env.dStack.push(len)
+			return {status: Status.Ok, message: ''}
+		},
+
+		'TYPE': (env: Environment) => {
+			const len   = env.dStack.pop()
+			const cAddr = env.dStack.pop()
+			const chars = Array(len)
+			for (let i = 0; i < len; i += 1)
+				chars[i] = String.fromCharCode(env.cString[cAddr + i])
+			env.output(chars.join(''))
+			return {status: Status.Ok, message: ''}
 		},
 
 		// Output
@@ -47,9 +107,9 @@ class Dictionary
 		},
 
 		'EMIT': (env: Environment) => {
-			const charCode = env.dStack.pop()
-			const char     = String.fromCharCode(charCode)
-			env.output(char)
+			const charCode  = env.dStack.pop()
+			const character = String.fromCharCode(charCode)
+			env.output(character)
 			return {status: Status.Ok, message: ''}
 		},
 

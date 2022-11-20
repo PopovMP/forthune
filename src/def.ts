@@ -1,9 +1,11 @@
 interface Environment
 {
-	runMode : RunMode,
+	runMode : RunMode
 	isLeave : boolean
 	dStack  : Stack
 	rStack  : Stack
+	cString : Uint8Array
+	cs      : number // The first free cell of cString
 	value   : {[name: string]: number}
 	constant: {[name: string]: number}
 	tempDef : ColonDef
@@ -39,11 +41,13 @@ enum TokenKind {
 	ColonDef,
 	Comment,
 	Constant,
+	CQuote,
+	SQuote,
+	DotQuote,
 	Create,
 	DotComment,
 	LineComment,
 	Number,
-	String,
 	Value,
 	ValueTo,
 	Variable,

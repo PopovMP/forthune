@@ -1,6 +1,7 @@
 class Forth
 {
-	private readonly STACK_CAPACITY = 1024
+	private readonly STACK_CAPACITY    = 1024
+	private readonly C_STRING_CAPACITY = 100_00
 	private readonly env: Environment
 
 	constructor(output: (text: string) => void)
@@ -10,6 +11,8 @@ class Forth
 			isLeave : false,
 			dStack  : new Stack(this.STACK_CAPACITY),
 			rStack  : new Stack(this.STACK_CAPACITY),
+			cString : new Uint8Array(this.C_STRING_CAPACITY),
+			cs      : 0,
 			value   : {},
 			constant: {},
 			tempDef : {name: '', tokens: []},

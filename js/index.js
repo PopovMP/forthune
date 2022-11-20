@@ -148,15 +148,17 @@ var TokenKind;
     TokenKind[TokenKind["ColonDef"] = 1] = "ColonDef";
     TokenKind[TokenKind["Comment"] = 2] = "Comment";
     TokenKind[TokenKind["Constant"] = 3] = "Constant";
-    TokenKind[TokenKind["Create"] = 4] = "Create";
-    TokenKind[TokenKind["DotComment"] = 5] = "DotComment";
-    TokenKind[TokenKind["LineComment"] = 6] = "LineComment";
-    TokenKind[TokenKind["Number"] = 7] = "Number";
-    TokenKind[TokenKind["String"] = 8] = "String";
-    TokenKind[TokenKind["Value"] = 9] = "Value";
-    TokenKind[TokenKind["ValueTo"] = 10] = "ValueTo";
-    TokenKind[TokenKind["Variable"] = 11] = "Variable";
-    TokenKind[TokenKind["Word"] = 12] = "Word";
+    TokenKind[TokenKind["CQuote"] = 4] = "CQuote";
+    TokenKind[TokenKind["SQuote"] = 5] = "SQuote";
+    TokenKind[TokenKind["DotQuote"] = 6] = "DotQuote";
+    TokenKind[TokenKind["Create"] = 7] = "Create";
+    TokenKind[TokenKind["DotComment"] = 8] = "DotComment";
+    TokenKind[TokenKind["LineComment"] = 9] = "LineComment";
+    TokenKind[TokenKind["Number"] = 10] = "Number";
+    TokenKind[TokenKind["Value"] = 11] = "Value";
+    TokenKind[TokenKind["ValueTo"] = 12] = "ValueTo";
+    TokenKind[TokenKind["Variable"] = 13] = "Variable";
+    TokenKind[TokenKind["Word"] = 14] = "Word";
 })(TokenKind || (TokenKind = {}));
 var RunMode;
 (function (RunMode) {
@@ -189,11 +191,59 @@ Dictionary.words = {
     'CHAR': () => {
         return { status: 0 /* Status.Ok */, message: '' };
     },
+    'C@': (env) => {
+        // ( c-addr -- charCode )
+        // Fetch the character code stored at c-addr.
+        const cAddr = env.dStack.pop();
+        if (cAddr < 0 || cAddr >= env.cs)
+            return { status: 1 /* Status.Fail */, message: 'C@ Address out of range' };
+        const charCode = env.cString[cAddr];
+        env.dStack.push(charCode);
+        return { status: 0 /* Status.Ok */, message: '' };
+    },
     // String
-    '."': (env) => {
-        return env.runMode === RunMode.Interpret
-            ? { status: 1 /* Status.Fail */, message: ' ."  No Interpretation' }
-            : { status: 0 /* Status.Ok */, message: '' };
+    '."': (env, token) => {
+        env.output(token.content);
+        return { status: 0 /* Status.Ok */, message: '' };
+    },
+    'C"': (env, token) => {
+        Dictionary.words['S"'](env, token);
+        env.dStack.pop(); // Drops the string length
+        const cAddr = env.dStack.pop(); // Address of the first character
+        env.dStack.push(cAddr - 1); // Address of the leading count byte
+        return { status: 0 /* Status.Ok */, message: '' };
+    },
+    'S"': (env, token) => {
+        const text = token.content;
+        env.cString[env.cs] = text.length;
+        env.cs += 1;
+        env.dStack.push(env.cs);
+        env.dStack.push(text.length);
+        for (let i = 0; i < text.length; i += 1) {
+            env.cString[env.cs] = text.charCodeAt(i);
+            env.cs += 1;
+        }
+        return { status: 0 /* Status.Ok */, message: '' };
+    },
+    'COUNT': (env) => {
+        // ( c-addr1 -- c-addr2 u )
+        // c-addr1 - address of a leading count byte
+        // c-addr2 - address of the first char
+        // u - string length
+        const cAddr1 = env.dStack.pop();
+        const len = env.cString[cAddr1];
+        env.dStack.push(cAddr1 + 1);
+        env.dStack.push(len);
+        return { status: 0 /* Status.Ok */, message: '' };
+    },
+    'TYPE': (env) => {
+        const len = env.dStack.pop();
+        const cAddr = env.dStack.pop();
+        const chars = Array(len);
+        for (let i = 0; i < len; i += 1)
+            chars[i] = String.fromCharCode(env.cString[cAddr + i]);
+        env.output(chars.join(''));
+        return { status: 0 /* Status.Ok */, message: '' };
     },
     // Output
     'CR': (env) => {
@@ -202,8 +252,8 @@ Dictionary.words = {
     },
     'EMIT': (env) => {
         const charCode = env.dStack.pop();
-        const char = String.fromCharCode(charCode);
-        env.output(char);
+        const character = String.fromCharCode(charCode);
+        env.output(character);
         return { status: 0 /* Status.Ok */, message: '' };
     },
     'SPACE': (env) => {
@@ -649,9 +699,6 @@ class Executor {
                 case TokenKind.Comment:
                 case TokenKind.DotComment:
                     break;
-                case TokenKind.String:
-                    env.output(token.content);
-                    break;
                 case TokenKind.Value:
                 case TokenKind.Constant:
                     return { status: 1 /* Status.Fail */, message: `${token.value} No Execution` };
@@ -660,6 +707,9 @@ class Executor {
                     break;
                 case TokenKind.ColonDef:
                     return { status: 1 /* Status.Fail */, message: `: No Execution` };
+                case TokenKind.CQuote:
+                case TokenKind.SQuote:
+                case TokenKind.DotQuote:
                 case TokenKind.Word:
                     if (env.isLeave)
                         break;
@@ -702,7 +752,7 @@ class Executor {
                         continue;
                     }
                     if (Dictionary.words.hasOwnProperty(token.word)) {
-                        const res = Dictionary.words[token.word](env);
+                        const res = Dictionary.words[token.word](env, token);
                         if (res.status === 1 /* Status.Fail */)
                             return { status: 1 /* Status.Fail */, message: res.message };
                         if (env.isLeave)
@@ -863,11 +913,14 @@ class Executor {
 class Forth {
     constructor(output) {
         this.STACK_CAPACITY = 1024;
+        this.C_STRING_CAPACITY = 10000;
         this.env = {
             runMode: RunMode.Interpret,
             isLeave: false,
             dStack: new Stack(this.STACK_CAPACITY),
             rStack: new Stack(this.STACK_CAPACITY),
+            cString: new Uint8Array(this.C_STRING_CAPACITY),
+            cs: 0,
             value: {},
             constant: {},
             tempDef: { name: '', tokens: [] },
@@ -930,8 +983,8 @@ class Interpreter {
             case TokenKind.Comment:
                 break;
             case TokenKind.DotComment:
-            case TokenKind.String:
-                return { status: 1 /* Status.Fail */, message: `${token.word} No Interpretation` };
+                env.output(token.content);
+                break;
             case TokenKind.Value:
             case TokenKind.ValueTo:
                 env.value[token.content.toUpperCase()] = env.dStack.pop();
@@ -943,6 +996,9 @@ class Interpreter {
                 env.tempDef = { name: token.content.toUpperCase(), tokens: [] };
                 env.runMode = RunMode.Compile;
                 break;
+            case TokenKind.CQuote:
+            case TokenKind.SQuote:
+            case TokenKind.DotQuote:
             case TokenKind.Word: {
                 if (Dictionary.colonDef.hasOwnProperty(token.word)) {
                     env.runMode = RunMode.Run;
@@ -959,7 +1015,7 @@ class Interpreter {
                     break;
                 }
                 if (Dictionary.words.hasOwnProperty(token.word))
-                    return Dictionary.words[token.word](env);
+                    return Dictionary.words[token.word](env, token);
                 return { status: 1 /* Status.Fail */, message: `${token.value} ?` };
             }
             default:
@@ -1061,7 +1117,21 @@ Parser.contentWords = {
         empty: true,
     },
     '."': {
-        kind: TokenKind.String,
+        kind: TokenKind.DotQuote,
+        delimiter: '"',
+        trimStart: false,
+        strict: true,
+        empty: true,
+    },
+    'C"': {
+        kind: TokenKind.CQuote,
+        delimiter: '"',
+        trimStart: false,
+        strict: true,
+        empty: true,
+    },
+    'S"': {
+        kind: TokenKind.SQuote,
         delimiter: '"',
         trimStart: false,
         strict: true,

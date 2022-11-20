@@ -22,10 +22,6 @@ class Executor
 				case TokenKind.DotComment:
 					break
 
-				case TokenKind.String:
-					env.output(token.content)
-					break
-
 				case TokenKind.Value:
 				case TokenKind.Constant:
 					return {status: Status.Fail, message: `${token.value} No Execution`}
@@ -37,6 +33,9 @@ class Executor
 				case TokenKind.ColonDef:
 					return {status: Status.Fail, message: `: No Execution`}
 
+				case TokenKind.CQuote:
+				case TokenKind.SQuote:
+				case TokenKind.DotQuote:
 				case TokenKind.Word:
 					if (env.isLeave)
 						break
@@ -86,7 +85,7 @@ class Executor
 					}
 
 					if ( Dictionary.words.hasOwnProperty(token.word) ) {
-						const res = Dictionary.words[token.word](env)
+						const res = Dictionary.words[token.word](env, token)
 						if (res.status === Status.Fail)
 							return {status: Status.Fail, message: res.message}
 						if (env.isLeave)

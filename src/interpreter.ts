@@ -21,8 +21,8 @@ class Interpreter
 				break
 
 			case TokenKind.DotComment:
-			case TokenKind.String:
-				return {status: Status.Fail, message: `${token.word} No Interpretation`}
+				env.output(token.content)
+				break
 
 			case TokenKind.Value:
 			case TokenKind.ValueTo:
@@ -38,7 +38,10 @@ class Interpreter
 				env.runMode = RunMode.Compile
 				break
 
-			case TokenKind.Word: {
+			case TokenKind.CQuote:
+			case TokenKind.SQuote:
+			case TokenKind.DotQuote:
+			case TokenKind.Word  : {
 
 				if ( Dictionary.colonDef.hasOwnProperty(token.word) ) {
 					env.runMode = RunMode.Run
@@ -61,7 +64,7 @@ class Interpreter
 				}
 
 				if ( Dictionary.words.hasOwnProperty(token.word) )
-					return Dictionary.words[token.word](env)
+					return Dictionary.words[token.word](env, token)
 
 				return {status: Status.Fail, message: `${token.value} ?`}
 			}
