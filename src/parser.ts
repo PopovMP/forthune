@@ -80,25 +80,25 @@ class Parser
 		},
 	}
 
-	public static parseLine(codeLine: string, lineNum: number): Token[]
+	public static parseLine(inputLine: string, lineNum: number): Token[]
 	{
 		const tokens: Token[] = []
 
-		const code = codeLine.trimStart()
+		const codeLine = inputLine.trimStart()
 
 		let index = 0
-		while (index < code.length) {
-			if (code[index] === ' ') {
+		while (index < codeLine.length) {
+			if (codeLine[index] === ' ') {
 				index += 1
 				continue
 			}
 
-			let toIndex = code.indexOf(' ', index)
+			let toIndex = codeLine.indexOf(' ', index)
 			if (toIndex === -1)
-				toIndex = code.length
+				throw new Error('Code line does not end with a space!')
 
-			const value = code.slice(index, toIndex)
-			const word  = value.trimStart().toUpperCase()
+			const value = codeLine.slice(index, toIndex)
+			const word  = value.toUpperCase()
 			const pos   = {line: lineNum, col: index}
 
 			index = toIndex
@@ -109,22 +109,22 @@ class Parser
 				toIndex += 1
 
 				if (grammar.trimStart) {
-					while (code[toIndex] === ' ')
+					while (codeLine[toIndex] === ' ')
 						toIndex += 1
 				}
 
-				let endIndex = code.indexOf(grammar.delimiter, toIndex+1)
+				let endIndex = codeLine.indexOf(grammar.delimiter, toIndex+1)
 				index = endIndex + 1 // Eat the delimiter
 				if (endIndex === -1) {
-					index    = code.length
-					endIndex = code.length
+					index    = codeLine.length
+					endIndex = codeLine.length
 					if (grammar.strict) {
 						tokens.push({kind: grammar.kind, error: 'Not Closed', content: '', value, word, pos})
 						continue
 					}
 				}
 
-				let content = code.slice(toIndex, endIndex)
+				let content = codeLine.slice(toIndex, endIndex)
 
 				if (!grammar.empty && content.length === 0) {
 					tokens.push({kind: grammar.kind, error: 'Empty', content: '', value, word, pos})

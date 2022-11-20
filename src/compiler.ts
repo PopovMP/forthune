@@ -5,10 +5,10 @@ class Compiler
 		const token: Token = tokens[index]
 
 		if (token.error)
-			return {status: Status.Fail, value: `${token.value} ${token.error}`}
+			return {status: Status.Fail, message: `${token.value} ${token.error}`}
 
 		if (token.word === ':')
-			return {status: Status.Fail, value: `: Nested definition`}
+			return {status: Status.Fail, message: `Nested definition`}
 
 		if (token.word === ';') {
 			Dictionary.colonDef[env.tempDef.name] = {
@@ -19,11 +19,13 @@ class Compiler
 			env.tempDef = {name: '', tokens: []}
 			env.runMode = RunMode.Interpret
 
-			return {status: Status.Ok, value: ''}
+			return {status: Status.Ok, message: ''}
 		}
 
-		if (token.kind === TokenKind.DotComment)
-			return {status: Status.Ok, value: token.content}
+		if (token.kind === TokenKind.DotComment) {
+			env.output(token.content)
+			return {status: Status.Ok, message: ''}
+		}
 
 		switch (token.kind) {
 			case TokenKind.Comment:
@@ -38,12 +40,12 @@ class Compiler
 					env.tempDef.tokens.push(token)
 					break
 				}
-				return {status: Status.Fail, value: `${token.value} Unknown word`}
+				return {status: Status.Fail, message: `${token.value} ?`}
 
 			default:
 				env.tempDef.tokens.push(token)
 		}
 
-		return {status: Status.Ok, value: ''}
+		return {status: Status.Ok, message: ''}
 	}
 }

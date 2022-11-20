@@ -5,7 +5,7 @@ class Interpreter
 		const token: Token = tokens[index]
 
 		if (token.error)
-			return {status: Status.Fail, value: `${token.value} ${token.error}`}
+			return {status: Status.Fail, message: `${token.value} ${token.error}`}
 
 		switch (token.kind) {
 			case TokenKind.Number:
@@ -22,7 +22,7 @@ class Interpreter
 
 			case TokenKind.DotComment:
 			case TokenKind.String:
-				return {status: Status.Fail, value: `${token.word} No Interpretation`}
+				return {status: Status.Fail, message: `${token.word} No Interpretation`}
 
 			case TokenKind.Value:
 			case TokenKind.ValueTo:
@@ -50,12 +50,12 @@ class Interpreter
 					return res
 				}
 
-				if (env.value.hasOwnProperty(token.word)) {
+				if ( env.value.hasOwnProperty(token.word) ) {
 					env.dStack.push(env.value[token.word])
 					break
 				}
 
-				if (env.constant.hasOwnProperty(token.word)) {
+				if ( env.constant.hasOwnProperty(token.word) ) {
 					env.dStack.push(env.constant[token.word])
 					break
 				}
@@ -63,13 +63,13 @@ class Interpreter
 				if ( Dictionary.words.hasOwnProperty(token.word) )
 					return Dictionary.words[token.word](env)
 
-				return {status: Status.Fail, value: `${token.value} Unknown word`}
+				return {status: Status.Fail, message: `${token.value} ?`}
 			}
 
 			default:
-				return {status: Status.Fail, value: `${token.value} Interpreter: Unknown TokenKind`}
+				return {status: Status.Fail, message: `${token.value} Interpreter: Unknown TokenKind`}
 		}
 
-		return {status: Status.Ok, value: ''}
+		return {status: Status.Ok, message: ''}
 	}
 }

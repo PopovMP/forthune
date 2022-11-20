@@ -101,16 +101,18 @@ class Application
 		this.outputLog.innerText = this.outputBuffer
 	}
 
-	private compileCodeLine(cmdText: string, lineNum: number): void
+	private compileCodeLine(inputLine: string, lineNum: number): void
 	{
-		if (cmdText !== '' && (this.inputBuffer.length === 0 ||
-			this.inputBuffer[this.inputBuffer.length-1] !== cmdText)) {
-			this.inputBuffer.push(cmdText)
+		if (inputLine !== '' && (this.inputBuffer.length === 0 ||
+			this.inputBuffer[this.inputBuffer.length-1] !== inputLine)) {
+			this.inputBuffer.push(inputLine)
 			this.inputIndex = this.inputBuffer.length - 1
 		}
 
-		const tokens = Parser.parseLine(cmdText, lineNum)
-		this.forth.run(tokens, cmdText)
+		this.output(inputLine + ' ')
+
+		const tokens = Parser.parseLine(inputLine + ' ', lineNum)
+		this.forth.interpret(tokens)
 
 		this.stackView.innerText = this.forth.printStack()
 	}

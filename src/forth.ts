@@ -17,22 +17,19 @@ class Forth
 		}
 	}
 
-	public run(tokens: Token[], lineText: string): void
+	public interpret(tokens: Token[]): void
 	{
-		let outText = ''
-
 		try {
 			for (let i = 0; i < tokens.length; i += 1) {
 				const token = tokens[i]
 
 				if (token.error) {
-					outText += ` ${token.value}  ${token.error}`
-					this.die(lineText, outText)
+					this.die(`${token.value} ${token.error}`)
 					return
 				}
 
 				if (this.env.runMode === RunMode.Run) {
-					this.die(lineText, token.value + ' Forth: Run mode not allowed here')
+					this.die(token.value + ' Forth: Run mode not allowed here')
 					return
 				}
 
@@ -40,23 +37,20 @@ class Forth
 					? Interpreter.run(tokens, i, this.env)
 					: Compiler.compile(tokens, i, this.env)
 
-				outText += res.value
-
 				if (res.status === Status.Fail) {
-					this.die(lineText, outText)
+					this.die(res.message)
 					return
 				}
 			}
+
+			if (this.env.runMode === RunMode.Interpret)
+				this.env.output(' ok')
+			this.env.output('\n')
 		}
 		catch (e: any) {
-			this.die(lineText, e.message)
+			this.die(e.message)
 			return
 		}
-
-		const status  = this.env.runMode === RunMode.Interpret ? 'ok' : 'compiling'
-		const message = outText === '' ? '' : outText.endsWith(' ') ? outText : outText + ' '
-
-		this.env.output(`${lineText} ${message} ${status}\n`)
 	}
 
 	public printStack()
@@ -64,11 +58,11 @@ class Forth
 		return this.env.dStack.print()
 	}
 
-	private die(lineText: string, message: string): void
+	private die(message: string): void
 	{
 		this.env.dStack.clear()
 		this.env.rStack.clear()
-		this.env.output(`${lineText}  ${message}\n`)
+		this.env.output(message + '\n')
 		this.env.runMode = RunMode.Interpret
 		this.env.isLeave = false
 	}

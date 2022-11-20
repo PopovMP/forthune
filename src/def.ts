@@ -18,9 +18,9 @@ interface Position
 
 interface ExecResult
 {
-	status: Status
-	value : string
-	newIndex ?: number
+	status   : Status
+	message  : string
+	newIndex?: number
 }
 
 interface ColonDef
@@ -62,7 +62,7 @@ interface Token {
 	kind   : TokenKind,
 	error  : string,
 	value  : string,
-	word   : string, // value.toUppercase()
+	word   : string, // message.toUppercase()
 	content: string, // string content or definition / variable name
 	pos    : Position
 }

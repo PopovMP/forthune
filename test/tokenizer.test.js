@@ -11,7 +11,7 @@ function tok(code, expected)
 
 describe('tokenize', () => {
 	it('word', () => {
-		tok('cr',
+		tok('cr ',
 			'cr')
 	})
 
@@ -21,13 +21,13 @@ describe('tokenize', () => {
 	})
 
 	it('numbers', () => {
-		tok('1 13 42',
+		tok('1 13 42 ',
 			'1 13 42')
 	})
 
 	it('line comment', () => {
-		tok('42 \\ foo',
-			'42 \\ foo')
+		tok('42 \\ foo ',
+			'42 \\ foo ')
 	})
 
 	it('comment', () => {
@@ -36,57 +36,57 @@ describe('tokenize', () => {
 	})
 
 	it('comment with trailing space', () => {
-		tok('( foo )',
+		tok('( foo ) ',
 			'( foo )')
 	})
 
 	it('char', () => {
-		tok('char foo"',
+		tok('char foo" ',
 			'char foo"')
 	})
 
 	it('string', () => {
-		tok('." foo"',
+		tok('." foo" ',
 			'." foo"')
 	})
 
 	it('string one', () => {
-		tok('." *"',
+		tok('." *" ',
 			'." *"')
 	})
 
 	it('string with trailing space', () => {
-		tok('." foo "',
+		tok('." foo " ',
 			'." foo "')
 	})
 
 	it('multi string', () => {
-		tok(': foo CR ."    *" CR ."   **" CR ."  ***" CR ." ****" ;',
+		tok(': foo CR ."    *" CR ."   **" CR ."  ***" CR ." ****" ; ',
 			': foo CR ."    *" CR ."   **" CR ."  ***" CR ." ****" ;')
 	})
 
-	it('def - only name', () => {
+	it('def - only name ', () => {
 		tok(': sum',
 			': sum')
 	})
 
 	it('def with comment', () => {
-		tok(': sum ( n n -- n ) + ;',
+		tok(': sum ( n n -- n ) + ; ',
 			': sum ( n n -- n ) + ;')
 	})
 
 	it('def with dot-comment', () => {
-		tok(': foo .( compile foo)',
+		tok(': foo .( compile foo) ',
 			': foo .( compile foo)')
 	})
 
 	it('def with interpolation words', () => {
-		tok(': print10 ( -- "print nums" ) 11 1 do i . loop ; cr print10 cr',
+		tok(': print10 ( -- "print nums" ) 11 1 do i . loop ; cr print10 cr ',
 			': print10 ( -- "print nums" ) 11 1 do i . loop ; cr print10 cr')
 	})
 
 	it('variable', () => {
-		tok('42 variable foo',
+		tok('42 variable foo ',
 			'42 variable foo')
 	})
 

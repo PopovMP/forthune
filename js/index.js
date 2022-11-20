@@ -64,14 +64,15 @@ class Application {
         this.outputBuffer = this.trimText(this.outputBuffer + text, this.OUT_BUFFER_LINES);
         this.outputLog.innerText = this.outputBuffer;
     }
-    compileCodeLine(cmdText, lineNum) {
-        if (cmdText !== '' && (this.inputBuffer.length === 0 ||
-            this.inputBuffer[this.inputBuffer.length - 1] !== cmdText)) {
-            this.inputBuffer.push(cmdText);
+    compileCodeLine(inputLine, lineNum) {
+        if (inputLine !== '' && (this.inputBuffer.length === 0 ||
+            this.inputBuffer[this.inputBuffer.length - 1] !== inputLine)) {
+            this.inputBuffer.push(inputLine);
             this.inputIndex = this.inputBuffer.length - 1;
         }
-        const tokens = Parser.parseLine(cmdText, lineNum);
-        this.forth.run(tokens, cmdText);
+        this.output(inputLine + ' ');
+        const tokens = Parser.parseLine(inputLine + ' ', lineNum);
+        this.forth.interpret(tokens);
         this.stackView.innerText = this.forth.printStack();
     }
     readFile(file) {
@@ -101,9 +102,9 @@ class Compiler {
     static compile(tokens, index, env) {
         const token = tokens[index];
         if (token.error)
-            return { status: 1 /* Status.Fail */, value: `${token.value} ${token.error}` };
+            return { status: 1 /* Status.Fail */, message: `${token.value} ${token.error}` };
         if (token.word === ':')
-            return { status: 1 /* Status.Fail */, value: `: Nested definition` };
+            return { status: 1 /* Status.Fail */, message: `Nested definition` };
         if (token.word === ';') {
             Dictionary.colonDef[env.tempDef.name] = {
                 name: env.tempDef.name,
@@ -111,10 +112,12 @@ class Compiler {
             };
             env.tempDef = { name: '', tokens: [] };
             env.runMode = RunMode.Interpret;
-            return { status: 0 /* Status.Ok */, value: '' };
+            return { status: 0 /* Status.Ok */, message: '' };
         }
-        if (token.kind === TokenKind.DotComment)
-            return { status: 0 /* Status.Ok */, value: token.content };
+        if (token.kind === TokenKind.DotComment) {
+            env.output(token.content);
+            return { status: 0 /* Status.Ok */, message: '' };
+        }
         switch (token.kind) {
             case TokenKind.Comment:
             case TokenKind.LineComment:
@@ -127,11 +130,11 @@ class Compiler {
                     env.tempDef.tokens.push(token);
                     break;
                 }
-                return { status: 1 /* Status.Fail */, value: `${token.value} Unknown word` };
+                return { status: 1 /* Status.Fail */, message: `${token.value} ?` };
             default:
                 env.tempDef.tokens.push(token);
         }
-        return { status: 0 /* Status.Ok */, value: '' };
+        return { status: 0 /* Status.Ok */, message: '' };
     }
 }
 var Status;
@@ -167,151 +170,156 @@ Dictionary.colonDef = {};
 Dictionary.words = {
     // Comments
     '(': () => {
-        return { status: 0 /* Status.Ok */, value: '' };
+        return { status: 0 /* Status.Ok */, message: '' };
     },
     '.(': (env) => {
         return env.runMode === RunMode.Interpret
-            ? { status: 1 /* Status.Fail */, value: '.( No Interpretation' }
-            : { status: 0 /* Status.Ok */, value: '' };
+            ? { status: 1 /* Status.Fail */, message: '.( No Interpretation' }
+            : { status: 0 /* Status.Ok */, message: '' };
     },
     '\\': () => {
-        return { status: 0 /* Status.Ok */, value: '' };
+        return { status: 0 /* Status.Ok */, message: '' };
     },
     // Char
     'BL': (env) => {
         // Put the ASCII code of space in Stack
         env.dStack.push(32);
-        return { status: 0 /* Status.Ok */, value: '' };
+        return { status: 0 /* Status.Ok */, message: '' };
     },
     'CHAR': () => {
-        return { status: 0 /* Status.Ok */, value: '' };
+        return { status: 0 /* Status.Ok */, message: '' };
     },
     // String
     '."': (env) => {
         return env.runMode === RunMode.Interpret
-            ? { status: 1 /* Status.Fail */, value: ' ."  No Interpretation' }
-            : { status: 0 /* Status.Ok */, value: '' };
+            ? { status: 1 /* Status.Fail */, message: ' ."  No Interpretation' }
+            : { status: 0 /* Status.Ok */, message: '' };
     },
     // Output
-    'CR': () => {
-        return { status: 0 /* Status.Ok */, value: '\n' };
+    'CR': (env) => {
+        env.output('\n');
+        return { status: 0 /* Status.Ok */, message: '' };
     },
     'EMIT': (env) => {
         const charCode = env.dStack.pop();
         const char = String.fromCharCode(charCode);
-        return { status: 0 /* Status.Ok */, value: char };
+        env.output(char);
+        return { status: 0 /* Status.Ok */, message: '' };
     },
-    'SPACE': () => {
-        return { status: 0 /* Status.Ok */, value: ' ' };
+    'SPACE': (env) => {
+        env.output(' ');
+        return { status: 0 /* Status.Ok */, message: '' };
     },
     'SPACES': (env) => {
         const count = env.dStack.pop();
-        return { status: 0 /* Status.Ok */, value: ' '.repeat(count) };
+        env.output(' '.repeat(count));
+        return { status: 0 /* Status.Ok */, message: '' };
     },
     // Numbers
     '+': (env) => {
         const n2 = env.dStack.pop();
         const n1 = env.dStack.pop();
         env.dStack.push(n1 + n2);
-        return { status: 0 /* Status.Ok */, value: '' };
+        return { status: 0 /* Status.Ok */, message: '' };
     },
     '-': (env) => {
         const n2 = env.dStack.pop();
         const n1 = env.dStack.pop();
         env.dStack.push(n1 - n2);
-        return { status: 0 /* Status.Ok */, value: '' };
+        return { status: 0 /* Status.Ok */, message: '' };
     },
     '*': (env) => {
         const n2 = env.dStack.pop();
         const n1 = env.dStack.pop();
         env.dStack.push(n1 * n2);
-        return { status: 0 /* Status.Ok */, value: '' };
+        return { status: 0 /* Status.Ok */, message: '' };
     },
     '/': (env) => {
         const n2 = env.dStack.pop();
         const n1 = env.dStack.pop();
         env.dStack.push(n1 / n2);
-        return { status: 0 /* Status.Ok */, value: '' };
+        return { status: 0 /* Status.Ok */, message: '' };
     },
     'ABS': (env) => {
         const n1 = env.dStack.pop();
         env.dStack.push(Math.abs(n1));
-        return { status: 0 /* Status.Ok */, value: '' };
+        return { status: 0 /* Status.Ok */, message: '' };
     },
     'MOD': (env) => {
         const n2 = env.dStack.pop();
         const n1 = env.dStack.pop();
         env.dStack.push(n1 % n2);
-        return { status: 0 /* Status.Ok */, value: '' };
+        return { status: 0 /* Status.Ok */, message: '' };
     },
     'MAX': (env) => {
         const n2 = env.dStack.pop();
         const n1 = env.dStack.pop();
         env.dStack.push(Math.max(n1, n2));
-        return { status: 0 /* Status.Ok */, value: '' };
+        return { status: 0 /* Status.Ok */, message: '' };
     },
     'MIN': (env) => {
         const n2 = env.dStack.pop();
         const n1 = env.dStack.pop();
         env.dStack.push(Math.min(n1, n2));
-        return { status: 0 /* Status.Ok */, value: '' };
+        return { status: 0 /* Status.Ok */, message: '' };
     },
     'NEGATE': (env) => {
         const n1 = env.dStack.pop();
         env.dStack.push(-n1);
-        return { status: 0 /* Status.Ok */, value: '' };
+        return { status: 0 /* Status.Ok */, message: '' };
     },
     'INVERT': (env) => {
         const n1 = env.dStack.pop();
         env.dStack.push(~n1);
-        return { status: 0 /* Status.Ok */, value: '' };
+        return { status: 0 /* Status.Ok */, message: '' };
     },
     '1+': (env) => {
         const n1 = env.dStack.pop();
         env.dStack.push(n1 + 1);
-        return { status: 0 /* Status.Ok */, value: '' };
+        return { status: 0 /* Status.Ok */, message: '' };
     },
     '1-': (env) => {
         const n1 = env.dStack.pop();
         env.dStack.push(n1 - 1);
-        return { status: 0 /* Status.Ok */, value: '' };
+        return { status: 0 /* Status.Ok */, message: '' };
     },
     '2*': (env) => {
         const n1 = env.dStack.pop();
         env.dStack.push(n1 << 1);
-        return { status: 0 /* Status.Ok */, value: '' };
+        return { status: 0 /* Status.Ok */, message: '' };
     },
     '2/': (env) => {
         const n1 = env.dStack.pop();
         env.dStack.push(n1 >> 1);
-        return { status: 0 /* Status.Ok */, value: '' };
+        return { status: 0 /* Status.Ok */, message: '' };
     },
     // Stack manipulation
     '.': (env) => {
-        return { status: 0 /* Status.Ok */, value: env.dStack.pop().toString() + ' ' };
+        env.output(env.dStack.pop().toString() + ' ');
+        return { status: 0 /* Status.Ok */, message: '' };
     },
     'DEPTH': (env) => {
         env.dStack.push(env.dStack.depth());
-        return { status: 0 /* Status.Ok */, value: '' };
+        return { status: 0 /* Status.Ok */, message: '' };
     },
     'DUP': (env) => {
         env.dStack.push(env.dStack.pick(0));
-        return { status: 0 /* Status.Ok */, value: '' };
+        return { status: 0 /* Status.Ok */, message: '' };
     },
     'OVER': (env) => {
         env.dStack.push(env.dStack.pick(1));
-        return { status: 0 /* Status.Ok */, value: '' };
+        return { status: 0 /* Status.Ok */, message: '' };
     },
     'DROP': (env) => {
         env.dStack.pop();
-        return { status: 0 /* Status.Ok */, value: '' };
+        return { status: 0 /* Status.Ok */, message: '' };
     },
     'SWAP': (env) => {
         const n2 = env.dStack.pop();
         const n1 = env.dStack.pop();
         env.dStack.push(n2);
         env.dStack.push(n1);
-        return { status: 0 /* Status.Ok */, value: '' };
+        return { status: 0 /* Status.Ok */, message: '' };
     },
     'ROT': (env) => {
         const n3 = env.dStack.pop();
@@ -320,20 +328,20 @@ Dictionary.words = {
         env.dStack.push(n2);
         env.dStack.push(n3);
         env.dStack.push(n1);
-        return { status: 0 /* Status.Ok */, value: '' };
+        return { status: 0 /* Status.Ok */, message: '' };
     },
     '?DUP': (env) => {
         const n = env.dStack.pick(0);
         if (n !== 0)
             env.dStack.push(env.dStack.pick(0));
-        return { status: 0 /* Status.Ok */, value: '' };
+        return { status: 0 /* Status.Ok */, message: '' };
     },
     'NIP': (env) => {
         // ( x1 x2 -- x2 )
         const n2 = env.dStack.pop();
         env.dStack.pop(); // n1
         env.dStack.push(n2);
-        return { status: 0 /* Status.Ok */, value: '' };
+        return { status: 0 /* Status.Ok */, message: '' };
     },
     'TUCK': (env) => {
         // ( x1 x2 -- x2 x1 x2 )
@@ -342,13 +350,13 @@ Dictionary.words = {
         env.dStack.push(n2);
         env.dStack.push(n1);
         env.dStack.push(n2);
-        return { status: 0 /* Status.Ok */, value: '' };
+        return { status: 0 /* Status.Ok */, message: '' };
     },
     '2DROP': (env) => {
         // ( x1 x2 -- )
         env.dStack.pop();
         env.dStack.pop();
-        return { status: 0 /* Status.Ok */, value: '' };
+        return { status: 0 /* Status.Ok */, message: '' };
     },
     '2DUP': (env) => {
         // ( x1 x2 -- x1 x2 x1 x2 )
@@ -358,7 +366,7 @@ Dictionary.words = {
         env.dStack.push(n2);
         env.dStack.push(n1);
         env.dStack.push(n2);
-        return { status: 0 /* Status.Ok */, value: '' };
+        return { status: 0 /* Status.Ok */, message: '' };
     },
     '2SWAP': (env) => {
         // ( x1 x2 x3 x4 -- x3 x4 x1 x2 )
@@ -370,7 +378,7 @@ Dictionary.words = {
         env.dStack.push(n4);
         env.dStack.push(n1);
         env.dStack.push(n2);
-        return { status: 0 /* Status.Ok */, value: '' };
+        return { status: 0 /* Status.Ok */, message: '' };
     },
     '2OVER': (env) => {
         // ( x1 x2 x3 x4 -- x1 x2 x3 x4 x1 x2 )
@@ -384,198 +392,199 @@ Dictionary.words = {
         env.dStack.push(n4);
         env.dStack.push(n1);
         env.dStack.push(n2);
-        return { status: 0 /* Status.Ok */, value: '' };
+        return { status: 0 /* Status.Ok */, message: '' };
     },
     // Return stack
     '>R': (env) => {
         // ( x -- ) ( R: -- x )
         if (env.runMode === RunMode.Interpret)
-            return { status: 1 /* Status.Fail */, value: '>R  No Interpretation' };
+            return { status: 1 /* Status.Fail */, message: '>R  No Interpretation' };
         const n1 = env.dStack.pop();
         env.rStack.push(n1);
-        return { status: 0 /* Status.Ok */, value: '' };
+        return { status: 0 /* Status.Ok */, message: '' };
     },
     'R@': (env) => {
         // ( -- x ) ( R: x -- x )
         if (env.runMode === RunMode.Interpret)
-            return { status: 1 /* Status.Fail */, value: 'R@  No Interpretation' };
+            return { status: 1 /* Status.Fail */, message: 'R@  No Interpretation' };
         const n1 = env.rStack.pick(0);
         env.dStack.push(n1);
-        return { status: 0 /* Status.Ok */, value: '' };
+        return { status: 0 /* Status.Ok */, message: '' };
     },
     'R>': (env) => {
         // ( -- x ) ( R: x -- )
         if (env.runMode === RunMode.Interpret)
-            return { status: 1 /* Status.Fail */, value: 'R>  No Interpretation' };
+            return { status: 1 /* Status.Fail */, message: 'R>  No Interpretation' };
         const n1 = env.rStack.pop();
         env.dStack.push(n1);
-        return { status: 0 /* Status.Ok */, value: '' };
+        return { status: 0 /* Status.Ok */, message: '' };
     },
     '2>R': (env) => {
         // ( x1 x2 -- ) ( R: -- x1 x2 )
         if (env.runMode === RunMode.Interpret)
-            return { status: 1 /* Status.Fail */, value: '2>R  No Interpretation' };
+            return { status: 1 /* Status.Fail */, message: '2>R  No Interpretation' };
         const n2 = env.dStack.pop();
         const n1 = env.dStack.pop();
         env.rStack.push(n1);
         env.rStack.push(n2);
-        return { status: 0 /* Status.Ok */, value: '' };
+        return { status: 0 /* Status.Ok */, message: '' };
     },
     '2R@': (env) => {
         // ( -- x1 x2 ) ( R: x1 x2 -- x1 x2 )
         if (env.runMode === RunMode.Interpret)
-            return { status: 1 /* Status.Fail */, value: '2R@  No Interpretation' };
+            return { status: 1 /* Status.Fail */, message: '2R@  No Interpretation' };
         const n2 = env.rStack.pick(1);
         const n1 = env.rStack.pick(0);
         env.dStack.push(n1);
         env.dStack.push(n2);
-        return { status: 0 /* Status.Ok */, value: '' };
+        return { status: 0 /* Status.Ok */, message: '' };
     },
     '2R>': (env) => {
         // ( -- x1 x2 ) ( R: x1 x2 -- )
         if (env.runMode === RunMode.Interpret)
-            return { status: 1 /* Status.Fail */, value: '2R>  No Interpretation' };
+            return { status: 1 /* Status.Fail */, message: '2R>  No Interpretation' };
         const n2 = env.rStack.pop();
         const n1 = env.rStack.pop();
         env.dStack.push(n1);
         env.dStack.push(n2);
-        return { status: 0 /* Status.Ok */, value: '' };
+        return { status: 0 /* Status.Ok */, message: '' };
     },
     // Values
     'VALUE': () => {
-        return { status: 0 /* Status.Ok */, value: '' };
+        return { status: 0 /* Status.Ok */, message: '' };
     },
     'TO': () => {
-        return { status: 0 /* Status.Ok */, value: '' };
+        return { status: 0 /* Status.Ok */, message: '' };
     },
     // Constant
     'CONSTANT': () => {
-        return { status: 0 /* Status.Ok */, value: '' };
+        return { status: 0 /* Status.Ok */, message: '' };
     },
     // Comparison
     '=': (env) => {
         const n2 = env.dStack.pop();
         const n1 = env.dStack.pop();
         env.dStack.push(n1 === n2 ? -1 : 0);
-        return { status: 0 /* Status.Ok */, value: '' };
+        return { status: 0 /* Status.Ok */, message: '' };
     },
     '<>': (env) => {
         const n2 = env.dStack.pop();
         const n1 = env.dStack.pop();
         env.dStack.push(n1 !== n2 ? -1 : 0);
-        return { status: 0 /* Status.Ok */, value: '' };
+        return { status: 0 /* Status.Ok */, message: '' };
     },
     '>': (env) => {
         const n2 = env.dStack.pop();
         const n1 = env.dStack.pop();
         env.dStack.push(n1 > n2 ? -1 : 0);
-        return { status: 0 /* Status.Ok */, value: '' };
+        return { status: 0 /* Status.Ok */, message: '' };
     },
     '<': (env) => {
         const n2 = env.dStack.pop();
         const n1 = env.dStack.pop();
         env.dStack.push(n1 < n2 ? -1 : 0);
-        return { status: 0 /* Status.Ok */, value: '' };
+        return { status: 0 /* Status.Ok */, message: '' };
     },
     '0=': (env) => {
         const n1 = env.dStack.pop();
         env.dStack.push(n1 === 0 ? -1 : 0);
-        return { status: 0 /* Status.Ok */, value: '' };
+        return { status: 0 /* Status.Ok */, message: '' };
     },
     '0>': (env) => {
         const n1 = env.dStack.pop();
         env.dStack.push(n1 > 0 ? -1 : 0);
-        return { status: 0 /* Status.Ok */, value: '' };
+        return { status: 0 /* Status.Ok */, message: '' };
     },
     '0<': (env) => {
         const n1 = env.dStack.pop();
         env.dStack.push(n1 < 0 ? -1 : 0);
-        return { status: 0 /* Status.Ok */, value: '' };
+        return { status: 0 /* Status.Ok */, message: '' };
     },
     '0<>': (env) => {
         const n1 = env.dStack.pop();
         env.dStack.push(n1 !== 0 ? -1 : 0);
-        return { status: 0 /* Status.Ok */, value: '' };
+        return { status: 0 /* Status.Ok */, message: '' };
     },
     'AND': (env) => {
         const n2 = env.dStack.pop();
         const n1 = env.dStack.pop();
         env.dStack.push(n1 === n2 ? n1 : Math.abs(n1) === Math.abs(n2) ? Math.abs(n1) : 0);
-        return { status: 0 /* Status.Ok */, value: '' };
+        return { status: 0 /* Status.Ok */, message: '' };
     },
     'OR': (env) => {
         const n2 = env.dStack.pop();
         const n1 = env.dStack.pop();
         env.dStack.push(n1 || n2);
-        return { status: 0 /* Status.Ok */, value: '' };
+        return { status: 0 /* Status.Ok */, message: '' };
     },
     // BEGIN
     'BEGIN': (env) => {
         return env.runMode === RunMode.Interpret
-            ? { status: 1 /* Status.Fail */, value: 'BEGIN No Interpretation' }
-            : { status: 0 /* Status.Ok */, value: '' };
+            ? { status: 1 /* Status.Fail */, message: 'BEGIN No Interpretation' }
+            : { status: 0 /* Status.Ok */, message: '' };
     },
     'WHILE': () => {
-        return { status: 1 /* Status.Fail */, value: 'WHILE Not expected' };
+        return { status: 1 /* Status.Fail */, message: 'WHILE Not expected' };
     },
     'UNTIL': () => {
-        return { status: 1 /* Status.Fail */, value: 'UNTIL Not expected' };
+        return { status: 1 /* Status.Fail */, message: 'UNTIL Not expected' };
     },
     'REPEAT': () => {
-        return { status: 1 /* Status.Fail */, value: 'UNTIL Not expected' };
+        return { status: 1 /* Status.Fail */, message: 'UNTIL Not expected' };
     },
     // DO
     'DO': (env) => {
         return env.runMode === RunMode.Interpret
-            ? { status: 1 /* Status.Fail */, value: 'DO No Interpretation' }
-            : { status: 0 /* Status.Ok */, value: '' };
+            ? { status: 1 /* Status.Fail */, message: 'DO No Interpretation' }
+            : { status: 0 /* Status.Ok */, message: '' };
     },
     '?DO': (env) => {
         return env.runMode === RunMode.Interpret
-            ? { status: 1 /* Status.Fail */, value: '?DO No Interpretation' }
-            : { status: 0 /* Status.Ok */, value: '' };
+            ? { status: 1 /* Status.Fail */, message: '?DO No Interpretation' }
+            : { status: 0 /* Status.Ok */, message: '' };
     },
     'I': (env) => {
         if (env.runMode === RunMode.Interpret)
-            return { status: 1 /* Status.Fail */, value: 'I No Interpretation' };
+            return { status: 1 /* Status.Fail */, message: 'I No Interpretation' };
         env.dStack.push(env.rStack.pick(0));
-        return { status: 0 /* Status.Ok */, value: '' };
+        return { status: 0 /* Status.Ok */, message: '' };
     },
     'J': (env) => {
         if (env.runMode === RunMode.Interpret)
-            return { status: 1 /* Status.Fail */, value: 'J No Interpretation' };
+            return { status: 1 /* Status.Fail */, message: 'J No Interpretation' };
         env.dStack.push(env.rStack.pick(1));
-        return { status: 0 /* Status.Ok */, value: '' };
+        return { status: 0 /* Status.Ok */, message: '' };
     },
     'LEAVE': (env) => {
         if (env.runMode === RunMode.Interpret)
-            return { status: 1 /* Status.Fail */, value: 'LEAVE No Interpretation' };
+            return { status: 1 /* Status.Fail */, message: 'LEAVE No Interpretation' };
         env.isLeave = true;
-        return { status: 0 /* Status.Ok */, value: '' };
+        return { status: 0 /* Status.Ok */, message: '' };
     },
     'LOOP': () => {
-        return { status: 1 /* Status.Fail */, value: 'LOOP Not expected' };
+        return { status: 1 /* Status.Fail */, message: 'LOOP Not expected' };
     },
     '+LOOP': () => {
-        return { status: 1 /* Status.Fail */, value: '+LOOP Not expected' };
+        return { status: 1 /* Status.Fail */, message: '+LOOP Not expected' };
     },
     // IF
     'IF': (env) => {
         return env.runMode === RunMode.Interpret
-            ? { status: 1 /* Status.Fail */, value: 'IF No Interpretation' }
-            : { status: 0 /* Status.Ok */, value: '' };
+            ? { status: 1 /* Status.Fail */, message: 'IF No Interpretation' }
+            : { status: 0 /* Status.Ok */, message: '' };
     },
     'ELSE': () => {
-        return { status: 1 /* Status.Fail */, value: 'ELSE Not expected' };
+        return { status: 1 /* Status.Fail */, message: 'ELSE Not expected' };
     },
     'THEN': () => {
-        return { status: 1 /* Status.Fail */, value: 'THEN Not expected' };
+        return { status: 1 /* Status.Fail */, message: 'THEN Not expected' };
     },
     // Tools
     '.S': (env) => {
-        return { status: 0 /* Status.Ok */, value: env.dStack.print() };
+        env.output(env.dStack.print());
+        return { status: 0 /* Status.Ok */, message: '' };
     },
-    'WORDS': () => {
+    'WORDS': (env) => {
         const words = [
             ...Object.keys(Dictionary.colonDef),
             ...Object.keys(Dictionary.words),
@@ -586,16 +595,16 @@ Dictionary.words = {
                 output.push('\n');
             output.push(words[i].padEnd(10, ' '));
         }
-        return { status: 0 /* Status.Ok */, value: output.join('') + '\n' };
+        env.output(output.join('') + '\n');
+        return { status: 0 /* Status.Ok */, message: '' };
     },
 };
 class Executor {
     static run(tokens, env) {
-        let outText = '';
         for (let i = 0; i < tokens.length; i++) {
             const token = tokens[i];
             if (token.error)
-                return { status: 1 /* Status.Fail */, value: ` ${token.value} ${token.error}` };
+                return { status: 1 /* Status.Fail */, message: ` ${token.value} ${token.error}` };
             switch (token.kind) {
                 case TokenKind.Number:
                     env.dStack.push(Number(token.value));
@@ -608,51 +617,47 @@ class Executor {
                 case TokenKind.DotComment:
                     break;
                 case TokenKind.String:
-                    outText += token.content;
+                    env.output(token.content);
                     break;
                 case TokenKind.Value:
                 case TokenKind.Constant:
-                    return { status: 1 /* Status.Fail */, value: `${token.value} No Execution` };
+                    return { status: 1 /* Status.Fail */, message: `${token.value} No Execution` };
                 case TokenKind.ValueTo:
                     env.value[token.content.toUpperCase()] = env.dStack.pop();
                     break;
                 case TokenKind.ColonDef:
-                    return { status: 1 /* Status.Fail */, value: `: No Execution` };
+                    return { status: 1 /* Status.Fail */, message: `: No Execution` };
                 case TokenKind.Word:
                     if (env.isLeave)
                         break;
                     if (token.word === 'IF') {
                         const res = Executor.runIF(tokens, i, env);
-                        outText += res.value;
                         if (res.status === 1 /* Status.Fail */)
-                            return { status: 1 /* Status.Fail */, value: outText };
+                            return { status: 1 /* Status.Fail */, message: res.message };
                         if (typeof res.newIndex === 'number')
                             i = res.newIndex;
                         break;
                     }
                     if (token.word === 'DO' || token.word === '?DO') {
                         const res = Executor.runDO(tokens, i, env);
-                        outText += res.value;
                         if (res.status === 1 /* Status.Fail */)
-                            return { status: 1 /* Status.Fail */, value: outText };
+                            return { status: 1 /* Status.Fail */, message: res.message };
                         if (typeof res.newIndex === 'number')
                             i = res.newIndex;
                         break;
                     }
                     if (token.word === 'BEGIN') {
                         const res = Executor.runBEGIN(tokens, i, env);
-                        outText += res.value;
                         if (res.status === 1 /* Status.Fail */)
-                            return { status: 1 /* Status.Fail */, value: outText };
+                            return { status: 1 /* Status.Fail */, message: res.message };
                         if (typeof res.newIndex === 'number')
                             i = res.newIndex;
                         break;
                     }
                     if (Dictionary.colonDef.hasOwnProperty(token.word)) {
                         const res = Executor.run(Dictionary.colonDef[token.word].tokens, env);
-                        outText += res.value;
                         if (res.status === 1 /* Status.Fail */)
-                            return { status: 1 /* Status.Fail */, value: outText };
+                            return { status: 1 /* Status.Fail */, message: res.message };
                         break;
                     }
                     if (env.value.hasOwnProperty(token.word)) {
@@ -665,19 +670,18 @@ class Executor {
                     }
                     if (Dictionary.words.hasOwnProperty(token.word)) {
                         const res = Dictionary.words[token.word](env);
-                        outText += res.value;
                         if (res.status === 1 /* Status.Fail */)
-                            return { status: 1 /* Status.Fail */, value: outText };
+                            return { status: 1 /* Status.Fail */, message: res.message };
                         if (env.isLeave)
-                            return { status: 0 /* Status.Ok */, value: outText };
+                            return { status: 0 /* Status.Ok */, message: '' };
                         break;
                     }
-                    return { status: 1 /* Status.Fail */, value: `${outText} ${token.value} Unknown word` };
+                    return { status: 1 /* Status.Fail */, message: `${token.value} ? (Execute)` };
                 default:
-                    return { status: 1 /* Status.Fail */, value: `${outText} ${token.value} Executor: Unknown TokenKind` };
+                    return { status: 1 /* Status.Fail */, message: `${token.value} Executor: Unknown TokenKind` };
             }
         }
-        return { status: 0 /* Status.Ok */, value: outText };
+        return { status: 0 /* Status.Ok */, message: '' };
     }
     static runIF(tokens, index, env) {
         // Find THEN index
@@ -686,7 +690,7 @@ class Executor {
         while (true) {
             thenIndex += 1;
             if (thenIndex === tokens.length)
-                return { status: 1 /* Status.Fail */, value: 'THEN Is missing' };
+                return { status: 1 /* Status.Fail */, message: 'THEN Is missing' };
             const loopWord = tokens[thenIndex].value.toUpperCase();
             if (loopWord === 'IF')
                 ifDepth += 1;
@@ -713,16 +717,16 @@ class Executor {
             // Consequent part
             const consTokens = tokens.slice(index + 1, elseIndex);
             const res = Executor.run(consTokens, env);
-            return { status: res.status, value: res.value, newIndex: thenIndex };
+            return { status: res.status, message: res.message, newIndex: thenIndex };
         }
         if (elseIndex < thenIndex) {
             // Alternative part
             const altTokens = tokens.slice(elseIndex + 1, thenIndex);
             const res = Executor.run(altTokens, env);
-            return { status: res.status, value: res.value, newIndex: thenIndex };
+            return { status: res.status, message: res.message, newIndex: thenIndex };
         }
         // Continuation
-        return { status: 0 /* Status.Ok */, value: '', newIndex: thenIndex };
+        return { status: 0 /* Status.Ok */, message: '', newIndex: thenIndex };
     }
     static runDO(tokens, index, env) {
         // Find LOOP index
@@ -731,7 +735,7 @@ class Executor {
         while (true) {
             loopIndex += 1;
             if (loopIndex === tokens.length)
-                return { status: 1 /* Status.Fail */, value: 'LOOP Not found' };
+                return { status: 1 /* Status.Fail */, message: 'LOOP Not found' };
             const word = tokens[loopIndex].word;
             if (word === 'DO')
                 doDepth += 1;
@@ -746,27 +750,25 @@ class Executor {
         if (tokens[index].word === '?DO' && counter === limit) {
             // No entry in the loop
             env.isLeave = false;
-            return { status: 0 /* Status.Ok */, value: '', newIndex: loopIndex };
+            return { status: 0 /* Status.Ok */, message: '', newIndex: loopIndex };
         }
         const isPlusLoop = tokens[loopIndex].word === '+LOOP';
         if (!isPlusLoop && !upwards)
-            return { status: 1 /* Status.Fail */, value: 'LOOP Wrong range' };
-        let outText = '';
+            return { status: 1 /* Status.Fail */, message: 'LOOP Wrong range' };
+        const doBody = tokens.slice(index + 1, loopIndex);
         while (upwards ? counter < limit : counter >= limit) {
             env.rStack.push(counter);
-            const doBody = tokens.slice(index + 1, loopIndex);
             const res = Executor.run(doBody, env);
             env.rStack.pop();
             if (env.isLeave)
                 break;
-            outText += res.value;
             if (res.status === 1 /* Status.Fail */)
-                return { status: 1 /* Status.Fail */, value: outText };
+                return { status: 1 /* Status.Fail */, message: res.message };
             counter += isPlusLoop ? env.dStack.pop() : 1;
         }
         // Continuation
         env.isLeave = false;
-        return { status: 0 /* Status.Ok */, value: outText, newIndex: loopIndex };
+        return { status: 0 /* Status.Ok */, message: '', newIndex: loopIndex };
     }
     static runBEGIN(tokens, index, env) {
         // Find WHILE, REPEAT, or UNTIL index
@@ -783,48 +785,44 @@ class Executor {
             i += 1;
         }
         if (repeatIndex === 0 && whileIndex > 0)
-            return { status: 1 /* Status.Fail */, value: 'WHILE Not found' };
+            return { status: 1 /* Status.Fail */, message: 'WHILE Not found' };
         if (repeatIndex === 0 && untilIndex === 0)
-            return { status: 1 /* Status.Fail */, value: 'BEGIN Not closed' };
+            return { status: 1 /* Status.Fail */, message: 'BEGIN Not closed' };
         if (repeatIndex > 0 && untilIndex > 0)
-            return { status: 1 /* Status.Fail */, value: 'BEGIN Control flow mismatched' };
+            return { status: 1 /* Status.Fail */, message: 'BEGIN Control flow mismatched' };
         if (untilIndex > 0 && whileIndex > 0)
-            return { status: 1 /* Status.Fail */, value: 'BEGIN Control flow mismatched' };
-        let outText = '';
+            return { status: 1 /* Status.Fail */, message: 'BEGIN Control flow mismatched' };
         // BEGIN <init-code> <flag> WHILE <body-code> REPEAT
         if (whileIndex > 0) {
             const initCode = tokens.slice(index + 1, whileIndex);
             const bodyCode = tokens.slice(whileIndex + 1, repeatIndex);
             while (true) {
                 const initRes = Executor.run(initCode, env);
-                outText += initRes.value;
                 if (initRes.status === 1 /* Status.Fail */)
-                    return { status: 1 /* Status.Fail */, value: outText };
+                    return { status: 1 /* Status.Fail */, message: initRes.message };
                 const flag = env.dStack.pop();
                 if (flag === 0)
                     break;
                 const bodyRes = Executor.run(bodyCode, env);
-                outText += bodyRes.value;
                 if (bodyRes.status === 1 /* Status.Fail */)
-                    return { status: 1 /* Status.Fail */, value: outText };
+                    return { status: 1 /* Status.Fail */, message: bodyRes.message };
             }
             // Continuation
-            return { status: 0 /* Status.Ok */, value: outText, newIndex: repeatIndex };
+            return { status: 0 /* Status.Ok */, message: '', newIndex: repeatIndex };
         }
         // BEGIN <body-code> <flag> UNTIL
         if (untilIndex > 0) {
             const bodyCode = tokens.slice(index + 1, untilIndex);
             while (true) {
                 const bodyRes = Executor.run(bodyCode, env);
-                outText += bodyRes.value;
                 if (bodyRes.status === 1 /* Status.Fail */)
-                    return { status: 1 /* Status.Fail */, value: outText };
+                    return { status: 1 /* Status.Fail */, message: bodyRes.message };
                 const flag = env.dStack.pop();
                 if (flag !== 0)
                     break;
             }
             // Continuation
-            return { status: 0 /* Status.Ok */, value: outText, newIndex: untilIndex };
+            return { status: 0 /* Status.Ok */, message: '', newIndex: untilIndex };
         }
         throw new Error('Unreachable');
     }
@@ -843,45 +841,42 @@ class Forth {
             output: output,
         };
     }
-    run(tokens, lineText) {
-        let outText = '';
+    interpret(tokens) {
         try {
             for (let i = 0; i < tokens.length; i += 1) {
                 const token = tokens[i];
                 if (token.error) {
-                    outText += ` ${token.value}  ${token.error}`;
-                    this.die(lineText, outText);
+                    this.die(`${token.value} ${token.error}`);
                     return;
                 }
                 if (this.env.runMode === RunMode.Run) {
-                    this.die(lineText, token.value + ' Forth: Run mode not allowed here');
+                    this.die(token.value + ' Forth: Run mode not allowed here');
                     return;
                 }
                 const res = this.env.runMode === RunMode.Interpret
                     ? Interpreter.run(tokens, i, this.env)
                     : Compiler.compile(tokens, i, this.env);
-                outText += res.value;
                 if (res.status === 1 /* Status.Fail */) {
-                    this.die(lineText, outText);
+                    this.die(res.message);
                     return;
                 }
             }
+            if (this.env.runMode === RunMode.Interpret)
+                this.env.output(' ok');
+            this.env.output('\n');
         }
         catch (e) {
-            this.die(lineText, e.message);
+            this.die(e.message);
             return;
         }
-        const status = this.env.runMode === RunMode.Interpret ? 'ok' : 'compiling';
-        const message = outText === '' ? '' : outText.endsWith(' ') ? outText : outText + ' ';
-        this.env.output(`${lineText} ${message} ${status}\n`);
     }
     printStack() {
         return this.env.dStack.print();
     }
-    die(lineText, message) {
+    die(message) {
         this.env.dStack.clear();
         this.env.rStack.clear();
-        this.env.output(`${lineText}  ${message}\n`);
+        this.env.output(message + '\n');
         this.env.runMode = RunMode.Interpret;
         this.env.isLeave = false;
     }
@@ -890,7 +885,7 @@ class Interpreter {
     static run(tokens, index, env) {
         const token = tokens[index];
         if (token.error)
-            return { status: 1 /* Status.Fail */, value: `${token.value} ${token.error}` };
+            return { status: 1 /* Status.Fail */, message: `${token.value} ${token.error}` };
         switch (token.kind) {
             case TokenKind.Number:
                 env.dStack.push(Number(token.value));
@@ -903,7 +898,7 @@ class Interpreter {
                 break;
             case TokenKind.DotComment:
             case TokenKind.String:
-                return { status: 1 /* Status.Fail */, value: `${token.word} No Interpretation` };
+                return { status: 1 /* Status.Fail */, message: `${token.word} No Interpretation` };
             case TokenKind.Value:
             case TokenKind.ValueTo:
                 env.value[token.content.toUpperCase()] = env.dStack.pop();
@@ -932,29 +927,29 @@ class Interpreter {
                 }
                 if (Dictionary.words.hasOwnProperty(token.word))
                     return Dictionary.words[token.word](env);
-                return { status: 1 /* Status.Fail */, value: `${token.value} Unknown word` };
+                return { status: 1 /* Status.Fail */, message: `${token.value} ?` };
             }
             default:
-                return { status: 1 /* Status.Fail */, value: `${token.value} Interpreter: Unknown TokenKind` };
+                return { status: 1 /* Status.Fail */, message: `${token.value} Interpreter: Unknown TokenKind` };
         }
-        return { status: 0 /* Status.Ok */, value: '' };
+        return { status: 0 /* Status.Ok */, message: '' };
     }
 }
 class Parser {
-    static parseLine(codeLine, lineNum) {
+    static parseLine(inputLine, lineNum) {
         const tokens = [];
-        const code = codeLine.trimStart();
+        const codeLine = inputLine.trimStart();
         let index = 0;
-        while (index < code.length) {
-            if (code[index] === ' ') {
+        while (index < codeLine.length) {
+            if (codeLine[index] === ' ') {
                 index += 1;
                 continue;
             }
-            let toIndex = code.indexOf(' ', index);
+            let toIndex = codeLine.indexOf(' ', index);
             if (toIndex === -1)
-                toIndex = code.length;
-            const value = code.slice(index, toIndex);
-            const word = value.trimStart().toUpperCase();
+                throw new Error('Code line does not end with a space!');
+            const value = codeLine.slice(index, toIndex);
+            const word = value.toUpperCase();
             const pos = { line: lineNum, col: index };
             index = toIndex;
             // Words with content
@@ -962,20 +957,20 @@ class Parser {
                 const grammar = Parser.contentWords[word];
                 toIndex += 1;
                 if (grammar.trimStart) {
-                    while (code[toIndex] === ' ')
+                    while (codeLine[toIndex] === ' ')
                         toIndex += 1;
                 }
-                let endIndex = code.indexOf(grammar.delimiter, toIndex + 1);
+                let endIndex = codeLine.indexOf(grammar.delimiter, toIndex + 1);
                 index = endIndex + 1; // Eat the delimiter
                 if (endIndex === -1) {
-                    index = code.length;
-                    endIndex = code.length;
+                    index = codeLine.length;
+                    endIndex = codeLine.length;
                     if (grammar.strict) {
                         tokens.push({ kind: grammar.kind, error: 'Not Closed', content: '', value, word, pos });
                         continue;
                     }
                 }
-                let content = code.slice(toIndex, endIndex);
+                let content = codeLine.slice(toIndex, endIndex);
                 if (!grammar.empty && content.length === 0) {
                     tokens.push({ kind: grammar.kind, error: 'Empty', content: '', value, word, pos });
                     continue;

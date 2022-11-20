@@ -2,13 +2,11 @@ class Executor
 {
 	public static run(tokens: Token[], env: Environment): ExecResult
 	{
-		let outText = ''
-
 		for (let i = 0; i < tokens.length; i++) {
 			const token: Token = tokens[i]
 
 			if (token.error)
-				return {status: Status.Fail, value: ` ${token.value} ${token.error}`}
+				return {status: Status.Fail, message: ` ${token.value} ${token.error}`}
 
 			switch (token.kind) {
 				case TokenKind.Number:
@@ -25,19 +23,19 @@ class Executor
 					break
 
 				case TokenKind.String:
-					outText += token.content
+					env.output(token.content)
 					break
 
 				case TokenKind.Value:
 				case TokenKind.Constant:
-					return {status: Status.Fail, value: `${token.value} No Execution`}
+					return {status: Status.Fail, message: `${token.value} No Execution`}
 
 				case TokenKind.ValueTo:
 					env.value[token.content.toUpperCase()] = env.dStack.pop()
 					break
 
 				case TokenKind.ColonDef:
-					return {status: Status.Fail, value: `: No Execution`}
+					return {status: Status.Fail, message: `: No Execution`}
 
 				case TokenKind.Word:
 					if (env.isLeave)
@@ -45,9 +43,8 @@ class Executor
 
 					if (token.word === 'IF') {
 						const res = Executor.runIF(tokens, i, env)
-						outText += res.value
 						if (res.status === Status.Fail)
-							return {status: Status.Fail, value: outText}
+							return {status: Status.Fail, message: res.message}
 						if (typeof res.newIndex === 'number')
 							i = res.newIndex
 						break
@@ -55,9 +52,8 @@ class Executor
 
 					if (token.word === 'DO' || token.word === '?DO') {
 						const res = Executor.runDO(tokens, i, env)
-						outText += res.value
 						if (res.status === Status.Fail)
-							return {status: Status.Fail, value: outText}
+							return {status: Status.Fail, message: res.message}
 						if (typeof res.newIndex === 'number')
 							i = res.newIndex
 						break
@@ -65,9 +61,8 @@ class Executor
 
 					if (token.word === 'BEGIN') {
 						const res = Executor.runBEGIN(tokens, i, env)
-						outText += res.value
 						if (res.status === Status.Fail)
-							return {status: Status.Fail, value: outText}
+							return {status: Status.Fail, message: res.message}
 						if (typeof res.newIndex === 'number')
 							i = res.newIndex
 						break
@@ -75,9 +70,8 @@ class Executor
 
 					if ( Dictionary.colonDef.hasOwnProperty(token.word) ) {
 						const res = Executor.run(Dictionary.colonDef[token.word].tokens, env)
-						outText += res.value
 						if (res.status === Status.Fail)
-							return {status: Status.Fail, value: outText}
+							return {status: Status.Fail, message: res.message}
 						break
 					}
 
@@ -93,22 +87,21 @@ class Executor
 
 					if ( Dictionary.words.hasOwnProperty(token.word) ) {
 						const res = Dictionary.words[token.word](env)
-						outText += res.value
 						if (res.status === Status.Fail)
-							return {status: Status.Fail, value: outText}
+							return {status: Status.Fail, message: res.message}
 						if (env.isLeave)
-							return {status: Status.Ok, value: outText}
+							return {status: Status.Ok, message: ''}
 						break
 					}
 
-					return {status: Status.Fail, value: `${outText} ${token.value} Unknown word`}
+					return {status: Status.Fail, message: `${token.value} ? (Execute)`}
 
 				default:
-					return {status: Status.Fail, value: `${outText} ${token.value} Executor: Unknown TokenKind`}
+					return {status: Status.Fail, message: `${token.value} Executor: Unknown TokenKind`}
 			}
 		}
 
-		return {status: Status.Ok, value: outText}
+		return {status: Status.Ok, message: ''}
 	}
 
 	public static runIF(tokens: Token[], index: number, env: Environment): ExecResult
@@ -119,7 +112,7 @@ class Executor
 		while (true) {
 			thenIndex += 1
 			if (thenIndex === tokens.length)
-				return {status: Status.Fail, value: 'THEN Is missing'}
+				return {status: Status.Fail, message: 'THEN Is missing'}
 			const loopWord = tokens[thenIndex].value.toUpperCase()
 			if (loopWord === 'IF')
 				ifDepth += 1
@@ -149,18 +142,18 @@ class Executor
 			// Consequent part
 			const consTokens = tokens.slice(index+1, elseIndex)
 			const res = Executor.run(consTokens, env)
-			return {status: res.status, value: res.value, newIndex: thenIndex}
+			return {status: res.status, message: res.message, newIndex: thenIndex}
 		}
 
 		if (elseIndex < thenIndex) {
 			// Alternative part
 			const altTokens = tokens.slice(elseIndex+1, thenIndex)
 			const res = Executor.run(altTokens, env)
-			return {status: res.status, value: res.value, newIndex: thenIndex}
+			return {status: res.status, message: res.message, newIndex: thenIndex}
 		}
 
 		// Continuation
-		return {status: Status.Ok, value: '', newIndex: thenIndex}
+		return {status: Status.Ok, message: '', newIndex: thenIndex}
 	}
 
 	public static runDO(tokens: Token[], index: number, env: Environment): ExecResult
@@ -171,7 +164,7 @@ class Executor
 		while (true) {
 			loopIndex += 1
 			if (loopIndex === tokens.length)
-				return {status: Status.Fail, value: 'LOOP Not found'}
+				return {status: Status.Fail, message: 'LOOP Not found'}
 			const word = tokens[loopIndex].word
 			if (word === 'DO')
 				doDepth += 1
@@ -188,34 +181,32 @@ class Executor
 		if (tokens[index].word === '?DO' && counter === limit) {
 			// No entry in the loop
 			env.isLeave = false
-			return {status: Status.Ok, value: '', newIndex: loopIndex}
+			return {status: Status.Ok, message: '', newIndex: loopIndex}
 		}
 
 		const isPlusLoop = tokens[loopIndex].word === '+LOOP'
 
 		if (!isPlusLoop && !upwards)
-			return {status: Status.Fail, value: 'LOOP Wrong range'}
+			return {status: Status.Fail, message: 'LOOP Wrong range'}
 
-		let outText = ''
+		const doBody = tokens.slice(index+1, loopIndex)
 		while (upwards ? counter < limit : counter >= limit) {
 			env.rStack.push(counter)
-			const doBody = tokens.slice(index+1, loopIndex)
 			const res = Executor.run(doBody , env)
 			env.rStack.pop()
 
 			if (env.isLeave)
 				break
 
-			outText += res.value
 			if (res.status === Status.Fail)
-				return {status: Status.Fail, value: outText}
+				return {status: Status.Fail, message: res.message}
 
 			counter += isPlusLoop ? env.dStack.pop() : 1
 		}
 
 		// Continuation
 		env.isLeave = false
-		return {status: Status.Ok, value: outText, newIndex: loopIndex}
+		return {status: Status.Ok, message: '', newIndex: loopIndex}
 	}
 
 	public static runBEGIN(tokens: Token[], index: number, env: Environment): ExecResult
@@ -232,15 +223,13 @@ class Executor
 		}
 
 		if (repeatIndex === 0 && whileIndex > 0)
-			return {status: Status.Fail, value: 'WHILE Not found'}
+			return {status: Status.Fail, message: 'WHILE Not found'}
 		if (repeatIndex === 0 && untilIndex === 0)
-			return {status: Status.Fail, value: 'BEGIN Not closed'}
+			return {status: Status.Fail, message: 'BEGIN Not closed'}
 		if (repeatIndex > 0 && untilIndex > 0)
-			return {status: Status.Fail, value: 'BEGIN Control flow mismatched'}
+			return {status: Status.Fail, message: 'BEGIN Control flow mismatched'}
 		if (untilIndex > 0 && whileIndex > 0)
-			return {status: Status.Fail, value: 'BEGIN Control flow mismatched'}
-
-		let outText = ''
+			return {status: Status.Fail, message: 'BEGIN Control flow mismatched'}
 
 		// BEGIN <init-code> <flag> WHILE <body-code> REPEAT
 		if (whileIndex > 0) {
@@ -248,22 +237,20 @@ class Executor
 			const bodyCode = tokens.slice(whileIndex + 1, repeatIndex)
 
 			while (true) {
-				const initRes  = Executor.run(initCode, env)
-				outText += initRes.value
+				const initRes = Executor.run(initCode, env)
 				if (initRes.status === Status.Fail)
-					return {status: Status.Fail, value: outText}
+					return {status: Status.Fail, message: initRes.message}
 
 				const flag = env.dStack.pop()
 				if (flag === 0) break
 
-				const bodyRes  = Executor.run(bodyCode, env)
-				outText += bodyRes.value
+				const bodyRes = Executor.run(bodyCode, env)
 				if (bodyRes.status === Status.Fail)
-					return {status: Status.Fail, value: outText}
+					return {status: Status.Fail, message: bodyRes.message}
 			}
 
 			// Continuation
-			return {status: Status.Ok, value: outText, newIndex: repeatIndex}
+			return {status: Status.Ok, message: '', newIndex: repeatIndex}
 		}
 
 		// BEGIN <body-code> <flag> UNTIL
@@ -272,16 +259,15 @@ class Executor
 
 			while(true) {
 				const bodyRes = Executor.run(bodyCode, env)
-				outText += bodyRes.value
 				if (bodyRes.status === Status.Fail)
-					return {status: Status.Fail, value: outText}
+					return {status: Status.Fail, message: bodyRes.message}
 
 				const flag = env.dStack.pop()
 				if (flag !== 0) break
 			}
 
 			// Continuation
-			return {status: Status.Ok, value: outText, newIndex: untilIndex}
+			return {status: Status.Ok, message: '', newIndex: untilIndex}
 		}
 
 		throw new Error('Unreachable')
