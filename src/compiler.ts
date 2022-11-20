@@ -22,15 +22,30 @@ class Compiler
 			return {status: Status.Ok, message: ''}
 		}
 
-		if (token.kind === TokenKind.DotComment) {
-			env.output(token.content)
-			return {status: Status.Ok, message: ''}
-		}
-
 		switch (token.kind) {
 			case TokenKind.Comment:
 			case TokenKind.LineComment:
 				break
+
+			case TokenKind.DotComment:
+				env.output(token.content)
+				break
+
+			case TokenKind.CQuote: {
+				Dictionary.words[token.word](env, token)
+				const cAddr  = env.dStack.pop()
+				env.tempDef.tokens.push(Compiler.makeNumberToken(cAddr, token.pos))
+				break
+			}
+
+			case TokenKind.SQuote: {
+				Dictionary.words[token.word](env, token)
+				const length = env.dStack.pop()
+				const cAddr  = env.dStack.pop()
+				env.tempDef.tokens.push(Compiler.makeNumberToken(cAddr, token.pos))
+				env.tempDef.tokens.push(Compiler.makeNumberToken(length, token.pos))
+				break
+			}
 
 			case TokenKind.Word:
 				if (Dictionary.words   .hasOwnProperty(token.word) ||
@@ -47,5 +62,10 @@ class Compiler
 		}
 
 		return {status: Status.Ok, message: ''}
+	}
+
+	public static makeNumberToken(num: number, pos: Position): Token
+	{
+		return {content: '', error: '', kind: TokenKind.Number, pos, value: String(num), word: String(num)}
 	}
 }

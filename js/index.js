@@ -114,14 +114,27 @@ class Compiler {
             env.runMode = RunMode.Interpret;
             return { status: 0 /* Status.Ok */, message: '' };
         }
-        if (token.kind === TokenKind.DotComment) {
-            env.output(token.content);
-            return { status: 0 /* Status.Ok */, message: '' };
-        }
         switch (token.kind) {
             case TokenKind.Comment:
             case TokenKind.LineComment:
                 break;
+            case TokenKind.DotComment:
+                env.output(token.content);
+                break;
+            case TokenKind.CQuote: {
+                Dictionary.words[token.word](env, token);
+                const cAddr = env.dStack.pop();
+                env.tempDef.tokens.push(Compiler.makeNumberToken(cAddr, token.pos));
+                break;
+            }
+            case TokenKind.SQuote: {
+                Dictionary.words[token.word](env, token);
+                const length = env.dStack.pop();
+                const cAddr = env.dStack.pop();
+                env.tempDef.tokens.push(Compiler.makeNumberToken(cAddr, token.pos));
+                env.tempDef.tokens.push(Compiler.makeNumberToken(length, token.pos));
+                break;
+            }
             case TokenKind.Word:
                 if (Dictionary.words.hasOwnProperty(token.word) ||
                     Dictionary.colonDef.hasOwnProperty(token.word) ||
@@ -135,6 +148,9 @@ class Compiler {
                 env.tempDef.tokens.push(token);
         }
         return { status: 0 /* Status.Ok */, message: '' };
+    }
+    static makeNumberToken(num, pos) {
+        return { content: '', error: '', kind: TokenKind.Number, pos, value: String(num), word: String(num) };
     }
 }
 var Status;
