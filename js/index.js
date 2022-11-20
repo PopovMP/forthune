@@ -449,6 +449,39 @@ Dictionary.words = {
         env.dStack.push(n2);
         return { status: 0 /* Status.Ok */, message: '' };
     },
+    // Memory
+    'ALIGNED': (env) => {
+        // ( addr -- a-addr )
+        const addr = env.dStack.pop();
+        const remainder = addr % 8;
+        const aligned = remainder === 0 ? addr : addr + 8 - remainder;
+        env.dStack.push(aligned);
+        return { status: 0 /* Status.Ok */, message: '' };
+    },
+    'CHARS': (env) => {
+        // ( n1 -- n2 )
+        const n1 = env.dStack.pop();
+        env.dStack.push(n1);
+        return { status: 0 /* Status.Ok */, message: '' };
+    },
+    'CHAR+': (env) => {
+        // ( c-addr1 -- c-addr2 )
+        const addr1 = env.dStack.pop();
+        env.dStack.push(addr1 + 1);
+        return { status: 0 /* Status.Ok */, message: '' };
+    },
+    'CELLS': (env) => {
+        // ( n1 -- n2 )
+        const n1 = env.dStack.pop();
+        env.dStack.push(n1 << 3);
+        return { status: 0 /* Status.Ok */, message: '' };
+    },
+    'CELL+': (env) => {
+        // ( a-addr1 -- a-addr2 )
+        const addr1 = env.dStack.pop();
+        env.dStack.push(addr1 + 8);
+        return { status: 0 /* Status.Ok */, message: '' };
+    },
     // Values
     'VALUE': () => {
         return { status: 0 /* Status.Ok */, message: '' };

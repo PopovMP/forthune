@@ -341,6 +341,45 @@ class Dictionary
 			return {status: Status.Ok, message: ''}
 		},
 
+		// Memory
+
+		'ALIGNED': (env: Environment) => {
+			// ( addr -- a-addr )
+			const addr = env.dStack.pop()
+			const remainder = addr % 8
+			const aligned   = remainder === 0 ? addr :  addr + 8 - remainder
+			env.dStack.push(aligned)
+			return {status: Status.Ok, message: ''}
+		},
+
+		'CHARS': (env: Environment) => {
+			// ( n1 -- n2 )
+			const n1 = env.dStack.pop()
+			env.dStack.push(n1)
+			return {status: Status.Ok, message: ''}
+		},
+
+		'CHAR+': (env: Environment) => {
+			// ( c-addr1 -- c-addr2 )
+			const addr1 = env.dStack.pop()
+			env.dStack.push(addr1+1)
+			return {status: Status.Ok, message: ''}
+		},
+
+		'CELLS': (env: Environment) => {
+			// ( n1 -- n2 )
+			const n1 = env.dStack.pop()
+			env.dStack.push(n1<<3)
+			return {status: Status.Ok, message: ''}
+		},
+
+		'CELL+': (env: Environment) => {
+			// ( a-addr1 -- a-addr2 )
+			const addr1 = env.dStack.pop()
+			env.dStack.push(addr1+8)
+			return {status: Status.Ok, message: ''}
+		},
+
 		// Values
 
 		'VALUE': () => {
