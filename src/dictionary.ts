@@ -3,6 +3,21 @@ class Dictionary
 	public static readonly colonDef: {[word: string]: ColonDef} = {}
 
 	public static readonly words: {[word: string]: (env: Environment, token: Token) => ExecResult} = {
+		// Definition
+
+		':': (env: Environment) => {
+			// ( C: "<spaces>name" -- colon-sys )
+			if (env.runMode === RunMode.Interpret)
+				return {status: Status.Fail, message: ';  No Interpretation'}
+			return {status: Status.Ok, message: ''}
+		},
+
+		';': (env: Environment) => {
+			if (env.runMode === RunMode.Interpret)
+				return {status: Status.Fail, message: ';  No Interpretation'}
+			return {status: Status.Ok, message: ''}
+		},
+
 		// Comments
 
 		'(': () => {
