@@ -465,11 +465,20 @@ class Dictionary
 
 		// Values
 
-		'VALUE': () => {
+		'VALUE': (env: Environment, token: Token) => {
+			if (env.runMode === RunMode.Run)
+				return {status: Status.Fail, message: 'VALUE No Execution'}
+
+			env.value[token.content.toUpperCase()] = env.dStack.pop()
 			return {status: Status.Ok, message: ''}
 		},
 
-		'TO': () => {
+		'TO': (env: Environment, token: Token) => {
+			const valName = token.content.toUpperCase()
+			if (! env.value.hasOwnProperty(valName))
+				return {status: Status.Fail, message: `${token.content} ?`}
+
+			env.value[valName] = env.dStack.pop()
 			return {status: Status.Ok, message: ''}
 		},
 

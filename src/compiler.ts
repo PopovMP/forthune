@@ -8,7 +8,7 @@ class Compiler
 			return {status: Status.Fail, message: `${token.value} ${token.error}`}
 
 		if (token.word === ':')
-			return {status: Status.Fail, message: `Nested definition`}
+			return {status: Status.Fail, message: 'Nested definition'}
 
 		if (token.word === ';') {
 			Dictionary.colonDef[env.tempDef.name] = {
@@ -23,6 +23,9 @@ class Compiler
 		}
 
 		switch (token.kind) {
+			case TokenKind.Value:
+				return {status: Status.Fail, message: `${token.value} No Compilation`}
+
 			case TokenKind.DotParen:
 				env.outputBuffer += token.content
 				break

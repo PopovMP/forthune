@@ -22,16 +22,13 @@ class Executor
 				case TokenKind.ColonDef:
 					return {status: Status.Fail, message: `${token.value} No Execution`}
 
-				case TokenKind.ValueTo:
-					env.value[token.content.toUpperCase()] = env.dStack.pop()
-					break
-
 				case TokenKind.Backslash:
-				case TokenKind.Paren    :
-				case TokenKind.DotParen :
 				case TokenKind.CQuote   :
-				case TokenKind.SQuote   :
+				case TokenKind.DotParen :
 				case TokenKind.DotQuote :
+				case TokenKind.Paren    :
+				case TokenKind.SQuote   :
+				case TokenKind.ValueTo  :
 				case TokenKind.Word     :
 					if (env.isLeave)
 						break

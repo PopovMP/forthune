@@ -16,11 +16,6 @@ class Interpreter
 				env.dStack.push( token.content.charCodeAt(0) )
 				break
 
-			case TokenKind.Value:
-			case TokenKind.ValueTo:
-				env.value[token.content.toUpperCase()] = env.dStack.pop()
-				break
-
 			case TokenKind.Constant:
 				env.constant[token.content.toUpperCase()] = env.dStack.pop()
 				break
@@ -31,13 +26,14 @@ class Interpreter
 				break
 
 			case TokenKind.Backslash:
-			case TokenKind.Paren    :
-			case TokenKind.DotParen :
 			case TokenKind.CQuote   :
-			case TokenKind.SQuote   :
+			case TokenKind.DotParen :
 			case TokenKind.DotQuote :
-			case TokenKind.Word     : {
-
+			case TokenKind.Paren    :
+			case TokenKind.SQuote   :
+			case TokenKind.Value    :
+			case TokenKind.ValueTo  :
+			case TokenKind.Word     :
 				if ( Dictionary.colonDef.hasOwnProperty(token.word) ) {
 					env.runMode = RunMode.Run
 
@@ -62,7 +58,6 @@ class Interpreter
 					return Dictionary.words[token.word](env, token)
 
 				return {status: Status.Fail, message: `${token.value} ?`}
-			}
 
 			default:
 				return {status: Status.Fail, message: `${token.value} Interpreter: Unknown TokenKind`}

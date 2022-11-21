@@ -98,7 +98,7 @@ class Compiler {
         if (token.error)
             return { status: 1 /* Status.Fail */, message: `${token.value} ${token.error}` };
         if (token.word === ':')
-            return { status: 1 /* Status.Fail */, message: `Nested definition` };
+            return { status: 1 /* Status.Fail */, message: 'Nested definition' };
         if (token.word === ';') {
             Dictionary.colonDef[env.tempDef.name] = {
                 name: env.tempDef.name,
@@ -109,6 +109,8 @@ class Compiler {
             return { status: 0 /* Status.Ok */, message: '' };
         }
         switch (token.kind) {
+            case TokenKind.Value:
+                return { status: 1 /* Status.Fail */, message: `${token.value} No Compilation` };
             case TokenKind.DotParen:
                 env.outputBuffer += token.content;
                 break;
@@ -560,10 +562,17 @@ Dictionary.words = {
         return { status: 0 /* Status.Ok */, message: '' };
     },
     // Values
-    'VALUE': () => {
+    'VALUE': (env, token) => {
+        if (env.runMode === RunMode.Run)
+            return { status: 1 /* Status.Fail */, message: 'VALUE No Execution' };
+        env.value[token.content.toUpperCase()] = env.dStack.pop();
         return { status: 0 /* Status.Ok */, message: '' };
     },
-    'TO': () => {
+    'TO': (env, token) => {
+        const valName = token.content.toUpperCase();
+        if (!env.value.hasOwnProperty(valName))
+            return { status: 1 /* Status.Fail */, message: `${token.content} ?` };
+        env.value[valName] = env.dStack.pop();
         return { status: 0 /* Status.Ok */, message: '' };
     },
     // Constant
@@ -730,15 +739,13 @@ class Executor {
                 case TokenKind.Constant:
                 case TokenKind.ColonDef:
                     return { status: 1 /* Status.Fail */, message: `${token.value} No Execution` };
-                case TokenKind.ValueTo:
-                    env.value[token.content.toUpperCase()] = env.dStack.pop();
-                    break;
                 case TokenKind.Backslash:
-                case TokenKind.Paren:
-                case TokenKind.DotParen:
                 case TokenKind.CQuote:
-                case TokenKind.SQuote:
+                case TokenKind.DotParen:
                 case TokenKind.DotQuote:
+                case TokenKind.Paren:
+                case TokenKind.SQuote:
+                case TokenKind.ValueTo:
                 case TokenKind.Word:
                     if (env.isLeave)
                         break;
@@ -1015,10 +1022,6 @@ class Interpreter {
             case TokenKind.Character:
                 env.dStack.push(token.content.charCodeAt(0));
                 break;
-            case TokenKind.Value:
-            case TokenKind.ValueTo:
-                env.value[token.content.toUpperCase()] = env.dStack.pop();
-                break;
             case TokenKind.Constant:
                 env.constant[token.content.toUpperCase()] = env.dStack.pop();
                 break;
@@ -1027,12 +1030,14 @@ class Interpreter {
                 env.runMode = RunMode.Compile;
                 break;
             case TokenKind.Backslash:
-            case TokenKind.Paren:
-            case TokenKind.DotParen:
             case TokenKind.CQuote:
-            case TokenKind.SQuote:
+            case TokenKind.DotParen:
             case TokenKind.DotQuote:
-            case TokenKind.Word: {
+            case TokenKind.Paren:
+            case TokenKind.SQuote:
+            case TokenKind.Value:
+            case TokenKind.ValueTo:
+            case TokenKind.Word:
                 if (Dictionary.colonDef.hasOwnProperty(token.word)) {
                     env.runMode = RunMode.Run;
                     const res = Executor.run(Dictionary.colonDef[token.word].tokens, env);
@@ -1050,7 +1055,6 @@ class Interpreter {
                 if (Dictionary.words.hasOwnProperty(token.word))
                     return Dictionary.words[token.word](env, token);
                 return { status: 1 /* Status.Fail */, message: `${token.value} ?` };
-            }
             default:
                 return { status: 1 /* Status.Fail */, message: `${token.value} Interpreter: Unknown TokenKind` };
         }
