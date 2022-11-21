@@ -80,13 +80,15 @@ class Application {
         event.preventDefault();
         event.target.removeEventListener('load', this.fileReader_load);
         try {
-            this.output(`${fileName} File loaded\n`);
+            this.outputLog.innerText += `${fileName} File loaded\n`;
+            this.output(this.outputLog.innerText);
             const codeLines = event.target.result.split(/\r?\n/g);
             for (const codeLine of codeLines)
                 this.compileCodeLine(codeLine);
         }
         catch (error) {
-            this.output(`${fileName} ${error.message}\n`);
+            this.outputLog.innerText += `${fileName} ${error.message}\n`;
+            this.output(this.outputLog.innerText);
         }
     }
 }
@@ -175,6 +177,18 @@ class Dictionary {
 }
 Dictionary.colonDef = {};
 Dictionary.words = {
+    // Definition
+    ':': (env) => {
+        // ( C: "<spaces>name" -- colon-sys )
+        if (env.runMode === RunMode.Interpret)
+            return { status: 1 /* Status.Fail */, message: ';  No Interpretation' };
+        return { status: 0 /* Status.Ok */, message: '' };
+    },
+    ';': (env) => {
+        if (env.runMode === RunMode.Interpret)
+            return { status: 1 /* Status.Fail */, message: ';  No Interpretation' };
+        return { status: 0 /* Status.Ok */, message: '' };
+    },
     // Comments
     '(': () => {
         // ( "ccc<paren>" -- )

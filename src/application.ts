@@ -122,7 +122,8 @@ class Application
 		event.target.removeEventListener('load', this.fileReader_load)
 
 		try {
-			this.output(`${fileName} File loaded\n`)
+			this.outputLog.innerText += `${fileName} File loaded\n`
+			this.output(this.outputLog.innerText)
 
 			const codeLines = event.target.result.split(/\r?\n/g)
 
@@ -130,7 +131,8 @@ class Application
 				this.compileCodeLine(codeLine)
 		}
 		catch (error: any) {
-			this.output(`${fileName} ${(error as Error).message}\n`)
+			this.outputLog.innerText += `${fileName} ${(error as Error).message}\n`
+			this.output(this.outputLog.innerText)
 		}
 	}
 }
