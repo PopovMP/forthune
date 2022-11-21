@@ -12,7 +12,6 @@ class Application {
         this.stackView = document.getElementById('stack-view');
         this.wordsElem = document.getElementById('dictionary');
         this.inputBuffer = [];
-        this.outputBuffer = "";
         this.inputIndex = 0;
         this.inputLine.addEventListener('keydown', this.inputLine_keydown.bind(this));
         this.importFile.addEventListener('change', this.importFile_change.bind(this));
@@ -29,8 +28,7 @@ class Application {
             event.preventDefault();
             const cmdText = this.inputLine.value;
             this.inputLine.value = '';
-            this.compileCodeLine(cmdText, 0);
-            return;
+            this.compileCodeLine(cmdText);
         }
         if (event.code === 'ArrowUp') {
             event.preventDefault();
@@ -57,22 +55,16 @@ class Application {
         }
         this.importFile.value = '';
     }
-    trimText(text, maxLines) {
-        return text.split('\n').slice(-maxLines).join('\n');
-    }
     output(text) {
-        this.outputBuffer = this.trimText(this.outputBuffer + text, this.OUT_BUFFER_LINES);
-        this.outputLog.innerText = this.outputBuffer;
+        this.outputLog.innerText = text.split('\n').slice(-this.OUT_BUFFER_LINES).join('\n');
     }
-    compileCodeLine(inputLine, lineNum) {
+    compileCodeLine(inputLine) {
         if (inputLine !== '' && (this.inputBuffer.length === 0 ||
             this.inputBuffer[this.inputBuffer.length - 1] !== inputLine)) {
             this.inputBuffer.push(inputLine);
             this.inputIndex = this.inputBuffer.length - 1;
         }
-        this.output(inputLine + ' ');
-        const tokens = Parser.parseLine(inputLine + ' ', lineNum);
-        this.forth.interpret(tokens);
+        this.forth.interpret(inputLine);
         this.stackView.innerText = this.forth.printStack();
     }
     readFile(file) {
@@ -88,10 +80,10 @@ class Application {
         event.preventDefault();
         event.target.removeEventListener('load', this.fileReader_load);
         try {
-            this.output(`${fileName}  File loaded\n`);
+            this.output(`${fileName} File loaded\n`);
             const codeLines = event.target.result.split(/\r?\n/g);
-            for (let i = 0; i < codeLines.length; i += 1)
-                this.compileCodeLine(codeLines[i], i);
+            for (const codeLine of codeLines)
+                this.compileCodeLine(codeLine);
         }
         catch (error) {
             this.output(`${fileName} ${error.message}\n`);
@@ -115,24 +107,21 @@ class Compiler {
             return { status: 0 /* Status.Ok */, message: '' };
         }
         switch (token.kind) {
-            case TokenKind.Comment:
-            case TokenKind.LineComment:
-                break;
-            case TokenKind.DotComment:
-                env.output(token.content);
+            case TokenKind.DotParen:
+                env.outputBuffer += token.content;
                 break;
             case TokenKind.CQuote: {
                 Dictionary.words[token.word](env, token);
                 const cAddr = env.dStack.pop();
-                env.tempDef.tokens.push(Compiler.makeNumberToken(cAddr, token.pos));
+                env.tempDef.tokens.push(Compiler.makeNumberToken(cAddr));
                 break;
             }
             case TokenKind.SQuote: {
                 Dictionary.words[token.word](env, token);
                 const length = env.dStack.pop();
                 const cAddr = env.dStack.pop();
-                env.tempDef.tokens.push(Compiler.makeNumberToken(cAddr, token.pos));
-                env.tempDef.tokens.push(Compiler.makeNumberToken(length, token.pos));
+                env.tempDef.tokens.push(Compiler.makeNumberToken(cAddr));
+                env.tempDef.tokens.push(Compiler.makeNumberToken(length));
                 break;
             }
             case TokenKind.Word:
@@ -149,8 +138,8 @@ class Compiler {
         }
         return { status: 0 /* Status.Ok */, message: '' };
     }
-    static makeNumberToken(num, pos) {
-        return { content: '', error: '', kind: TokenKind.Number, pos, value: String(num), word: String(num) };
+    static makeNumberToken(num) {
+        return { content: '', error: '', kind: TokenKind.Number, value: String(num), word: String(num) };
     }
 }
 var Status;
@@ -160,17 +149,17 @@ var Status;
 })(Status || (Status = {}));
 var TokenKind;
 (function (TokenKind) {
-    TokenKind[TokenKind["Character"] = 0] = "Character";
-    TokenKind[TokenKind["ColonDef"] = 1] = "ColonDef";
-    TokenKind[TokenKind["Comment"] = 2] = "Comment";
-    TokenKind[TokenKind["Constant"] = 3] = "Constant";
-    TokenKind[TokenKind["CQuote"] = 4] = "CQuote";
-    TokenKind[TokenKind["SQuote"] = 5] = "SQuote";
-    TokenKind[TokenKind["DotQuote"] = 6] = "DotQuote";
-    TokenKind[TokenKind["Create"] = 7] = "Create";
-    TokenKind[TokenKind["DotComment"] = 8] = "DotComment";
-    TokenKind[TokenKind["LineComment"] = 9] = "LineComment";
-    TokenKind[TokenKind["Number"] = 10] = "Number";
+    TokenKind[TokenKind["Backslash"] = 0] = "Backslash";
+    TokenKind[TokenKind["CQuote"] = 1] = "CQuote";
+    TokenKind[TokenKind["Character"] = 2] = "Character";
+    TokenKind[TokenKind["ColonDef"] = 3] = "ColonDef";
+    TokenKind[TokenKind["Constant"] = 4] = "Constant";
+    TokenKind[TokenKind["Create"] = 5] = "Create";
+    TokenKind[TokenKind["DotParen"] = 6] = "DotParen";
+    TokenKind[TokenKind["DotQuote"] = 7] = "DotQuote";
+    TokenKind[TokenKind["Number"] = 8] = "Number";
+    TokenKind[TokenKind["Paren"] = 9] = "Paren";
+    TokenKind[TokenKind["SQuote"] = 10] = "SQuote";
     TokenKind[TokenKind["Value"] = 11] = "Value";
     TokenKind[TokenKind["ValueTo"] = 12] = "ValueTo";
     TokenKind[TokenKind["Variable"] = 13] = "Variable";
@@ -188,14 +177,21 @@ Dictionary.colonDef = {};
 Dictionary.words = {
     // Comments
     '(': () => {
+        // ( "ccc<paren>" -- )
+        // Discard comment
         return { status: 0 /* Status.Ok */, message: '' };
     },
-    '.(': (env) => {
-        return env.runMode === RunMode.Interpret
-            ? { status: 1 /* Status.Fail */, message: '.( No Interpretation' }
-            : { status: 0 /* Status.Ok */, message: '' };
+    '.(': (env, token) => {
+        // ( "ccc<paren>" -- )
+        // Print comment on Interpretation and Compilation mode
+        if (env.runMode === RunMode.Interpret ||
+            env.runMode === RunMode.Compile)
+            env.outputBuffer += token.content;
+        return { status: 0 /* Status.Ok */, message: '' };
     },
     '\\': () => {
+        // ( "ccc<eol>" -- )
+        // Discard comment
         return { status: 0 /* Status.Ok */, message: '' };
     },
     // Char
@@ -219,7 +215,7 @@ Dictionary.words = {
     },
     // String
     '."': (env, token) => {
-        env.output(token.content);
+        env.outputBuffer += token.content;
         return { status: 0 /* Status.Ok */, message: '' };
     },
     'C"': (env, token) => {
@@ -258,27 +254,27 @@ Dictionary.words = {
         const chars = Array(len);
         for (let i = 0; i < len; i += 1)
             chars[i] = String.fromCharCode(env.cString[cAddr + i]);
-        env.output(chars.join(''));
+        env.outputBuffer += chars.join('');
         return { status: 0 /* Status.Ok */, message: '' };
     },
     // Output
     'CR': (env) => {
-        env.output('\n');
+        env.outputBuffer += '\n';
         return { status: 0 /* Status.Ok */, message: '' };
     },
     'EMIT': (env) => {
         const charCode = env.dStack.pop();
         const character = String.fromCharCode(charCode);
-        env.output(character);
+        env.outputBuffer += character;
         return { status: 0 /* Status.Ok */, message: '' };
     },
     'SPACE': (env) => {
-        env.output(' ');
+        env.outputBuffer += ' ';
         return { status: 0 /* Status.Ok */, message: '' };
     },
     'SPACES': (env) => {
         const count = env.dStack.pop();
-        env.output(' '.repeat(count));
+        env.outputBuffer += ' '.repeat(count);
         return { status: 0 /* Status.Ok */, message: '' };
     },
     // Numbers
@@ -361,7 +357,8 @@ Dictionary.words = {
     },
     // Stack manipulation
     '.': (env) => {
-        env.output(env.dStack.pop().toString() + ' ');
+        const n = env.dStack.pop();
+        env.outputBuffer += String(n) + ' ';
         return { status: 0 /* Status.Ok */, message: '' };
     },
     'DEPTH': (env) => {
@@ -680,7 +677,7 @@ Dictionary.words = {
     },
     // Tools
     '.S': (env) => {
-        env.output(env.dStack.print());
+        env.outputBuffer += env.dStack.print();
         return { status: 0 /* Status.Ok */, message: '' };
     },
     'WORDS': (env) => {
@@ -694,7 +691,11 @@ Dictionary.words = {
                 output.push('\n');
             output.push(words[i].padEnd(10, ' '));
         }
-        env.output(output.join('') + '\n');
+        env.outputBuffer += output.join('') + '\n';
+        return { status: 0 /* Status.Ok */, message: '' };
+    },
+    'PAGE': (env) => {
+        env.outputBuffer = '';
         return { status: 0 /* Status.Ok */, message: '' };
     },
 };
@@ -711,18 +712,16 @@ class Executor {
                 case TokenKind.Character:
                     env.dStack.push(token.content.charCodeAt(0));
                     break;
-                case TokenKind.LineComment:
-                case TokenKind.Comment:
-                case TokenKind.DotComment:
-                    break;
                 case TokenKind.Value:
                 case TokenKind.Constant:
+                case TokenKind.ColonDef:
                     return { status: 1 /* Status.Fail */, message: `${token.value} No Execution` };
                 case TokenKind.ValueTo:
                     env.value[token.content.toUpperCase()] = env.dStack.pop();
                     break;
-                case TokenKind.ColonDef:
-                    return { status: 1 /* Status.Fail */, message: `: No Execution` };
+                case TokenKind.Backslash:
+                case TokenKind.Paren:
+                case TokenKind.DotParen:
                 case TokenKind.CQuote:
                 case TokenKind.SQuote:
                 case TokenKind.DotQuote:
@@ -930,7 +929,10 @@ class Forth {
     constructor(output) {
         this.STACK_CAPACITY = 1024;
         this.C_STRING_CAPACITY = 10000;
+        this.output = output;
         this.env = {
+            inputBuffer: '',
+            outputBuffer: '',
             runMode: RunMode.Interpret,
             isLeave: false,
             dStack: new Stack(this.STACK_CAPACITY),
@@ -940,11 +942,13 @@ class Forth {
             value: {},
             constant: {},
             tempDef: { name: '', tokens: [] },
-            output: output,
         };
     }
-    interpret(tokens) {
+    interpret(inputLine) {
+        this.env.inputBuffer = inputLine + ' ';
+        this.env.outputBuffer += this.env.inputBuffer;
         try {
+            const tokens = Parser.parseLine(this.env.inputBuffer);
             for (let i = 0; i < tokens.length; i += 1) {
                 const token = tokens[i];
                 if (token.error) {
@@ -963,14 +967,15 @@ class Forth {
                     return;
                 }
             }
-            if (this.env.runMode === RunMode.Interpret)
-                this.env.output(' ok');
-            this.env.output('\n');
         }
         catch (e) {
             this.die(e.message);
             return;
         }
+        if (this.env.runMode === RunMode.Interpret)
+            this.env.outputBuffer += ' ok';
+        this.env.outputBuffer += '\n';
+        this.output(this.env.outputBuffer);
     }
     printStack() {
         return this.env.dStack.print();
@@ -978,9 +983,10 @@ class Forth {
     die(message) {
         this.env.dStack.clear();
         this.env.rStack.clear();
-        this.env.output(message + '\n');
         this.env.runMode = RunMode.Interpret;
         this.env.isLeave = false;
+        this.env.outputBuffer += message + '\n';
+        this.output(this.env.outputBuffer);
     }
 }
 class Interpreter {
@@ -995,12 +1001,6 @@ class Interpreter {
             case TokenKind.Character:
                 env.dStack.push(token.content.charCodeAt(0));
                 break;
-            case TokenKind.LineComment:
-            case TokenKind.Comment:
-                break;
-            case TokenKind.DotComment:
-                env.output(token.content);
-                break;
             case TokenKind.Value:
             case TokenKind.ValueTo:
                 env.value[token.content.toUpperCase()] = env.dStack.pop();
@@ -1012,6 +1012,9 @@ class Interpreter {
                 env.tempDef = { name: token.content.toUpperCase(), tokens: [] };
                 env.runMode = RunMode.Compile;
                 break;
+            case TokenKind.Backslash:
+            case TokenKind.Paren:
+            case TokenKind.DotParen:
             case TokenKind.CQuote:
             case TokenKind.SQuote:
             case TokenKind.DotQuote:
@@ -1041,7 +1044,7 @@ class Interpreter {
     }
 }
 class Parser {
-    static parseLine(inputLine, lineNum) {
+    static parseLine(inputLine) {
         const tokens = [];
         const codeLine = inputLine.trimStart();
         let index = 0;
@@ -1055,7 +1058,6 @@ class Parser {
                 throw new Error('Code line does not end with a space!');
             const value = codeLine.slice(index, toIndex);
             const word = value.toUpperCase();
-            const pos = { line: lineNum, col: index };
             index = toIndex;
             // Words with content
             if (Parser.contentWords.hasOwnProperty(word)) {
@@ -1071,21 +1073,21 @@ class Parser {
                     index = codeLine.length;
                     endIndex = codeLine.length;
                     if (grammar.strict) {
-                        tokens.push({ kind: grammar.kind, error: 'Not Closed', content: '', value, word, pos });
+                        tokens.push({ kind: grammar.kind, error: 'Not Closed', content: '', value, word });
                         continue;
                     }
                 }
                 let content = codeLine.slice(toIndex, endIndex);
                 if (!grammar.empty && content.length === 0) {
-                    tokens.push({ kind: grammar.kind, error: 'Empty', content: '', value, word, pos });
+                    tokens.push({ kind: grammar.kind, error: 'Empty', content: '', value, word });
                     continue;
                 }
-                tokens.push({ kind: grammar.kind, error: '', content, value, word, pos });
+                tokens.push({ kind: grammar.kind, error: '', content, value, word });
             }
             else {
                 const isNumber = value.match(/^[+-]?\d+(?:.?\d+)?$/);
                 const kind = isNumber ? TokenKind.Number : TokenKind.Word;
-                tokens.push({ kind, error: '', content: '', value, word, pos });
+                tokens.push({ kind, error: '', content: '', value, word });
             }
         }
         return tokens;
@@ -1105,7 +1107,7 @@ class Parser {
 }
 Parser.contentWords = {
     '\\': {
-        kind: TokenKind.LineComment,
+        kind: TokenKind.Backslash,
         delimiter: '\n',
         trimStart: false,
         strict: false,
@@ -1119,14 +1121,14 @@ Parser.contentWords = {
         empty: false,
     },
     '(': {
-        kind: TokenKind.Comment,
+        kind: TokenKind.Paren,
         delimiter: ')',
         trimStart: false,
         strict: true,
         empty: true,
     },
     '.(': {
-        kind: TokenKind.DotComment,
+        kind: TokenKind.DotParen,
         delimiter: ')',
         trimStart: false,
         strict: true,

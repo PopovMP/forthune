@@ -14,7 +14,6 @@ class Application
 	private readonly inputBuffer: string[]
 
 	private inputIndex  : number
-	private outputBuffer: string
 
 	// noinspection JSUnusedGlobalSymbols
 	constructor()
@@ -29,7 +28,6 @@ class Application
 		this.wordsElem   = document.getElementById('dictionary')  as HTMLElement
 
 		this.inputBuffer  = []
-		this.outputBuffer = ""
 		this.inputIndex   = 0
 		this.inputLine.addEventListener('keydown', this.inputLine_keydown.bind(this))
 		this.importFile.addEventListener('change', this.importFile_change.bind(this))
@@ -52,9 +50,7 @@ class Application
 			const cmdText = this.inputLine.value
 			this.inputLine.value = ''
 
-			this.compileCodeLine(cmdText, 0)
-
-			return
+			this.compileCodeLine(cmdText)
 		}
 
 		if (event.code === 'ArrowUp') {
@@ -90,18 +86,12 @@ class Application
 		this.importFile.value = ''
 	}
 
-	private trimText(text: string, maxLines: number)
-	{
-		return text.split('\n').slice(- maxLines).join('\n')
-	}
-
 	private output(text: string): void
 	{
-		this.outputBuffer = this.trimText(this.outputBuffer + text, this.OUT_BUFFER_LINES)
-		this.outputLog.innerText = this.outputBuffer
+		this.outputLog.innerText = text.split('\n').slice(- this.OUT_BUFFER_LINES).join('\n')
 	}
 
-	private compileCodeLine(inputLine: string, lineNum: number): void
+	private compileCodeLine(inputLine: string): void
 	{
 		if (inputLine !== '' && (this.inputBuffer.length === 0 ||
 			this.inputBuffer[this.inputBuffer.length-1] !== inputLine)) {
@@ -109,10 +99,7 @@ class Application
 			this.inputIndex = this.inputBuffer.length - 1
 		}
 
-		this.output(inputLine + ' ')
-
-		const tokens = Parser.parseLine(inputLine + ' ', lineNum)
-		this.forth.interpret(tokens)
+		this.forth.interpret(inputLine)
 
 		this.stackView.innerText = this.forth.printStack()
 	}
@@ -135,12 +122,12 @@ class Application
 		event.target.removeEventListener('load', this.fileReader_load)
 
 		try {
-			this.output(`${fileName}  File loaded\n`)
+			this.output(`${fileName} File loaded\n`)
 
 			const codeLines = event.target.result.split(/\r?\n/g)
 
-			for (let i = 0; i < codeLines.length; i += 1)
-				this.compileCodeLine(codeLines[i], i)
+			for (const codeLine of codeLines)
+				this.compileCodeLine(codeLine)
 		}
 		catch (error: any) {
 			this.output(`${fileName} ${(error as Error).message}\n`)

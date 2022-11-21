@@ -6,16 +6,23 @@ class Dictionary
 		// Comments
 
 		'(': () => {
+			// ( "ccc<paren>" -- )
+			// Discard comment
 			return {status: Status.Ok, message: ''}
 		},
 
-		'.(': (env: Environment) => {
-			return env.runMode === RunMode.Interpret
-				? {status: Status.Fail, message: '.( No Interpretation'}
-				: {status: Status.Ok, message: ''}
+		'.(': (env: Environment, token: Token) => {
+			// ( "ccc<paren>" -- )
+			// Print comment on Interpretation and Compilation mode
+			if (env.runMode === RunMode.Interpret ||
+				env.runMode === RunMode.Compile)
+				env.outputBuffer += token.content
+			return {status: Status.Ok, message: ''}
 		},
 
 		'\\': () => {
+			// ( "ccc<eol>" -- )
+			// Discard comment
 			return {status: Status.Ok, message: ''}
 		},
 
@@ -45,7 +52,7 @@ class Dictionary
 		// String
 
 		'."': (env: Environment, token: Token) => {
-			env.output(token.content)
+			env.outputBuffer += token.content
 
 			return {status: Status.Ok, message: ''}
 		},
@@ -95,32 +102,32 @@ class Dictionary
 			const chars = Array(len)
 			for (let i = 0; i < len; i += 1)
 				chars[i] = String.fromCharCode(env.cString[cAddr + i])
-			env.output(chars.join(''))
+			env.outputBuffer += chars.join('')
 			return {status: Status.Ok, message: ''}
 		},
 
 		// Output
 
 		'CR': (env: Environment) => {
-			env.output('\n')
+			env.outputBuffer += '\n'
 			return {status: Status.Ok, message: ''}
 		},
 
 		'EMIT': (env: Environment) => {
 			const charCode  = env.dStack.pop()
 			const character = String.fromCharCode(charCode)
-			env.output(character)
+			env.outputBuffer += character
 			return {status: Status.Ok, message: ''}
 		},
 
 		'SPACE': (env: Environment) => {
-			env.output(' ')
+			env.outputBuffer += ' '
 			return {status: Status.Ok, message: ''}
 		},
 
 		'SPACES': (env: Environment) => {
 			const count = env.dStack.pop()
-			env.output(' '.repeat(count))
+			env.outputBuffer += ' '.repeat(count)
 			return {status: Status.Ok, message: ''}
 		},
 
@@ -220,7 +227,8 @@ class Dictionary
 		// Stack manipulation
 
 		'.': (env: Environment) => {
-			env.output(env.dStack.pop().toString() + ' ')
+			const n = env.dStack.pop()
+			env.outputBuffer += String(n) + ' '
 			return {status: Status.Ok, message: ''}
 		},
 
@@ -609,7 +617,7 @@ class Dictionary
 		// Tools
 
 		'.S': (env: Environment) => {
-			env.output(env.dStack.print())
+			env.outputBuffer += env.dStack.print()
 			return {status: Status.Ok, message: ''}
 		},
 
@@ -627,8 +635,12 @@ class Dictionary
 				output.push(words[i].padEnd(10, ' '))
 			}
 
-			env.output(output.join('') + '\n')
+			env.outputBuffer += output.join('') + '\n'
+			return {status: Status.Ok, message: ''}
+		},
 
+		'PAGE': (env: Environment) => {
+			env.outputBuffer = ''
 			return {status: Status.Ok, message: ''}
 		},
 	}

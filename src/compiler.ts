@@ -23,18 +23,14 @@ class Compiler
 		}
 
 		switch (token.kind) {
-			case TokenKind.Comment:
-			case TokenKind.LineComment:
-				break
-
-			case TokenKind.DotComment:
-				env.output(token.content)
+			case TokenKind.DotParen:
+				env.outputBuffer += token.content
 				break
 
 			case TokenKind.CQuote: {
 				Dictionary.words[token.word](env, token)
 				const cAddr  = env.dStack.pop()
-				env.tempDef.tokens.push(Compiler.makeNumberToken(cAddr, token.pos))
+				env.tempDef.tokens.push(Compiler.makeNumberToken(cAddr))
 				break
 			}
 
@@ -42,8 +38,8 @@ class Compiler
 				Dictionary.words[token.word](env, token)
 				const length = env.dStack.pop()
 				const cAddr  = env.dStack.pop()
-				env.tempDef.tokens.push(Compiler.makeNumberToken(cAddr, token.pos))
-				env.tempDef.tokens.push(Compiler.makeNumberToken(length, token.pos))
+				env.tempDef.tokens.push(Compiler.makeNumberToken(cAddr))
+				env.tempDef.tokens.push(Compiler.makeNumberToken(length))
 				break
 			}
 
@@ -64,8 +60,8 @@ class Compiler
 		return {status: Status.Ok, message: ''}
 	}
 
-	public static makeNumberToken(num: number, pos: Position): Token
+	public static makeNumberToken(num: number): Token
 	{
-		return {content: '', error: '', kind: TokenKind.Number, pos, value: String(num), word: String(num)}
+		return {content: '', error: '', kind: TokenKind.Number, value: String(num), word: String(num)}
 	}
 }

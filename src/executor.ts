@@ -17,26 +17,22 @@ class Executor
 					env.dStack.push( token.content.charCodeAt(0) )
 					break
 
-				case TokenKind.LineComment:
-				case TokenKind.Comment:
-				case TokenKind.DotComment:
-					break
-
 				case TokenKind.Value:
 				case TokenKind.Constant:
+				case TokenKind.ColonDef:
 					return {status: Status.Fail, message: `${token.value} No Execution`}
 
 				case TokenKind.ValueTo:
 					env.value[token.content.toUpperCase()] = env.dStack.pop()
 					break
 
-				case TokenKind.ColonDef:
-					return {status: Status.Fail, message: `: No Execution`}
-
-				case TokenKind.CQuote:
-				case TokenKind.SQuote:
-				case TokenKind.DotQuote:
-				case TokenKind.Word:
+				case TokenKind.Backslash:
+				case TokenKind.Paren    :
+				case TokenKind.DotParen :
+				case TokenKind.CQuote   :
+				case TokenKind.SQuote   :
+				case TokenKind.DotQuote :
+				case TokenKind.Word     :
 					if (env.isLeave)
 						break
 

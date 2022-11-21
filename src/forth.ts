@@ -3,26 +3,35 @@ class Forth
 	private readonly STACK_CAPACITY    = 1024
 	private readonly C_STRING_CAPACITY = 100_00
 	private readonly env: Environment
+	private readonly output: (text: string) => void
 
 	constructor(output: (text: string) => void)
 	{
+		this.output = output
+
 		this.env = {
-			runMode : RunMode.Interpret,
-			isLeave : false,
-			dStack  : new Stack(this.STACK_CAPACITY),
-			rStack  : new Stack(this.STACK_CAPACITY),
-			cString : new Uint8Array(this.C_STRING_CAPACITY),
-			cs      : 0,
-			value   : {},
-			constant: {},
-			tempDef : {name: '', tokens: []},
-			output  : output,
+			inputBuffer : '',
+			outputBuffer: '',
+			runMode     : RunMode.Interpret,
+			isLeave     : false,
+			dStack      : new Stack(this.STACK_CAPACITY),
+			rStack      : new Stack(this.STACK_CAPACITY),
+			cString     : new Uint8Array(this.C_STRING_CAPACITY),
+			cs          : 0,
+			value       : {},
+			constant    : {},
+			tempDef     : {name: '', tokens: []},
 		}
 	}
 
-	public interpret(tokens: Token[]): void
+	public interpret(inputLine: string): void
 	{
+		this.env.inputBuffer   = inputLine + ' '
+		this.env.outputBuffer += this.env.inputBuffer
+
 		try {
+			const tokens: Token[] = Parser.parseLine(this.env.inputBuffer)
+
 			for (let i = 0; i < tokens.length; i += 1) {
 				const token = tokens[i]
 
@@ -45,15 +54,16 @@ class Forth
 					return
 				}
 			}
-
-			if (this.env.runMode === RunMode.Interpret)
-				this.env.output(' ok')
-			this.env.output('\n')
 		}
 		catch (e: any) {
 			this.die(e.message)
 			return
 		}
+
+		if (this.env.runMode === RunMode.Interpret)
+			this.env.outputBuffer += ' ok'
+		this.env.outputBuffer += '\n'
+		this.output(this.env.outputBuffer)
 	}
 
 	public printStack()
@@ -65,8 +75,10 @@ class Forth
 	{
 		this.env.dStack.clear()
 		this.env.rStack.clear()
-		this.env.output(message + '\n')
 		this.env.runMode = RunMode.Interpret
 		this.env.isLeave = false
+
+		this.env.outputBuffer += message + '\n'
+		this.output(this.env.outputBuffer)
 	}
 }

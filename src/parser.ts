@@ -2,7 +2,7 @@ class Parser
 {
 	public static contentWords: {[word: string]: TokenGrammar} = {
 		'\\': {
-			kind     : TokenKind.LineComment,
+			kind     : TokenKind.Backslash,
 			delimiter: '\n',
 			trimStart: false,
 			strict   : false,
@@ -16,14 +16,14 @@ class Parser
 			empty    : false,
 		},
 		'(': {
-			kind     : TokenKind.Comment,
+			kind     : TokenKind.Paren,
 			delimiter: ')',
 			trimStart: false,
 			strict   : true,
 			empty    : true,
 		},
 		'.(': {
-			kind     : TokenKind.DotComment,
+			kind     : TokenKind.DotParen,
 			delimiter: ')',
 			trimStart: false,
 			strict   : true,
@@ -94,7 +94,7 @@ class Parser
 		},
 	}
 
-	public static parseLine(inputLine: string, lineNum: number): Token[]
+	public static parseLine(inputLine: string): Token[]
 	{
 		const tokens: Token[] = []
 
@@ -113,7 +113,6 @@ class Parser
 
 			const value = codeLine.slice(index, toIndex)
 			const word  = value.toUpperCase()
-			const pos   = {line: lineNum, col: index}
 
 			index = toIndex
 
@@ -133,7 +132,7 @@ class Parser
 					index    = codeLine.length
 					endIndex = codeLine.length
 					if (grammar.strict) {
-						tokens.push({kind: grammar.kind, error: 'Not Closed', content: '', value, word, pos})
+						tokens.push({kind: grammar.kind, error: 'Not Closed', content: '', value, word})
 						continue
 					}
 				}
@@ -141,16 +140,16 @@ class Parser
 				let content = codeLine.slice(toIndex, endIndex)
 
 				if (!grammar.empty && content.length === 0) {
-					tokens.push({kind: grammar.kind, error: 'Empty', content: '', value, word, pos})
+					tokens.push({kind: grammar.kind, error: 'Empty', content: '', value, word})
 					continue
 				}
 
-				tokens.push({kind: grammar.kind, error: '', content, value, word, pos})
+				tokens.push({kind: grammar.kind, error: '', content, value, word})
 			}
 			else {
 				const isNumber = value.match(/^[+-]?\d+(?:.?\d+)?$/)
 				const kind     = isNumber ? TokenKind.Number : TokenKind.Word
-				tokens.push({kind, error: '', content: '', value, word, pos})
+				tokens.push({kind, error: '', content: '', value, word})
 			}
 		}
 

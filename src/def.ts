@@ -1,21 +1,16 @@
 interface Environment
 {
-	runMode : RunMode
-	isLeave : boolean
-	dStack  : Stack
-	rStack  : Stack
-	cString : Uint8Array
-	cs      : number // The first free cell of cString
-	value   : {[name: string]: number}
-	constant: {[name: string]: number}
-	tempDef : ColonDef
-	output  : (text: string) => void
-}
-
-interface Position
-{
-	line: number,
-	col : number
+	inputBuffer : string
+	outputBuffer: string
+	runMode     : RunMode
+	isLeave     : boolean
+	dStack      : Stack
+	rStack      : Stack
+	cString     : Uint8Array
+	cs          : number // The first free cell of cString
+	value       : {[name: string]: number}
+	constant    : {[name: string]: number}
+	tempDef     : ColonDef
 }
 
 interface ExecResult
@@ -37,17 +32,17 @@ const enum Status {
 }
 
 enum TokenKind {
+	Backslash,
+	CQuote,
 	Character,
 	ColonDef,
-	Comment,
 	Constant,
-	CQuote,
-	SQuote,
-	DotQuote,
 	Create,
-	DotComment,
-	LineComment,
+	DotParen,
+	DotQuote,
 	Number,
+	Paren,
+	SQuote,
 	Value,
 	ValueTo,
 	Variable,
@@ -68,7 +63,6 @@ interface Token {
 	value  : string,
 	word   : string, // message.toUppercase()
 	content: string, // string content or definition / variable name
-	pos    : Position
 }
 
 enum RunMode {

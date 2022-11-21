@@ -16,14 +16,6 @@ class Interpreter
 				env.dStack.push( token.content.charCodeAt(0) )
 				break
 
-			case TokenKind.LineComment:
-			case TokenKind.Comment:
-				break
-
-			case TokenKind.DotComment:
-				env.output(token.content)
-				break
-
 			case TokenKind.Value:
 			case TokenKind.ValueTo:
 				env.value[token.content.toUpperCase()] = env.dStack.pop()
@@ -38,10 +30,13 @@ class Interpreter
 				env.runMode = RunMode.Compile
 				break
 
-			case TokenKind.CQuote:
-			case TokenKind.SQuote:
-			case TokenKind.DotQuote:
-			case TokenKind.Word  : {
+			case TokenKind.Backslash:
+			case TokenKind.Paren    :
+			case TokenKind.DotParen :
+			case TokenKind.CQuote   :
+			case TokenKind.SQuote   :
+			case TokenKind.DotQuote :
+			case TokenKind.Word     : {
 
 				if ( Dictionary.colonDef.hasOwnProperty(token.word) ) {
 					env.runMode = RunMode.Run
