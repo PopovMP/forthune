@@ -33,6 +33,7 @@ const enum Status {
 
 enum TokenKind {
 	Backslash,
+	BracketChar,
 	CQuote,
 	Character,
 	ColonDef,

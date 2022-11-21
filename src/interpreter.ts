@@ -25,15 +25,16 @@ class Interpreter
 				env.runMode = RunMode.Compile
 				break
 
-			case TokenKind.Backslash:
-			case TokenKind.CQuote   :
-			case TokenKind.DotParen :
-			case TokenKind.DotQuote :
-			case TokenKind.Paren    :
-			case TokenKind.SQuote   :
-			case TokenKind.Value    :
-			case TokenKind.ValueTo  :
-			case TokenKind.Word     :
+			case TokenKind.Backslash  :
+			case TokenKind.BracketChar:
+			case TokenKind.CQuote     :
+			case TokenKind.DotParen   :
+			case TokenKind.DotQuote   :
+			case TokenKind.Paren      :
+			case TokenKind.SQuote     :
+			case TokenKind.Value      :
+			case TokenKind.ValueTo    :
+			case TokenKind.Word       :
 				if ( Dictionary.colonDef.hasOwnProperty(token.word) ) {
 					env.runMode = RunMode.Run
 

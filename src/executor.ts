@@ -22,14 +22,15 @@ class Executor
 				case TokenKind.ColonDef:
 					return {status: Status.Fail, message: `${token.value} No Execution`}
 
-				case TokenKind.Backslash:
-				case TokenKind.CQuote   :
-				case TokenKind.DotParen :
-				case TokenKind.DotQuote :
-				case TokenKind.Paren    :
-				case TokenKind.SQuote   :
-				case TokenKind.ValueTo  :
-				case TokenKind.Word     :
+				case TokenKind.Backslash  :
+				case TokenKind.BracketChar:
+				case TokenKind.CQuote     :
+				case TokenKind.DotParen   :
+				case TokenKind.DotQuote   :
+				case TokenKind.Paren      :
+				case TokenKind.SQuote     :
+				case TokenKind.ValueTo    :
+				case TokenKind.Word       :
 					if (env.isLeave)
 						break
 

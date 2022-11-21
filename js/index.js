@@ -154,20 +154,21 @@ var Status;
 var TokenKind;
 (function (TokenKind) {
     TokenKind[TokenKind["Backslash"] = 0] = "Backslash";
-    TokenKind[TokenKind["CQuote"] = 1] = "CQuote";
-    TokenKind[TokenKind["Character"] = 2] = "Character";
-    TokenKind[TokenKind["ColonDef"] = 3] = "ColonDef";
-    TokenKind[TokenKind["Constant"] = 4] = "Constant";
-    TokenKind[TokenKind["Create"] = 5] = "Create";
-    TokenKind[TokenKind["DotParen"] = 6] = "DotParen";
-    TokenKind[TokenKind["DotQuote"] = 7] = "DotQuote";
-    TokenKind[TokenKind["Number"] = 8] = "Number";
-    TokenKind[TokenKind["Paren"] = 9] = "Paren";
-    TokenKind[TokenKind["SQuote"] = 10] = "SQuote";
-    TokenKind[TokenKind["Value"] = 11] = "Value";
-    TokenKind[TokenKind["ValueTo"] = 12] = "ValueTo";
-    TokenKind[TokenKind["Variable"] = 13] = "Variable";
-    TokenKind[TokenKind["Word"] = 14] = "Word";
+    TokenKind[TokenKind["BracketChar"] = 1] = "BracketChar";
+    TokenKind[TokenKind["CQuote"] = 2] = "CQuote";
+    TokenKind[TokenKind["Character"] = 3] = "Character";
+    TokenKind[TokenKind["ColonDef"] = 4] = "ColonDef";
+    TokenKind[TokenKind["Constant"] = 5] = "Constant";
+    TokenKind[TokenKind["Create"] = 6] = "Create";
+    TokenKind[TokenKind["DotParen"] = 7] = "DotParen";
+    TokenKind[TokenKind["DotQuote"] = 8] = "DotQuote";
+    TokenKind[TokenKind["Number"] = 9] = "Number";
+    TokenKind[TokenKind["Paren"] = 10] = "Paren";
+    TokenKind[TokenKind["SQuote"] = 11] = "SQuote";
+    TokenKind[TokenKind["Value"] = 12] = "Value";
+    TokenKind[TokenKind["ValueTo"] = 13] = "ValueTo";
+    TokenKind[TokenKind["Variable"] = 14] = "Variable";
+    TokenKind[TokenKind["Word"] = 15] = "Word";
 })(TokenKind || (TokenKind = {}));
 var RunMode;
 (function (RunMode) {
@@ -217,6 +218,13 @@ Dictionary.words = {
         return { status: 0 /* Status.Ok */, message: '' };
     },
     'CHAR': () => {
+        return { status: 0 /* Status.Ok */, message: '' };
+    },
+    '[CHAR]': (env, token) => {
+        // (C: "<spaces>name" -- ) ( -- char )
+        if (env.runMode === RunMode.Interpret)
+            return { status: 1 /* Status.Fail */, message: '[CHAR] No Interpretation' };
+        env.dStack.push(token.content.charCodeAt(0));
         return { status: 0 /* Status.Ok */, message: '' };
     },
     'C@': (env) => {
@@ -740,6 +748,7 @@ class Executor {
                 case TokenKind.ColonDef:
                     return { status: 1 /* Status.Fail */, message: `${token.value} No Execution` };
                 case TokenKind.Backslash:
+                case TokenKind.BracketChar:
                 case TokenKind.CQuote:
                 case TokenKind.DotParen:
                 case TokenKind.DotQuote:
@@ -1030,6 +1039,7 @@ class Interpreter {
                 env.runMode = RunMode.Compile;
                 break;
             case TokenKind.Backslash:
+            case TokenKind.BracketChar:
             case TokenKind.CQuote:
             case TokenKind.DotParen:
             case TokenKind.DotQuote:
@@ -1172,6 +1182,13 @@ Parser.contentWords = {
         trimStart: false,
         strict: true,
         empty: true,
+    },
+    '[CHAR]': {
+        kind: TokenKind.BracketChar,
+        delimiter: ' ',
+        trimStart: true,
+        strict: false,
+        empty: false,
     },
     'CHAR': {
         kind: TokenKind.Character,

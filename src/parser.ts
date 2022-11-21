@@ -50,6 +50,13 @@ class Parser
 			strict   : true,
 			empty    : true,
 		},
+		'[CHAR]': {
+			kind     : TokenKind.BracketChar,
+			delimiter: ' ',
+			trimStart: true,
+			strict   : false,
+			empty    : false,
+		},
 		'CHAR': {
 			kind     : TokenKind.Character,
 			delimiter: ' ',

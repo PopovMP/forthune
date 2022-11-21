@@ -53,12 +53,22 @@ class Dictionary
 			return {status: Status.Ok, message: ''}
 		},
 
+		'[CHAR]': (env: Environment, token: Token) => {
+			// (C: "<spaces>name" -- ) ( -- char )
+			if (env.runMode === RunMode.Interpret)
+				return {status: Status.Fail, message: '[CHAR] No Interpretation'}
+
+			env.dStack.push( token.content.charCodeAt(0) )
+			return {status: Status.Ok, message: ''}
+		},
+
 		'C@': (env: Environment) => {
 			// ( c-addr -- charCode )
 			// Fetch the character code stored at c-addr.
 			const cAddr = env.dStack.pop()
 			if (cAddr < 0 || cAddr >= env.cs)
 				return {status: Status.Fail, message: 'C@ Address out of range'}
+
 			const charCode = env.cString[cAddr]
 			env.dStack.push(charCode)
 			return {status: Status.Ok, message: ''}
