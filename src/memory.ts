@@ -24,8 +24,18 @@ class Memory
 		this.memory     = new ArrayBuffer(capacity)
 		this.uint8Arr   = new Uint8Array(this.memory)
 		this.float64Arr = new Float64Array(this.memory)
-		this.SD         = 0
+		this.SD         = 80
 		this.lastDef    = -1
+	}
+
+	public align()
+	{
+		const remainder = this.SD % 8
+		if (remainder > 0) {
+			const aligned = this.SD + 8 - remainder
+			this.uint8Arr.fill(0, this.SD, aligned)
+			this.SD = aligned
+		}
 	}
 
 	public here()
@@ -38,17 +48,13 @@ class Memory
 		if (this.SD + sizeBytes >= this.capacity)
 			throw new Error('Memory Overflow')
 
-		this.SD     += sizeBytes
+		this.SD += sizeBytes
 		this.uint8Arr.fill(0, this.lastDef + 40, this.SD)
 	}
 
 	public create(defName: string): void
 	{
-		// Align SD
-		const remainder = this.SD % 8
-		if (remainder !== 0)
-			this.allot(this.SD + 8 - remainder)
-
+		this.align()
 		const defAddr = this.SD
 
 		// Set length byte
@@ -64,33 +70,50 @@ class Memory
 		this.float64Arr[defAddr + 32] = this.lastDef
 
 		// Set Run-time behaviour
-		this.float64Arr[defAddr + 40] = 0
+		this.float64Arr[defAddr + 40] = RunTimeSemantic.DataAddress
 
 		this.lastDef = this.SD
 		this.SD = defAddr + 48
 	}
 
-	public findName(defName: string): number
+	public findName(defName: string, forceAddress: boolean): number
 	{
 		const nameLen = defName.length
 		let addr = this.lastDef
+
 		while (true) {
 			if (this.uint8Arr[addr] !== nameLen) {
 				// Go to previous def
 				addr = this.float64Arr[addr + 32]
-				if (addr < 0) return -1
+				if (addr === 0) return 0
 				continue
 			}
 
 			for (let i = 0; i < nameLen; i += 1) {
 				if (this.uint8Arr[addr + 1 + i] !== defName.charCodeAt(i)) {
 					addr = this.float64Arr[addr + 32]
-					if (addr < 0) return -1
+					if (addr === 0) return 0
 				}
 			}
 
-			return addr + 48
+			break
 		}
+
+		if (forceAddress)
+			return addr
+
+		const runTimeBehaviour = this.float64Arr[addr + 40] as RunTimeSemantic
+		switch (runTimeBehaviour) {
+			case RunTimeSemantic.DataAddress:
+				return addr + 48
+			case RunTimeSemantic.Value:
+			case RunTimeSemantic.Constant:
+				return this.float64Arr[addr + 48]
+			case RunTimeSemantic.Execute:
+				throw new Error('Memory Not Implemented')
+		}
+
+		throw new Error('Memory Find Unreachable')
 	}
 
 	public fetchChar(addr: number): number

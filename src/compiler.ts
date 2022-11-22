@@ -23,7 +23,12 @@ class Compiler
 		}
 
 		switch (token.kind) {
-			case TokenKind.Value:
+			case TokenKind.ColonDef :
+			case TokenKind.Character:
+			case TokenKind.Constant :
+			case TokenKind.Create   :
+			case TokenKind.Value    :
+			case TokenKind.Variable :
 				return {status: Status.Fail, message: `${token.value} No Compilation`}
 
 			case TokenKind.DotParen:
@@ -46,22 +51,22 @@ class Compiler
 				break
 			}
 
-			case TokenKind.Word:
+			case TokenKind.Word: {
 				if (Dictionary.words   .hasOwnProperty(token.word) ||
-					Dictionary.colonDef.hasOwnProperty(token.word) ||
-					env.value          .hasOwnProperty(token.word) ||
-					env.constant       .hasOwnProperty(token.word)) {
+					Dictionary.colonDef.hasOwnProperty(token.word)) {
 					env.tempDef.tokens.push(token)
 					break
 				}
 
-				const defAddr = env.memory.findName(token.word)
-				if (defAddr >= 0 ) {
-					env.tempDef.tokens.push(Compiler.makeNumberToken(defAddr))
+				const defAddr = env.memory.findName(token.word, true)
+				if (defAddr > 0 ) {
+					const value = env.memory.findName(token.word, false)
+					env.tempDef.tokens.push( Compiler.makeNumberToken(value) )
 					break
 				}
 
 				return {status: Status.Fail, message: `${token.value} ?`}
+			}
 
 			default:
 				env.tempDef.tokens.push(token)

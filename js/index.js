@@ -109,7 +109,12 @@ class Compiler {
             return { status: 0 /* Status.Ok */, message: '' };
         }
         switch (token.kind) {
+            case TokenKind.ColonDef:
+            case TokenKind.Character:
+            case TokenKind.Constant:
+            case TokenKind.Create:
             case TokenKind.Value:
+            case TokenKind.Variable:
                 return { status: 1 /* Status.Fail */, message: `${token.value} No Compilation` };
             case TokenKind.DotParen:
                 env.outputBuffer += token.content;
@@ -128,20 +133,20 @@ class Compiler {
                 env.tempDef.tokens.push(Compiler.makeNumberToken(length));
                 break;
             }
-            case TokenKind.Word:
+            case TokenKind.Word: {
                 if (Dictionary.words.hasOwnProperty(token.word) ||
-                    Dictionary.colonDef.hasOwnProperty(token.word) ||
-                    env.value.hasOwnProperty(token.word) ||
-                    env.constant.hasOwnProperty(token.word)) {
+                    Dictionary.colonDef.hasOwnProperty(token.word)) {
                     env.tempDef.tokens.push(token);
                     break;
                 }
-                const defAddr = env.memory.findName(token.word);
-                if (defAddr >= 0) {
-                    env.tempDef.tokens.push(Compiler.makeNumberToken(defAddr));
+                const defAddr = env.memory.findName(token.word, true);
+                if (defAddr > 0) {
+                    const value = env.memory.findName(token.word, false);
+                    env.tempDef.tokens.push(Compiler.makeNumberToken(value));
                     break;
                 }
                 return { status: 1 /* Status.Fail */, message: `${token.value} ?` };
+            }
             default:
                 env.tempDef.tokens.push(token);
         }
@@ -181,6 +186,14 @@ var RunMode;
     RunMode[RunMode["Compile"] = 1] = "Compile";
     RunMode[RunMode["Run"] = 2] = "Run";
 })(RunMode || (RunMode = {}));
+var RunTimeSemantic;
+(function (RunTimeSemantic) {
+    RunTimeSemantic[RunTimeSemantic["Variable"] = 0] = "Variable";
+    RunTimeSemantic[RunTimeSemantic["Value"] = 1] = "Value";
+    RunTimeSemantic[RunTimeSemantic["Constant"] = 2] = "Constant";
+    RunTimeSemantic[RunTimeSemantic["DataAddress"] = 3] = "DataAddress";
+    RunTimeSemantic[RunTimeSemantic["Execute"] = 4] = "Execute";
+})(RunTimeSemantic || (RunTimeSemantic = {}));
 class Dictionary {
 }
 Dictionary.colonDef = {};
@@ -222,7 +235,9 @@ Dictionary.words = {
         env.dStack.push(32);
         return { status: 0 /* Status.Ok */, message: '' };
     },
-    'CHAR': () => {
+    'CHAR': (env, token) => {
+        // ( "<spaces>name" -- char )
+        env.dStack.push(token.content.charCodeAt(0));
         return { status: 0 /* Status.Ok */, message: '' };
     },
     '[CHAR]': (env, token) => {
@@ -233,13 +248,17 @@ Dictionary.words = {
         return { status: 0 /* Status.Ok */, message: '' };
     },
     'C@': (env) => {
-        // ( c-addr -- charCode )
-        // Fetch the character code stored at c-addr.
+        // ( c-addr -- char )
         const cAddr = env.dStack.pop();
-        if (cAddr < 0 || cAddr >= env.cs)
-            return { status: 1 /* Status.Fail */, message: 'C@ Address out of range' };
-        const charCode = env.cString[cAddr];
-        env.dStack.push(charCode);
+        const char = env.memory.fetchChar(cAddr);
+        env.dStack.push(char);
+        return { status: 0 /* Status.Ok */, message: '' };
+    },
+    'C!': (env) => {
+        // ( char c-addr -- )
+        const cAddr = env.dStack.pop();
+        const char = env.dStack.pop();
+        env.memory.storeChar(cAddr, char);
         return { status: 0 /* Status.Ok */, message: '' };
     },
     // String
@@ -256,14 +275,15 @@ Dictionary.words = {
     },
     'S"': (env, token) => {
         const text = token.content;
-        env.cString[env.cs] = text.length;
-        env.cs += 1;
-        env.dStack.push(env.cs);
+        const len = text.length;
+        env.memory.create('');
+        const lenAddr = env.memory.here();
+        env.memory.storeChar(lenAddr, len);
+        const addr = lenAddr + 1;
+        env.dStack.push(addr);
         env.dStack.push(text.length);
-        for (let i = 0; i < text.length; i += 1) {
-            env.cString[env.cs] = text.charCodeAt(i);
-            env.cs += 1;
-        }
+        for (let i = 0; i < len; i += 1)
+            env.memory.storeChar(addr + i, text.charCodeAt(i));
         return { status: 0 /* Status.Ok */, message: '' };
     },
     'COUNT': (env) => {
@@ -272,17 +292,18 @@ Dictionary.words = {
         // c-addr2 - address of the first char
         // u - string length
         const cAddr1 = env.dStack.pop();
-        const len = env.cString[cAddr1];
+        const len = env.memory.fetchChar(cAddr1);
         env.dStack.push(cAddr1 + 1);
         env.dStack.push(len);
         return { status: 0 /* Status.Ok */, message: '' };
     },
     'TYPE': (env) => {
+        // ( c-addr u -- )
         const len = env.dStack.pop();
         const cAddr = env.dStack.pop();
         const chars = Array(len);
         for (let i = 0; i < len; i += 1)
-            chars[i] = String.fromCharCode(env.cString[cAddr + i]);
+            chars[i] = String.fromCharCode(env.memory.fetchChar(cAddr + i));
         env.outputBuffer += chars.join('');
         return { status: 0 /* Status.Ok */, message: '' };
     },
@@ -542,12 +563,18 @@ Dictionary.words = {
         return { status: 0 /* Status.Ok */, message: '' };
     },
     // Memory
+    'ALIGN': (env) => {
+        // ( -- )
+        env.memory.align();
+        return { status: 0 /* Status.Ok */, message: '' };
+    },
     'HERE': (env) => {
         const addr = env.memory.here();
         env.dStack.push(addr);
         return { status: 0 /* Status.Ok */, message: '' };
     },
     'CREATE': (env, token) => {
+        // ( "<spaces>name" -- )
         env.memory.create(token.content.toUpperCase());
         return { status: 0 /* Status.Ok */, message: '' };
     },
@@ -558,11 +585,11 @@ Dictionary.words = {
         return { status: 0 /* Status.Ok */, message: '' };
     },
     'VARIABLE': (env, token) => {
-        env.memory.create(token.content.toUpperCase());
+        // ( "<spaces>name" -- )
+        Dictionary.words['CREATE'](env, token);
         const addr = env.memory.here();
         env.memory.allot(8);
-        const n = env.dStack.pop();
-        env.memory.storeWord(addr, n);
+        env.memory.storeWord(addr, 0);
         return { status: 0 /* Status.Ok */, message: '' };
     },
     '!': (env) => {
@@ -621,20 +648,33 @@ Dictionary.words = {
     },
     // Values
     'VALUE': (env, token) => {
-        if (env.runMode === RunMode.Run)
-            return { status: 1 /* Status.Fail */, message: 'VALUE No Execution' };
-        env.value[token.content.toUpperCase()] = env.dStack.pop();
+        // ( x "<spaces>name" -- )
+        const n = env.dStack.pop();
+        Dictionary.words['VARIABLE'](env, token);
+        const addr = env.memory.here() - 8;
+        env.memory.storeWord(addr, n);
+        env.memory.storeWord(addr - 8, RunTimeSemantic.Value);
         return { status: 0 /* Status.Ok */, message: '' };
     },
     'TO': (env, token) => {
-        const valName = token.content.toUpperCase();
-        if (!env.value.hasOwnProperty(valName))
-            return { status: 1 /* Status.Fail */, message: `${token.content} ?` };
-        env.value[valName] = env.dStack.pop();
+        // ( x "<spaces>name" -- )
+        const word = token.content.toUpperCase();
+        const addr = env.memory.findName(word, true);
+        const rtb = env.memory.fetchWord(addr + 40);
+        if (rtb !== RunTimeSemantic.Value)
+            return { status: 1 /* Status.Fail */, message: `${token.content} Not a VALUE` };
+        const n = env.dStack.pop();
+        env.memory.storeWord(addr + 48, n);
         return { status: 0 /* Status.Ok */, message: '' };
     },
     // Constant
-    'CONSTANT': () => {
+    'CONSTANT': (env, token) => {
+        // ( x "<spaces>name" -- )
+        const n = env.dStack.pop();
+        Dictionary.words['VARIABLE'](env, token);
+        const addr = env.memory.here() - 8;
+        env.memory.storeWord(addr, n);
+        env.memory.storeWord(addr - 8, RunTimeSemantic.Constant);
         return { status: 0 /* Status.Ok */, message: '' };
     },
     // Comparison
@@ -790,23 +830,7 @@ class Executor {
                 case TokenKind.Number:
                     env.dStack.push(Number(token.value));
                     break;
-                case TokenKind.Character:
-                    env.dStack.push(token.content.charCodeAt(0));
-                    break;
-                case TokenKind.Value:
-                case TokenKind.Constant:
-                case TokenKind.ColonDef:
-                    return { status: 1 /* Status.Fail */, message: `${token.value} No Execution` };
-                case TokenKind.Backslash:
-                case TokenKind.BracketChar:
-                case TokenKind.CQuote:
-                case TokenKind.Create:
-                case TokenKind.DotParen:
-                case TokenKind.DotQuote:
-                case TokenKind.Paren:
-                case TokenKind.SQuote:
-                case TokenKind.ValueTo:
-                case TokenKind.Word:
+                default:
                     if (env.isLeave)
                         break;
                     if (token.word === 'IF') {
@@ -839,14 +863,6 @@ class Executor {
                             return { status: 1 /* Status.Fail */, message: res.message };
                         break;
                     }
-                    if (env.value.hasOwnProperty(token.word)) {
-                        env.dStack.push(env.value[token.word]);
-                        continue;
-                    }
-                    if (env.constant.hasOwnProperty(token.word)) {
-                        env.dStack.push(env.constant[token.word]);
-                        continue;
-                    }
                     if (Dictionary.words.hasOwnProperty(token.word)) {
                         const res = Dictionary.words[token.word](env, token);
                         if (res.status === 1 /* Status.Fail */)
@@ -856,8 +872,6 @@ class Executor {
                         break;
                     }
                     return { status: 1 /* Status.Fail */, message: `${token.value} ? (Execute)` };
-                default:
-                    return { status: 1 /* Status.Fail */, message: `${token.value} Executor: Unknown TokenKind` };
             }
         }
         return { status: 0 /* Status.Ok */, message: '' };
@@ -1010,7 +1024,6 @@ class Forth {
     constructor(output) {
         this.MEMORY_CAPACITY = 1000000;
         this.STACK_CAPACITY = 1024;
-        this.C_STRING_CAPACITY = 10000;
         this.output = output;
         this.env = {
             inputBuffer: '',
@@ -1019,11 +1032,7 @@ class Forth {
             isLeave: false,
             dStack: new Stack(this.STACK_CAPACITY),
             rStack: new Stack(this.STACK_CAPACITY),
-            cString: new Uint8Array(this.C_STRING_CAPACITY),
             memory: new Memory(this.MEMORY_CAPACITY),
-            cs: 0,
-            value: {},
-            constant: {},
             tempDef: { name: '', tokens: [] },
         };
     }
@@ -1081,51 +1090,26 @@ class Interpreter {
             case TokenKind.Number:
                 env.dStack.push(Number(token.value));
                 break;
-            case TokenKind.Character:
-                env.dStack.push(token.content.charCodeAt(0));
-                break;
-            case TokenKind.Constant:
-                env.constant[token.content.toUpperCase()] = env.dStack.pop();
-                break;
             case TokenKind.ColonDef:
                 env.tempDef = { name: token.content.toUpperCase(), tokens: [] };
                 env.runMode = RunMode.Compile;
                 break;
-            case TokenKind.Backslash:
-            case TokenKind.BracketChar:
-            case TokenKind.CQuote:
-            case TokenKind.Create:
-            case TokenKind.DotParen:
-            case TokenKind.DotQuote:
-            case TokenKind.Paren:
-            case TokenKind.SQuote:
-            case TokenKind.Value:
-            case TokenKind.ValueTo:
-            case TokenKind.Word:
+            default:
                 if (Dictionary.colonDef.hasOwnProperty(token.word)) {
                     env.runMode = RunMode.Run;
                     const res = Executor.run(Dictionary.colonDef[token.word].tokens, env);
                     env.runMode = RunMode.Interpret;
                     return res;
                 }
-                if (env.value.hasOwnProperty(token.word)) {
-                    env.dStack.push(env.value[token.word]);
-                    break;
-                }
-                if (env.constant.hasOwnProperty(token.word)) {
-                    env.dStack.push(env.constant[token.word]);
-                    break;
-                }
                 if (Dictionary.words.hasOwnProperty(token.word))
                     return Dictionary.words[token.word](env, token);
-                const defAddr = env.memory.findName(token.word);
-                if (defAddr >= 0) {
-                    env.dStack.push(defAddr);
+                const defAddr = env.memory.findName(token.word, true);
+                if (defAddr > 0) {
+                    const value = env.memory.findName(token.word, false);
+                    env.dStack.push(value);
                     break;
                 }
                 return { status: 1 /* Status.Fail */, message: `${token.value} ?` };
-            default:
-                return { status: 1 /* Status.Fail */, message: `${token.value} Interpreter: Unknown TokenKind` };
         }
         return { status: 0 /* Status.Ok */, message: '' };
     }
@@ -1145,8 +1129,16 @@ class Memory {
         this.memory = new ArrayBuffer(capacity);
         this.uint8Arr = new Uint8Array(this.memory);
         this.float64Arr = new Float64Array(this.memory);
-        this.SD = 0;
+        this.SD = 80;
         this.lastDef = -1;
+    }
+    align() {
+        const remainder = this.SD % 8;
+        if (remainder > 0) {
+            const aligned = this.SD + 8 - remainder;
+            this.uint8Arr.fill(0, this.SD, aligned);
+            this.SD = aligned;
+        }
     }
     here() {
         return this.SD;
@@ -1158,10 +1150,7 @@ class Memory {
         this.uint8Arr.fill(0, this.lastDef + 40, this.SD);
     }
     create(defName) {
-        // Align SD
-        const remainder = this.SD % 8;
-        if (remainder !== 0)
-            this.allot(this.SD + 8 - remainder);
+        this.align();
         const defAddr = this.SD;
         // Set length byte
         const nameLength = Math.min(defName.length, this.NAME_LEN);
@@ -1173,30 +1162,43 @@ class Memory {
         // Set link to prev def
         this.float64Arr[defAddr + 32] = this.lastDef;
         // Set Run-time behaviour
-        this.float64Arr[defAddr + 40] = 0;
+        this.float64Arr[defAddr + 40] = RunTimeSemantic.DataAddress;
         this.lastDef = this.SD;
         this.SD = defAddr + 48;
     }
-    findName(defName) {
+    findName(defName, forceAddress) {
         const nameLen = defName.length;
         let addr = this.lastDef;
         while (true) {
             if (this.uint8Arr[addr] !== nameLen) {
                 // Go to previous def
                 addr = this.float64Arr[addr + 32];
-                if (addr < 0)
-                    return -1;
+                if (addr === 0)
+                    return 0;
                 continue;
             }
             for (let i = 0; i < nameLen; i += 1) {
                 if (this.uint8Arr[addr + 1 + i] !== defName.charCodeAt(i)) {
                     addr = this.float64Arr[addr + 32];
-                    if (addr < 0)
-                        return -1;
+                    if (addr === 0)
+                        return 0;
                 }
             }
-            return addr + 48;
+            break;
         }
+        if (forceAddress)
+            return addr;
+        const runTimeBehaviour = this.float64Arr[addr + 40];
+        switch (runTimeBehaviour) {
+            case RunTimeSemantic.DataAddress:
+                return addr + 48;
+            case RunTimeSemantic.Value:
+            case RunTimeSemantic.Constant:
+                return this.float64Arr[addr + 48];
+            case RunTimeSemantic.Execute:
+                throw new Error('Memory Not Implemented');
+        }
+        throw new Error('Memory Find Unreachable');
     }
     fetchChar(addr) {
         if (addr < 0 || addr >= this.capacity)

@@ -6,11 +6,7 @@ interface Environment
 	isLeave     : boolean
 	dStack      : Stack
 	rStack      : Stack
-	cString     : Uint8Array
 	memory      : Memory,
-	cs          : number // The first free cell of cString
-	value       : {[name: string]: number}
-	constant    : {[name: string]: number}
 	tempDef     : ColonDef
 }
 
@@ -70,5 +66,13 @@ interface Token {
 enum RunMode {
 	Interpret,
 	Compile,
-	Run
+	Run,
+}
+
+enum RunTimeSemantic {
+	Variable,
+	Value,
+	Constant,
+	DataAddress,
+	Execute,
 }

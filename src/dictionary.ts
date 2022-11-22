@@ -49,7 +49,9 @@ class Dictionary
 			return {status: Status.Ok, message: ''}
 		},
 
-		'CHAR': () => {
+		'CHAR': (env: Environment, token: Token) => {
+			// ( "<spaces>name" -- char )
+			env.dStack.push( token.content.charCodeAt(0) )
 			return {status: Status.Ok, message: ''}
 		},
 
@@ -63,14 +65,18 @@ class Dictionary
 		},
 
 		'C@': (env: Environment) => {
-			// ( c-addr -- charCode )
-			// Fetch the character code stored at c-addr.
+			// ( c-addr -- char )
 			const cAddr = env.dStack.pop()
-			if (cAddr < 0 || cAddr >= env.cs)
-				return {status: Status.Fail, message: 'C@ Address out of range'}
+			const char  = env.memory.fetchChar(cAddr)
+			env.dStack.push(char)
+			return {status: Status.Ok, message: ''}
+		},
 
-			const charCode = env.cString[cAddr]
-			env.dStack.push(charCode)
+		'C!': (env: Environment) => {
+			// ( char c-addr -- )
+			const cAddr = env.dStack.pop()
+			const char  = env.dStack.pop()
+			env.memory.storeChar(cAddr, char)
 			return {status: Status.Ok, message: ''}
 		},
 
@@ -94,17 +100,17 @@ class Dictionary
 
 		'S"': (env: Environment, token: Token) => {
 			const text = token.content
+			const len  = text.length
+			env.memory.create('')
+			const lenAddr = env.memory.here()
+			env.memory.storeChar(lenAddr, len)
 
-			env.cString[env.cs] = text.length
-			env.cs += 1
-
-			env.dStack.push(env.cs)
+			const addr = lenAddr+1
+			env.dStack.push(addr)
 			env.dStack.push(text.length)
 
-			for (let i = 0; i < text.length; i += 1) {
-				env.cString[env.cs] = text.charCodeAt(i)
-				env.cs += 1
-			}
+			for (let i = 0; i < len; i += 1)
+				env.memory.storeChar(addr + i, text.charCodeAt(i))
 
 			return {status: Status.Ok, message: ''}
 		},
@@ -115,18 +121,19 @@ class Dictionary
 			// c-addr2 - address of the first char
 			// u - string length
 			const cAddr1 = env.dStack.pop()
-			const len = env.cString[cAddr1]
-			env.dStack.push(cAddr1 + 1)
+			const len = env.memory.fetchChar(cAddr1)
+			env.dStack.push(cAddr1+1)
 			env.dStack.push(len)
 			return {status: Status.Ok, message: ''}
 		},
 
 		'TYPE': (env: Environment) => {
+			// ( c-addr u -- )
 			const len   = env.dStack.pop()
 			const cAddr = env.dStack.pop()
 			const chars = Array(len)
 			for (let i = 0; i < len; i += 1)
-				chars[i] = String.fromCharCode(env.cString[cAddr + i])
+				chars[i] = String.fromCharCode( env.memory.fetchChar(cAddr + i) )
 			env.outputBuffer += chars.join('')
 			return {status: Status.Ok, message: ''}
 		},
@@ -436,6 +443,12 @@ class Dictionary
 
 		// Memory
 
+		'ALIGN': (env: Environment) => {
+			// ( -- )
+			env.memory.align()
+			return {status: Status.Ok, message: ''}
+		},
+
 		'HERE': (env: Environment) => {
 			const addr = env.memory.here()
 			env.dStack.push(addr)
@@ -443,6 +456,7 @@ class Dictionary
 		},
 
 		'CREATE': (env: Environment, token: Token) => {
+			// ( "<spaces>name" -- )
 			env.memory.create(token.content.toUpperCase())
 			return {status: Status.Ok, message: ''}
 		},
@@ -455,11 +469,11 @@ class Dictionary
 		},
 
 		'VARIABLE': (env: Environment, token: Token) => {
-			env.memory.create(token.content.toUpperCase())
+			// ( "<spaces>name" -- )
+			Dictionary.words['CREATE'](env, token)
 			const addr = env.memory.here()
 			env.memory.allot(8)
-			const n = env.dStack.pop()
-			env.memory.storeWord(addr, n)
+			env.memory.storeWord(addr, 0)
 			return {status: Status.Ok, message: ''}
 		},
 
@@ -528,25 +542,36 @@ class Dictionary
 		// Values
 
 		'VALUE': (env: Environment, token: Token) => {
-			if (env.runMode === RunMode.Run)
-				return {status: Status.Fail, message: 'VALUE No Execution'}
-
-			env.value[token.content.toUpperCase()] = env.dStack.pop()
+			// ( x "<spaces>name" -- )
+			const n = env.dStack.pop()
+			Dictionary.words['VARIABLE'](env, token)
+			const addr = env.memory.here() - 8
+			env.memory.storeWord(addr, n)
+			env.memory.storeWord(addr-8, RunTimeSemantic.Value)
 			return {status: Status.Ok, message: ''}
 		},
 
 		'TO': (env: Environment, token: Token) => {
-			const valName = token.content.toUpperCase()
-			if (! env.value.hasOwnProperty(valName))
-				return {status: Status.Fail, message: `${token.content} ?`}
-
-			env.value[valName] = env.dStack.pop()
+			// ( x "<spaces>name" -- )
+			const word = token.content.toUpperCase()
+			const addr = env.memory.findName(word, true)
+			const rtb  = env.memory.fetchWord(addr+40) as RunTimeSemantic
+			if (rtb !== RunTimeSemantic.Value)
+				return {status: Status.Fail, message: `${token.content} Not a VALUE`}
+			const n = env.dStack.pop()
+			env.memory.storeWord(addr+48, n)
 			return {status: Status.Ok, message: ''}
 		},
 
 		// Constant
 
-		'CONSTANT': () => {
+		'CONSTANT': (env: Environment, token: Token) => {
+			// ( x "<spaces>name" -- )
+			const n = env.dStack.pop()
+			Dictionary.words['VARIABLE'](env, token)
+			const addr = env.memory.here() - 8
+			env.memory.storeWord(addr, n)
+			env.memory.storeWord(addr-8, RunTimeSemantic.Constant)
 			return {status: Status.Ok, message: ''}
 		},
 

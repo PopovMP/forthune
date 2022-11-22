@@ -13,25 +13,7 @@ class Executor
 					env.dStack.push( Number(token.value) )
 					break
 
-				case TokenKind.Character:
-					env.dStack.push( token.content.charCodeAt(0) )
-					break
-
-				case TokenKind.Value:
-				case TokenKind.Constant:
-				case TokenKind.ColonDef:
-					return {status: Status.Fail, message: `${token.value} No Execution`}
-
-				case TokenKind.Backslash  :
-				case TokenKind.BracketChar:
-				case TokenKind.CQuote     :
-				case TokenKind.Create     :
-				case TokenKind.DotParen   :
-				case TokenKind.DotQuote   :
-				case TokenKind.Paren      :
-				case TokenKind.SQuote     :
-				case TokenKind.ValueTo    :
-				case TokenKind.Word       :
+				default:
 					if (env.isLeave)
 						break
 
@@ -69,16 +51,6 @@ class Executor
 						break
 					}
 
-					if ( env.value.hasOwnProperty(token.word) ) {
-						env.dStack.push(env.value[token.word])
-						continue
-					}
-
-					if ( env.constant.hasOwnProperty(token.word) ) {
-						env.dStack.push(env.constant[token.word])
-						continue
-					}
-
 					if ( Dictionary.words.hasOwnProperty(token.word) ) {
 						const res = Dictionary.words[token.word](env, token)
 						if (res.status === Status.Fail)
@@ -89,9 +61,6 @@ class Executor
 					}
 
 					return {status: Status.Fail, message: `${token.value} ? (Execute)`}
-
-				default:
-					return {status: Status.Fail, message: `${token.value} Executor: Unknown TokenKind`}
 			}
 		}
 
