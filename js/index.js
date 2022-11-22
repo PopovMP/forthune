@@ -136,6 +136,11 @@ class Compiler {
                     env.tempDef.tokens.push(token);
                     break;
                 }
+                const defAddr = env.memory.findName(token.word);
+                if (defAddr >= 0) {
+                    env.tempDef.tokens.push(Compiler.makeNumberToken(defAddr));
+                    break;
+                }
                 return { status: 1 /* Status.Fail */, message: `${token.value} ?` };
             default:
                 env.tempDef.tokens.push(token);
@@ -537,6 +542,51 @@ Dictionary.words = {
         return { status: 0 /* Status.Ok */, message: '' };
     },
     // Memory
+    'HERE': (env) => {
+        const addr = env.memory.here();
+        env.dStack.push(addr);
+        return { status: 0 /* Status.Ok */, message: '' };
+    },
+    'CREATE': (env, token) => {
+        env.memory.create(token.content.toUpperCase());
+        return { status: 0 /* Status.Ok */, message: '' };
+    },
+    'ALLOT': (env) => {
+        // ( n -- )
+        const n = env.dStack.pop();
+        env.memory.allot(n);
+        return { status: 0 /* Status.Ok */, message: '' };
+    },
+    'VARIABLE': (env, token) => {
+        env.memory.create(token.content.toUpperCase());
+        const addr = env.memory.here();
+        env.memory.allot(8);
+        const n = env.dStack.pop();
+        env.memory.storeWord(addr, n);
+        return { status: 0 /* Status.Ok */, message: '' };
+    },
+    '!': (env) => {
+        // ( x a-addr -- )
+        const addr = env.dStack.pop();
+        const n = env.dStack.pop();
+        env.memory.storeWord(addr, n);
+        return { status: 0 /* Status.Ok */, message: '' };
+    },
+    '@': (env) => {
+        // ( a-addr -- x )
+        const addr = env.dStack.pop();
+        const n = env.memory.fetchWord(addr);
+        env.dStack.push(n);
+        return { status: 0 /* Status.Ok */, message: '' };
+    },
+    ',': (env) => {
+        // ( x -- )
+        const addr = env.memory.here();
+        env.memory.allot(8);
+        const n = env.dStack.pop();
+        env.memory.storeWord(addr, n);
+        return { status: 0 /* Status.Ok */, message: '' };
+    },
     'ALIGNED': (env) => {
         // ( addr -- a-addr )
         const addr = env.dStack.pop();
@@ -750,6 +800,7 @@ class Executor {
                 case TokenKind.Backslash:
                 case TokenKind.BracketChar:
                 case TokenKind.CQuote:
+                case TokenKind.Create:
                 case TokenKind.DotParen:
                 case TokenKind.DotQuote:
                 case TokenKind.Paren:
@@ -957,6 +1008,7 @@ class Executor {
 }
 class Forth {
     constructor(output) {
+        this.MEMORY_CAPACITY = 1000000;
         this.STACK_CAPACITY = 1024;
         this.C_STRING_CAPACITY = 10000;
         this.output = output;
@@ -968,6 +1020,7 @@ class Forth {
             dStack: new Stack(this.STACK_CAPACITY),
             rStack: new Stack(this.STACK_CAPACITY),
             cString: new Uint8Array(this.C_STRING_CAPACITY),
+            memory: new Memory(this.MEMORY_CAPACITY),
             cs: 0,
             value: {},
             constant: {},
@@ -1041,6 +1094,7 @@ class Interpreter {
             case TokenKind.Backslash:
             case TokenKind.BracketChar:
             case TokenKind.CQuote:
+            case TokenKind.Create:
             case TokenKind.DotParen:
             case TokenKind.DotQuote:
             case TokenKind.Paren:
@@ -1064,11 +1118,109 @@ class Interpreter {
                 }
                 if (Dictionary.words.hasOwnProperty(token.word))
                     return Dictionary.words[token.word](env, token);
+                const defAddr = env.memory.findName(token.word);
+                if (defAddr >= 0) {
+                    env.dStack.push(defAddr);
+                    break;
+                }
                 return { status: 1 /* Status.Fail */, message: `${token.value} ?` };
             default:
                 return { status: 1 /* Status.Fail */, message: `${token.value} Interpreter: Unknown TokenKind` };
         }
         return { status: 0 /* Status.Ok */, message: '' };
+    }
+}
+class Memory {
+    constructor(capacity) {
+        /*
+            Definition
+            0000 - 0000 : 1 byte - name length
+            0001 - 0031 : name in characters
+            0032 - 0039 : link to previous definition ( to the length byte )
+            0040 - 0047 : link to Run-time behaviour
+            0048 - ...  : data bytes
+         */
+        this.NAME_LEN = 31; // ASCII characters
+        this.capacity = capacity;
+        this.memory = new ArrayBuffer(capacity);
+        this.uint8Arr = new Uint8Array(this.memory);
+        this.float64Arr = new Float64Array(this.memory);
+        this.SD = 0;
+        this.lastDef = -1;
+    }
+    here() {
+        return this.SD;
+    }
+    allot(sizeBytes) {
+        if (this.SD + sizeBytes >= this.capacity)
+            throw new Error('Memory Overflow');
+        this.SD += sizeBytes;
+        this.uint8Arr.fill(0, this.lastDef + 40, this.SD);
+    }
+    create(defName) {
+        // Align SD
+        const remainder = this.SD % 8;
+        if (remainder !== 0)
+            this.allot(this.SD + 8 - remainder);
+        const defAddr = this.SD;
+        // Set length byte
+        const nameLength = Math.min(defName.length, this.NAME_LEN);
+        this.uint8Arr[defAddr] = nameLength;
+        // Fill name
+        for (let i = 0; i < nameLength; i += 1)
+            this.uint8Arr[defAddr + i + 1] = defName.charCodeAt(i);
+        this.uint8Arr.fill(0, defAddr + nameLength + 1, defAddr + this.NAME_LEN);
+        // Set link to prev def
+        this.float64Arr[defAddr + 32] = this.lastDef;
+        // Set Run-time behaviour
+        this.float64Arr[defAddr + 40] = 0;
+        this.lastDef = this.SD;
+        this.SD = defAddr + 48;
+    }
+    findName(defName) {
+        const nameLen = defName.length;
+        let addr = this.lastDef;
+        while (true) {
+            if (this.uint8Arr[addr] !== nameLen) {
+                // Go to previous def
+                addr = this.float64Arr[addr + 32];
+                if (addr < 0)
+                    return -1;
+                continue;
+            }
+            for (let i = 0; i < nameLen; i += 1) {
+                if (this.uint8Arr[addr + 1 + i] !== defName.charCodeAt(i)) {
+                    addr = this.float64Arr[addr + 32];
+                    if (addr < 0)
+                        return -1;
+                }
+            }
+            return addr + 48;
+        }
+    }
+    fetchChar(addr) {
+        if (addr < 0 || addr >= this.capacity)
+            throw new Error('Out of Range');
+        return this.uint8Arr[addr];
+    }
+    storeChar(addr, char) {
+        if (addr < 0 || addr >= this.capacity)
+            throw new Error('Out of Range');
+        this.uint8Arr[addr] = char;
+    }
+    fetchWord(addr) {
+        if (addr < 0 || addr >= this.capacity)
+            throw new Error('Out of Range');
+        if (addr % 8 !== 0)
+            throw new Error('Address in not aligned');
+        return this.float64Arr[addr];
+    }
+    storeWord(addr, n) {
+        if (addr < 0 || addr >= this.capacity)
+            throw new Error('Out of Range');
+        if (addr % 8 !== 0)
+            throw new Error('Address in not aligned');
+        this.float64Arr[addr] = n;
     }
 }
 class Parser {

@@ -25,6 +25,7 @@ class Executor
 				case TokenKind.Backslash  :
 				case TokenKind.BracketChar:
 				case TokenKind.CQuote     :
+				case TokenKind.Create     :
 				case TokenKind.DotParen   :
 				case TokenKind.DotQuote   :
 				case TokenKind.Paren      :

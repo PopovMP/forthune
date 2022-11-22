@@ -1,5 +1,6 @@
 class Forth
 {
+	private readonly MEMORY_CAPACITY   = 1_000_000
 	private readonly STACK_CAPACITY    = 1024
 	private readonly C_STRING_CAPACITY = 100_00
 	private readonly env: Environment
@@ -17,6 +18,7 @@ class Forth
 			dStack      : new Stack(this.STACK_CAPACITY),
 			rStack      : new Stack(this.STACK_CAPACITY),
 			cString     : new Uint8Array(this.C_STRING_CAPACITY),
+			memory      : new Memory(this.MEMORY_CAPACITY),
 			cs          : 0,
 			value       : {},
 			constant    : {},

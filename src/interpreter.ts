@@ -28,6 +28,7 @@ class Interpreter
 			case TokenKind.Backslash  :
 			case TokenKind.BracketChar:
 			case TokenKind.CQuote     :
+			case TokenKind.Create     :
 			case TokenKind.DotParen   :
 			case TokenKind.DotQuote   :
 			case TokenKind.Paren      :
@@ -57,6 +58,12 @@ class Interpreter
 
 				if ( Dictionary.words.hasOwnProperty(token.word) )
 					return Dictionary.words[token.word](env, token)
+
+				const defAddr = env.memory.findName(token.word)
+				if (defAddr >= 0 ) {
+					env.dStack.push(defAddr)
+					break
+				}
 
 				return {status: Status.Fail, message: `${token.value} ?`}
 

@@ -7,6 +7,7 @@ interface Environment
 	dStack      : Stack
 	rStack      : Stack
 	cString     : Uint8Array
+	memory      : Memory,
 	cs          : number // The first free cell of cString
 	value       : {[name: string]: number}
 	constant    : {[name: string]: number}

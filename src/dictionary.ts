@@ -436,6 +436,58 @@ class Dictionary
 
 		// Memory
 
+		'HERE': (env: Environment) => {
+			const addr = env.memory.here()
+			env.dStack.push(addr)
+			return {status: Status.Ok, message: ''}
+		},
+
+		'CREATE': (env: Environment, token: Token) => {
+			env.memory.create(token.content.toUpperCase())
+			return {status: Status.Ok, message: ''}
+		},
+
+		'ALLOT': (env: Environment) => {
+			// ( n -- )
+			const n = env.dStack.pop()
+			env.memory.allot(n)
+			return {status: Status.Ok, message: ''}
+		},
+
+		'VARIABLE': (env: Environment, token: Token) => {
+			env.memory.create(token.content.toUpperCase())
+			const addr = env.memory.here()
+			env.memory.allot(8)
+			const n = env.dStack.pop()
+			env.memory.storeWord(addr, n)
+			return {status: Status.Ok, message: ''}
+		},
+
+		'!': (env: Environment) => {
+			// ( x a-addr -- )
+			const addr = env.dStack.pop()
+			const n    = env.dStack.pop()
+			env.memory.storeWord(addr, n)
+			return {status: Status.Ok, message: ''}
+		},
+
+		'@': (env: Environment) => {
+			// ( a-addr -- x )
+			const addr = env.dStack.pop()
+			const n    = env.memory.fetchWord(addr)
+			env.dStack.push(n)
+			return {status: Status.Ok, message: ''}
+		},
+
+		',': (env: Environment) => {
+			// ( x -- )
+			const addr = env.memory.here()
+			env.memory.allot(8)
+			const n = env.dStack.pop()
+			env.memory.storeWord(addr, n)
+			return {status: Status.Ok, message: ''}
+		},
+
 		'ALIGNED': (env: Environment) => {
 			// ( addr -- a-addr )
 			const addr = env.dStack.pop()

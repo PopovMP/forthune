@@ -54,6 +54,13 @@ class Compiler
 					env.tempDef.tokens.push(token)
 					break
 				}
+
+				const defAddr = env.memory.findName(token.word)
+				if (defAddr >= 0 ) {
+					env.tempDef.tokens.push(Compiler.makeNumberToken(defAddr))
+					break
+				}
+
 				return {status: Status.Fail, message: `${token.value} ?`}
 
 			default:
