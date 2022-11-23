@@ -5,7 +5,7 @@ class Memory
 		0000 - 0000 : 1 byte - name length
 		0001 - 0031 : name in characters
 		0032 - 0039 : link to previous definition ( to the length byte )
-		0040 - 0047 : link to Run-time behaviour
+		0040 - 0047 : Run-time semantics
 		0048 - ...  : data bytes
 	 */
 
@@ -30,6 +30,13 @@ class Memory
 
 		// Decimal mode
 		this.float64Arr[this.BASE_ADDR] = 10
+
+		for (const word of Object.keys(Dictionary.words) ) {
+			this.create(word)
+			const addrSemantics = this.SD-8
+			this.float64Arr[addrSemantics] = RunTimeSemantics.BuiltInWord
+			this.allot(8) // Spare
+		}
 	}
 
 	public align()
@@ -79,7 +86,7 @@ class Memory
 		this.float64Arr[defAddr + 32] = this.lastDef
 
 		// Set Run-time behaviour
-		this.float64Arr[defAddr + 40] = RunTimeSemantic.DataAddress
+		this.float64Arr[defAddr + 40] = RunTimeSemantics.DataAddress
 
 		this.lastDef = this.SD
 		this.SD = defAddr + 48
@@ -115,16 +122,15 @@ class Memory
 
 	public execDefinition(addr: number): number
 	{
-		const rtSemantic = this.float64Arr[addr + 40] as RunTimeSemantic
-
-		switch (rtSemantic) {
-			case RunTimeSemantic.DataAddress:
-				return addr + 48
-			case RunTimeSemantic.Value:
-			case RunTimeSemantic.Constant:
-				return this.float64Arr[addr + 48]
-			case RunTimeSemantic.Execute:
-				throw new Error('Memory Not Implemented')
+		switch (this.float64Arr[addr + 40] as RunTimeSemantics) {
+			case RunTimeSemantics.ColonDef:
+			case RunTimeSemantics.BuiltInWord:
+				return addr + 40                  // Addr of run-time semantics
+			case RunTimeSemantics.DataAddress:
+				return addr + 48                  // Addr of first data cell
+			case RunTimeSemantics.Value:
+			case RunTimeSemantics.Constant:
+				return this.float64Arr[addr + 48] // Value of first data cell
 		}
 
 		throw new Error('Memory Find Unreachable')
@@ -146,7 +152,7 @@ class Memory
 		this.uint8Arr[addr] = char
 	}
 
-	public fetchWord(addr: number): number
+	public fetchCell(addr: number): number
 	{
 		if (addr < 0 || addr >= this.capacity)
 			throw new Error('Out of Range')
@@ -156,7 +162,7 @@ class Memory
 		return this.float64Arr[addr]
 	}
 
-	public storeWord(addr: number, n: number): void
+	public storeCell(addr: number, n: number): void
 	{
 		if (addr < 0 || addr >= this.capacity)
 			throw new Error('Out of Range')

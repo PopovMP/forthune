@@ -14,14 +14,14 @@ class Dictionary
 		'HEX': (env: Environment) => {
 			// ( -- )
 			// Set contents of BASE to sixteen.
-			env.memory.storeWord(env.memory.base(), 16)
+			env.memory.storeCell(env.memory.base(), 16)
 			return {status: Status.Ok, message: ''}
 		},
 
 		'DECIMAL': (env: Environment) => {
 			// ( -- )
 			// Set the numeric conversion radix to ten (decimal).
-			env.memory.storeWord(env.memory.base(), 10)
+			env.memory.storeCell(env.memory.base(), 10)
 			return {status: Status.Ok, message: ''}
 		},
 
@@ -283,7 +283,7 @@ class Dictionary
 
 		'.': (env: Environment) => {
 			const n     = env.dStack.pop()
-			const radix = env.memory.fetchWord( env.memory.base() )
+			const radix = env.memory.fetchCell( env.memory.base() )
 			const text  = Number.isInteger(n) ? n.toString(radix).toUpperCase() : String(n)
 			env.outputBuffer += text + ' '
 			return {status: Status.Ok, message: ''}
@@ -498,7 +498,7 @@ class Dictionary
 			Dictionary.words['CREATE'](env, token)
 			const addr = env.memory.here()
 			env.memory.allot(8)
-			env.memory.storeWord(addr, 0)
+			env.memory.storeCell(addr, 0)
 			return {status: Status.Ok, message: ''}
 		},
 
@@ -506,14 +506,14 @@ class Dictionary
 			// ( x a-addr -- )
 			const addr = env.dStack.pop()
 			const n    = env.dStack.pop()
-			env.memory.storeWord(addr, n)
+			env.memory.storeCell(addr, n)
 			return {status: Status.Ok, message: ''}
 		},
 
 		'@': (env: Environment) => {
 			// ( a-addr -- x )
 			const addr = env.dStack.pop()
-			const n    = env.memory.fetchWord(addr)
+			const n    = env.memory.fetchCell(addr)
 			env.dStack.push(n)
 			return {status: Status.Ok, message: ''}
 		},
@@ -523,7 +523,7 @@ class Dictionary
 			const addr = env.memory.here()
 			env.memory.allot(8)
 			const n = env.dStack.pop()
-			env.memory.storeWord(addr, n)
+			env.memory.storeCell(addr, n)
 			return {status: Status.Ok, message: ''}
 		},
 
@@ -573,6 +573,42 @@ class Dictionary
 			return {status: Status.Ok, message: ''}
 		},
 
+		'\'': (env: Environment, token: Token) => {
+			// ( "<spaces>name" -- xt )
+			const addr = env.memory.findName( token.content.toUpperCase() )
+			const addrSemantics = env.memory.execDefinition(addr)
+			if (addrSemantics === 0)
+				return {status: Status.Fail, message: `${token.value} ?`}
+			const semantics = env.memory.fetchCell(addrSemantics)
+			if (semantics !== RunTimeSemantics.BuiltInWord && semantics !== RunTimeSemantics.ColonDef)
+				return {status: Status.Fail, message: `${token.content} Not an XT`}
+			env.dStack.push(addrSemantics)
+			return {status: Status.Ok, message: ''}
+		},
+
+		'EXECUTE': (env: Environment) => {
+			// ( i * x xt -- j * x )
+			// Remove xt from the stack and perform the semantics identified by it.
+			const addrSemantics = env.dStack.pop()
+			const semantics = env.memory.fetchCell(addrSemantics)
+			if (semantics !== RunTimeSemantics.BuiltInWord &&
+				semantics !== RunTimeSemantics.ColonDef)
+				return {status: Status.Fail, message: `Not an XT`}
+
+			const nameLength = env.memory.fetchChar(addrSemantics - 40)
+			const chars = Array(nameLength)
+			const cAddr = addrSemantics-40+1
+			for (let i = 0; i < nameLength; i += 1)
+				chars[i] = String.fromCharCode(env.memory.fetchChar(cAddr+i))
+			const word = chars.join('')
+			if (semantics === RunTimeSemantics.BuiltInWord && Dictionary.words.hasOwnProperty(word))
+				return Dictionary.words[word](env, {kind: TokenKind.Word, error: '', content: '', value: word, word, number: 0})
+			if (semantics === RunTimeSemantics.ColonDef && Dictionary.colonDef.hasOwnProperty(word))
+				return Executor.run(Dictionary.colonDef[word].tokens, env)
+
+			return {status: Status.Fail, message: `${word} ?`}
+		},
+
 		// Values
 
 		'VALUE': (env: Environment, token: Token) => {
@@ -580,8 +616,8 @@ class Dictionary
 			const n = env.dStack.pop()
 			Dictionary.words['VARIABLE'](env, token)
 			const addr = env.memory.here() - 8
-			env.memory.storeWord(addr, n)
-			env.memory.storeWord(addr-8, RunTimeSemantic.Value)
+			env.memory.storeCell(addr, n)
+			env.memory.storeCell(addr-8, RunTimeSemantics.Value)
 			return {status: Status.Ok, message: ''}
 		},
 
@@ -589,11 +625,11 @@ class Dictionary
 			// ( x "<spaces>name" -- )
 			const word = token.content.toUpperCase()
 			const addr = env.memory.findName(word)
-			const rtb  = env.memory.fetchWord(addr+40) as RunTimeSemantic
-			if (rtb !== RunTimeSemantic.Value)
+			const rtb  = env.memory.fetchCell(addr+40) as RunTimeSemantics
+			if (rtb !== RunTimeSemantics.Value)
 				return {status: Status.Fail, message: `${token.content} Not a VALUE`}
 			const n = env.dStack.pop()
-			env.memory.storeWord(addr+48, n)
+			env.memory.storeCell(addr+48, n)
 			return {status: Status.Ok, message: ''}
 		},
 
@@ -604,8 +640,8 @@ class Dictionary
 			const n = env.dStack.pop()
 			Dictionary.words['VARIABLE'](env, token)
 			const addr = env.memory.here() - 8
-			env.memory.storeWord(addr, n)
-			env.memory.storeWord(addr-8, RunTimeSemantic.Constant)
+			env.memory.storeCell(addr, n)
+			env.memory.storeCell(addr-8, RunTimeSemantics.Constant)
 			return {status: Status.Ok, message: ''}
 		},
 
@@ -762,7 +798,7 @@ class Dictionary
 		// Tools
 
 		'.S': (env: Environment) => {
-			const radix = env.memory.fetchWord( env.memory.base() )
+			const radix = env.memory.fetchCell( env.memory.base() )
 			env.outputBuffer += env.dStack.print()
 				.map( (n: number) => Number.isInteger(n) ? n.toString(radix).toUpperCase() : String(n))
 				.join(' ') + ' <- Top'

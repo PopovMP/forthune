@@ -41,6 +41,7 @@ enum TokenKind {
 	Number,
 	Paren,
 	SQuote,
+	Tick,
 	Value,
 	ValueTo,
 	Variable,
@@ -70,10 +71,11 @@ enum RunMode {
 	Run,
 }
 
-enum RunTimeSemantic {
-	Variable,
-	Value,
+enum RunTimeSemantics {
+	BuiltInWord,
+	ColonDef,
 	Constant,
 	DataAddress,
-	Execute,
+	Value,
+	Variable,
 }

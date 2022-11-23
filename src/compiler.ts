@@ -16,6 +16,12 @@ class Compiler
 				tokens: env.tempDef.tokens.slice()
 			}
 
+			// Store ColonDef in memory
+			env.memory.create(env.tempDef.name)
+			const addrSemantics = env.memory.here() - 8
+			env.memory.storeCell(addrSemantics, RunTimeSemantics.ColonDef)
+			env.memory.allot(8) // Spare :)
+
 			env.tempDef = {name: '', tokens: []}
 			env.runMode = RunMode.Interpret
 
@@ -53,6 +59,15 @@ class Compiler
 
 			case TokenKind.Number: {
 				env.tempDef.tokens.push( Compiler.makeNumberToken(token.number) )
+				break
+			}
+
+			case TokenKind.Tick: {
+				const res = Dictionary.words['\''](env, token)
+				if (res.status === Status.Fail)
+					return res
+				const addrSemantics = env.dStack.pop()
+				env.tempDef.tokens.push( Compiler.makeNumberToken(addrSemantics) )
 				break
 			}
 

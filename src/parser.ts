@@ -99,6 +99,13 @@ class Parser
 			strict   : false,
 			empty    : false,
 		},
+		'\'': {
+			kind     : TokenKind.Tick,
+			delimiter: ' ',
+			trimStart: true,
+			strict   : false,
+			empty    : false,
+		},
 	}
 
 	public static parseLine(inputLine: string, radix: number): Token[]

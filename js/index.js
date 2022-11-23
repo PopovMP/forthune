@@ -104,6 +104,11 @@ class Compiler {
                 name: env.tempDef.name,
                 tokens: env.tempDef.tokens.slice()
             };
+            // Store ColonDef in memory
+            env.memory.create(env.tempDef.name);
+            const addrSemantics = env.memory.here() - 8;
+            env.memory.storeCell(addrSemantics, RunTimeSemantics.ColonDef);
+            env.memory.allot(8); // Spare :)
             env.tempDef = { name: '', tokens: [] };
             env.runMode = RunMode.Interpret;
             return { status: 0 /* Status.Ok */, message: '' };
@@ -135,6 +140,14 @@ class Compiler {
             }
             case TokenKind.Number: {
                 env.tempDef.tokens.push(Compiler.makeNumberToken(token.number));
+                break;
+            }
+            case TokenKind.Tick: {
+                const res = Dictionary.words['\''](env, token);
+                if (res.status === 1 /* Status.Fail */)
+                    return res;
+                const addrSemantics = env.dStack.pop();
+                env.tempDef.tokens.push(Compiler.makeNumberToken(addrSemantics));
                 break;
             }
             case TokenKind.Word: {
@@ -183,10 +196,11 @@ var TokenKind;
     TokenKind[TokenKind["Number"] = 9] = "Number";
     TokenKind[TokenKind["Paren"] = 10] = "Paren";
     TokenKind[TokenKind["SQuote"] = 11] = "SQuote";
-    TokenKind[TokenKind["Value"] = 12] = "Value";
-    TokenKind[TokenKind["ValueTo"] = 13] = "ValueTo";
-    TokenKind[TokenKind["Variable"] = 14] = "Variable";
-    TokenKind[TokenKind["Word"] = 15] = "Word";
+    TokenKind[TokenKind["Tick"] = 12] = "Tick";
+    TokenKind[TokenKind["Value"] = 13] = "Value";
+    TokenKind[TokenKind["ValueTo"] = 14] = "ValueTo";
+    TokenKind[TokenKind["Variable"] = 15] = "Variable";
+    TokenKind[TokenKind["Word"] = 16] = "Word";
 })(TokenKind || (TokenKind = {}));
 var RunMode;
 (function (RunMode) {
@@ -194,14 +208,15 @@ var RunMode;
     RunMode[RunMode["Compile"] = 1] = "Compile";
     RunMode[RunMode["Run"] = 2] = "Run";
 })(RunMode || (RunMode = {}));
-var RunTimeSemantic;
-(function (RunTimeSemantic) {
-    RunTimeSemantic[RunTimeSemantic["Variable"] = 0] = "Variable";
-    RunTimeSemantic[RunTimeSemantic["Value"] = 1] = "Value";
-    RunTimeSemantic[RunTimeSemantic["Constant"] = 2] = "Constant";
-    RunTimeSemantic[RunTimeSemantic["DataAddress"] = 3] = "DataAddress";
-    RunTimeSemantic[RunTimeSemantic["Execute"] = 4] = "Execute";
-})(RunTimeSemantic || (RunTimeSemantic = {}));
+var RunTimeSemantics;
+(function (RunTimeSemantics) {
+    RunTimeSemantics[RunTimeSemantics["BuiltInWord"] = 0] = "BuiltInWord";
+    RunTimeSemantics[RunTimeSemantics["ColonDef"] = 1] = "ColonDef";
+    RunTimeSemantics[RunTimeSemantics["Constant"] = 2] = "Constant";
+    RunTimeSemantics[RunTimeSemantics["DataAddress"] = 3] = "DataAddress";
+    RunTimeSemantics[RunTimeSemantics["Value"] = 4] = "Value";
+    RunTimeSemantics[RunTimeSemantics["Variable"] = 5] = "Variable";
+})(RunTimeSemantics || (RunTimeSemantics = {}));
 class Dictionary {
 }
 Dictionary.colonDef = {};
@@ -215,13 +230,13 @@ Dictionary.words = {
     'HEX': (env) => {
         // ( -- )
         // Set contents of BASE to sixteen.
-        env.memory.storeWord(env.memory.base(), 16);
+        env.memory.storeCell(env.memory.base(), 16);
         return { status: 0 /* Status.Ok */, message: '' };
     },
     'DECIMAL': (env) => {
         // ( -- )
         // Set the numeric conversion radix to ten (decimal).
-        env.memory.storeWord(env.memory.base(), 10);
+        env.memory.storeCell(env.memory.base(), 10);
         return { status: 0 /* Status.Ok */, message: '' };
     },
     // Definition
@@ -435,7 +450,7 @@ Dictionary.words = {
     // Stack manipulation
     '.': (env) => {
         const n = env.dStack.pop();
-        const radix = env.memory.fetchWord(env.memory.base());
+        const radix = env.memory.fetchCell(env.memory.base());
         const text = Number.isInteger(n) ? n.toString(radix).toUpperCase() : String(n);
         env.outputBuffer += text + ' ';
         return { status: 0 /* Status.Ok */, message: '' };
@@ -618,20 +633,20 @@ Dictionary.words = {
         Dictionary.words['CREATE'](env, token);
         const addr = env.memory.here();
         env.memory.allot(8);
-        env.memory.storeWord(addr, 0);
+        env.memory.storeCell(addr, 0);
         return { status: 0 /* Status.Ok */, message: '' };
     },
     '!': (env) => {
         // ( x a-addr -- )
         const addr = env.dStack.pop();
         const n = env.dStack.pop();
-        env.memory.storeWord(addr, n);
+        env.memory.storeCell(addr, n);
         return { status: 0 /* Status.Ok */, message: '' };
     },
     '@': (env) => {
         // ( a-addr -- x )
         const addr = env.dStack.pop();
-        const n = env.memory.fetchWord(addr);
+        const n = env.memory.fetchCell(addr);
         env.dStack.push(n);
         return { status: 0 /* Status.Ok */, message: '' };
     },
@@ -640,7 +655,7 @@ Dictionary.words = {
         const addr = env.memory.here();
         env.memory.allot(8);
         const n = env.dStack.pop();
-        env.memory.storeWord(addr, n);
+        env.memory.storeCell(addr, n);
         return { status: 0 /* Status.Ok */, message: '' };
     },
     'C,': (env) => {
@@ -683,25 +698,57 @@ Dictionary.words = {
         env.dStack.push(addr1 + 8);
         return { status: 0 /* Status.Ok */, message: '' };
     },
+    '\'': (env, token) => {
+        // ( "<spaces>name" -- xt )
+        const addr = env.memory.findName(token.content.toUpperCase());
+        const addrSemantics = env.memory.execDefinition(addr);
+        if (addrSemantics === 0)
+            return { status: 1 /* Status.Fail */, message: `${token.value} ?` };
+        const semantics = env.memory.fetchCell(addrSemantics);
+        if (semantics !== RunTimeSemantics.BuiltInWord && semantics !== RunTimeSemantics.ColonDef)
+            return { status: 1 /* Status.Fail */, message: `${token.content} Not an XT` };
+        env.dStack.push(addrSemantics);
+        return { status: 0 /* Status.Ok */, message: '' };
+    },
+    'EXECUTE': (env) => {
+        // ( i * x xt -- j * x )
+        // Remove xt from the stack and perform the semantics identified by it.
+        const addrSemantics = env.dStack.pop();
+        const semantics = env.memory.fetchCell(addrSemantics);
+        if (semantics !== RunTimeSemantics.BuiltInWord &&
+            semantics !== RunTimeSemantics.ColonDef)
+            return { status: 1 /* Status.Fail */, message: `Not an XT` };
+        const nameLength = env.memory.fetchChar(addrSemantics - 40);
+        const chars = Array(nameLength);
+        const cAddr = addrSemantics - 40 + 1;
+        for (let i = 0; i < nameLength; i += 1)
+            chars[i] = String.fromCharCode(env.memory.fetchChar(cAddr + i));
+        const word = chars.join('');
+        if (semantics === RunTimeSemantics.BuiltInWord && Dictionary.words.hasOwnProperty(word))
+            return Dictionary.words[word](env, { kind: TokenKind.Word, error: '', content: '', value: word, word, number: 0 });
+        if (semantics === RunTimeSemantics.ColonDef && Dictionary.colonDef.hasOwnProperty(word))
+            return Executor.run(Dictionary.colonDef[word].tokens, env);
+        return { status: 1 /* Status.Fail */, message: `${word} ?` };
+    },
     // Values
     'VALUE': (env, token) => {
         // ( x "<spaces>name" -- )
         const n = env.dStack.pop();
         Dictionary.words['VARIABLE'](env, token);
         const addr = env.memory.here() - 8;
-        env.memory.storeWord(addr, n);
-        env.memory.storeWord(addr - 8, RunTimeSemantic.Value);
+        env.memory.storeCell(addr, n);
+        env.memory.storeCell(addr - 8, RunTimeSemantics.Value);
         return { status: 0 /* Status.Ok */, message: '' };
     },
     'TO': (env, token) => {
         // ( x "<spaces>name" -- )
         const word = token.content.toUpperCase();
         const addr = env.memory.findName(word);
-        const rtb = env.memory.fetchWord(addr + 40);
-        if (rtb !== RunTimeSemantic.Value)
+        const rtb = env.memory.fetchCell(addr + 40);
+        if (rtb !== RunTimeSemantics.Value)
             return { status: 1 /* Status.Fail */, message: `${token.content} Not a VALUE` };
         const n = env.dStack.pop();
-        env.memory.storeWord(addr + 48, n);
+        env.memory.storeCell(addr + 48, n);
         return { status: 0 /* Status.Ok */, message: '' };
     },
     // Constant
@@ -710,8 +757,8 @@ Dictionary.words = {
         const n = env.dStack.pop();
         Dictionary.words['VARIABLE'](env, token);
         const addr = env.memory.here() - 8;
-        env.memory.storeWord(addr, n);
-        env.memory.storeWord(addr - 8, RunTimeSemantic.Constant);
+        env.memory.storeCell(addr, n);
+        env.memory.storeCell(addr - 8, RunTimeSemantics.Constant);
         return { status: 0 /* Status.Ok */, message: '' };
     },
     // Comparison
@@ -835,7 +882,7 @@ Dictionary.words = {
     },
     // Tools
     '.S': (env) => {
-        const radix = env.memory.fetchWord(env.memory.base());
+        const radix = env.memory.fetchCell(env.memory.base());
         env.outputBuffer += env.dStack.print()
             .map((n) => Number.isInteger(n) ? n.toString(radix).toUpperCase() : String(n))
             .join(' ') + ' <- Top';
@@ -1080,7 +1127,7 @@ class Forth {
         this.env.inputBuffer = inputLine + ' ';
         this.env.outputBuffer += this.env.inputBuffer;
         try {
-            const radix = this.env.memory.fetchWord(this.env.memory.base());
+            const radix = this.env.memory.fetchCell(this.env.memory.base());
             const tokens = Parser.parseLine(this.env.inputBuffer, radix);
             for (let i = 0; i < tokens.length; i += 1) {
                 const token = tokens[i];
@@ -1111,7 +1158,7 @@ class Forth {
         this.output(this.env.outputBuffer);
     }
     printStack() {
-        const radix = this.env.memory.fetchWord(this.env.memory.base());
+        const radix = this.env.memory.fetchCell(this.env.memory.base());
         return this.env.dStack.print()
             .map((n) => Number.isInteger(n) ? n.toString(radix).toUpperCase() : String(n))
             .join(' ') + ' <- Top';
@@ -1165,7 +1212,7 @@ class Memory {
             0000 - 0000 : 1 byte - name length
             0001 - 0031 : name in characters
             0032 - 0039 : link to previous definition ( to the length byte )
-            0040 - 0047 : link to Run-time behaviour
+            0040 - 0047 : Run-time semantics
             0048 - ...  : data bytes
          */
         this.NAME_LEN = 31; // ASCII characters
@@ -1178,6 +1225,12 @@ class Memory {
         this.lastDef = -1;
         // Decimal mode
         this.float64Arr[this.BASE_ADDR] = 10;
+        for (const word of Object.keys(Dictionary.words)) {
+            this.create(word);
+            const addrSemantics = this.SD - 8;
+            this.float64Arr[addrSemantics] = RunTimeSemantics.BuiltInWord;
+            this.allot(8); // Spare
+        }
     }
     align() {
         const remainder = this.SD % 8;
@@ -1212,7 +1265,7 @@ class Memory {
         // Set link to prev def
         this.float64Arr[defAddr + 32] = this.lastDef;
         // Set Run-time behaviour
-        this.float64Arr[defAddr + 40] = RunTimeSemantic.DataAddress;
+        this.float64Arr[defAddr + 40] = RunTimeSemantics.DataAddress;
         this.lastDef = this.SD;
         this.SD = defAddr + 48;
     }
@@ -1238,15 +1291,15 @@ class Memory {
         return addr;
     }
     execDefinition(addr) {
-        const rtSemantic = this.float64Arr[addr + 40];
-        switch (rtSemantic) {
-            case RunTimeSemantic.DataAddress:
-                return addr + 48;
-            case RunTimeSemantic.Value:
-            case RunTimeSemantic.Constant:
-                return this.float64Arr[addr + 48];
-            case RunTimeSemantic.Execute:
-                throw new Error('Memory Not Implemented');
+        switch (this.float64Arr[addr + 40]) {
+            case RunTimeSemantics.ColonDef:
+            case RunTimeSemantics.BuiltInWord:
+                return addr + 40; // Addr of run-time semantics
+            case RunTimeSemantics.DataAddress:
+                return addr + 48; // Addr of first data cell
+            case RunTimeSemantics.Value:
+            case RunTimeSemantics.Constant:
+                return this.float64Arr[addr + 48]; // Value of first data cell
         }
         throw new Error('Memory Find Unreachable');
     }
@@ -1260,14 +1313,14 @@ class Memory {
             throw new Error('Out of Range');
         this.uint8Arr[addr] = char;
     }
-    fetchWord(addr) {
+    fetchCell(addr) {
         if (addr < 0 || addr >= this.capacity)
             throw new Error('Out of Range');
         if (addr % 8 !== 0)
             throw new Error('Address in not aligned');
         return this.float64Arr[addr];
     }
-    storeWord(addr, n) {
+    storeCell(addr, n) {
         if (addr < 0 || addr >= this.capacity)
             throw new Error('Out of Range');
         if (addr % 8 !== 0)
@@ -1438,6 +1491,13 @@ Parser.contentWords = {
     },
     'TO': {
         kind: TokenKind.ValueTo,
+        delimiter: ' ',
+        trimStart: true,
+        strict: false,
+        empty: false,
+    },
+    '\'': {
+        kind: TokenKind.Tick,
         delimiter: ' ',
         trimStart: true,
         strict: false,
