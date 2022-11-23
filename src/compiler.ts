@@ -46,12 +46,22 @@ class Compiler
 				Dictionary.words[token.word](env, token)
 				const length = env.dStack.pop()
 				const cAddr  = env.dStack.pop()
-				env.tempDef.tokens.push(Compiler.makeNumberToken(cAddr))
-				env.tempDef.tokens.push(Compiler.makeNumberToken(length))
+				env.tempDef.tokens.push( Compiler.makeNumberToken(cAddr ) )
+				env.tempDef.tokens.push( Compiler.makeNumberToken(length) )
+				break
+			}
+
+			case TokenKind.Number: {
+				env.tempDef.tokens.push( Compiler.makeNumberToken(token.number) )
 				break
 			}
 
 			case TokenKind.Word: {
+				if (token.word === 'BL') {
+					env.tempDef.tokens.push( Compiler.makeNumberToken(32) )
+					break
+				}
+
 				if (Dictionary.words   .hasOwnProperty(token.word) ||
 					Dictionary.colonDef.hasOwnProperty(token.word)) {
 					env.tempDef.tokens.push(token)
@@ -75,8 +85,8 @@ class Compiler
 		return {status: Status.Ok, message: ''}
 	}
 
-	public static makeNumberToken(num: number): Token
+	public static makeNumberToken(number: number): Token
 	{
-		return {content: '', error: '', kind: TokenKind.Number, value: String(num), word: String(num)}
+		return {content: '', error: '', kind: TokenKind.Number, value: '', word: '', number}
 	}
 }

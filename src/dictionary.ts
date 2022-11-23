@@ -3,6 +3,28 @@ class Dictionary
 	public static readonly colonDef: {[word: string]: ColonDef} = {}
 
 	public static readonly words: {[word: string]: (env: Environment, token: Token) => ExecResult} = {
+
+		'BASE': (env: Environment) => {
+			// ( -- a-addr )
+			// a-addr is the address of a cell containing the current number-conversion radix {{2...36}}.
+			env.dStack.push( env.memory.base() )
+			return {status: Status.Ok, message: ''}
+		},
+
+		'HEX': (env: Environment) => {
+			// ( -- )
+			// Set contents of BASE to sixteen.
+			env.memory.storeWord(env.memory.base(), 16)
+			return {status: Status.Ok, message: ''}
+		},
+
+		'DECIMAL': (env: Environment) => {
+			// ( -- )
+			// Set the numeric conversion radix to ten (decimal).
+			env.memory.storeWord(env.memory.base(), 10)
+			return {status: Status.Ok, message: ''}
+		},
+
 		// Definition
 
 		':': (env: Environment) => {
@@ -103,6 +125,7 @@ class Dictionary
 			const len  = text.length
 			env.memory.create('')
 			const lenAddr = env.memory.here()
+			env.memory.allot(len+1)
 			env.memory.storeChar(lenAddr, len)
 
 			const addr = lenAddr+1
@@ -259,8 +282,10 @@ class Dictionary
 		// Stack manipulation
 
 		'.': (env: Environment) => {
-			const n = env.dStack.pop()
-			env.outputBuffer += String(n) + ' '
+			const n     = env.dStack.pop()
+			const radix = env.memory.fetchWord( env.memory.base() )
+			const text  = Number.isInteger(n) ? n.toString(radix).toUpperCase() : String(n)
+			env.outputBuffer += text + ' '
 			return {status: Status.Ok, message: ''}
 		},
 
@@ -502,6 +527,15 @@ class Dictionary
 			return {status: Status.Ok, message: ''}
 		},
 
+		'C,': (env: Environment) => {
+			// ( char  -- )
+			const addr = env.memory.here()
+			env.memory.allot(1)
+			const n = env.dStack.pop()
+			env.memory.storeChar(addr, n)
+			return {status: Status.Ok, message: ''}
+		},
+
 		'ALIGNED': (env: Environment) => {
 			// ( addr -- a-addr )
 			const addr = env.dStack.pop()
@@ -554,7 +588,7 @@ class Dictionary
 		'TO': (env: Environment, token: Token) => {
 			// ( x "<spaces>name" -- )
 			const word = token.content.toUpperCase()
-			const addr = env.memory.findName(word, true)
+			const addr = env.memory.findName(word)
 			const rtb  = env.memory.fetchWord(addr+40) as RunTimeSemantic
 			if (rtb !== RunTimeSemantic.Value)
 				return {status: Status.Fail, message: `${token.content} Not a VALUE`}
@@ -728,7 +762,10 @@ class Dictionary
 		// Tools
 
 		'.S': (env: Environment) => {
+			const radix = env.memory.fetchWord( env.memory.base() )
 			env.outputBuffer += env.dStack.print()
+				.map( (n: number) => Number.isInteger(n) ? n.toString(radix).toUpperCase() : String(n))
+				.join(' ') + ' <- Top'
 			return {status: Status.Ok, message: ''}
 		},
 
@@ -741,9 +778,9 @@ class Dictionary
 			const output = []
 
 			for (let i = 0; i < words.length; i++) {
-				if (i % 6 === 0)
+				if (i % 8 === 0)
 					output.push('\n')
-				output.push(words[i].padEnd(10, ' '))
+				output.push(words[i].slice(0, 9).padEnd(10, ' '))
 			}
 
 			env.outputBuffer += output.join('') + '\n'

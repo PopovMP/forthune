@@ -10,7 +10,7 @@ class Executor
 
 			switch (token.kind) {
 				case TokenKind.Number:
-					env.dStack.push( Number(token.value) )
+					env.dStack.push(token.number)
 					break
 
 				default:

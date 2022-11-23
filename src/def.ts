@@ -61,6 +61,7 @@ interface Token {
 	value  : string,
 	word   : string, // message.toUppercase()
 	content: string, // string content or definition / variable name
+	number : number
 }
 
 enum RunMode {

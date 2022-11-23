@@ -27,7 +27,8 @@ class Forth
 		this.env.outputBuffer += this.env.inputBuffer
 
 		try {
-			const tokens: Token[] = Parser.parseLine(this.env.inputBuffer)
+			const radix = this.env.memory.fetchWord( this.env.memory.base() )
+			const tokens: Token[] = Parser.parseLine(this.env.inputBuffer, radix)
 
 			for (let i = 0; i < tokens.length; i += 1) {
 				const token = tokens[i]
@@ -65,7 +66,10 @@ class Forth
 
 	public printStack()
 	{
+		const radix = this.env.memory.fetchWord( this.env.memory.base() )
 		return this.env.dStack.print()
+			.map( (n: number) => Number.isInteger(n) ? n.toString(radix).toUpperCase() : String(n))
+			.join(' ') + ' <- Top'
 	}
 
 	private die(message: string): void

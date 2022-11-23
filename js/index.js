@@ -133,7 +133,15 @@ class Compiler {
                 env.tempDef.tokens.push(Compiler.makeNumberToken(length));
                 break;
             }
+            case TokenKind.Number: {
+                env.tempDef.tokens.push(Compiler.makeNumberToken(token.number));
+                break;
+            }
             case TokenKind.Word: {
+                if (token.word === 'BL') {
+                    env.tempDef.tokens.push(Compiler.makeNumberToken(32));
+                    break;
+                }
                 if (Dictionary.words.hasOwnProperty(token.word) ||
                     Dictionary.colonDef.hasOwnProperty(token.word)) {
                     env.tempDef.tokens.push(token);
@@ -152,8 +160,8 @@ class Compiler {
         }
         return { status: 0 /* Status.Ok */, message: '' };
     }
-    static makeNumberToken(num) {
-        return { content: '', error: '', kind: TokenKind.Number, value: String(num), word: String(num) };
+    static makeNumberToken(number) {
+        return { content: '', error: '', kind: TokenKind.Number, value: '', word: '', number };
     }
 }
 var Status;
@@ -198,6 +206,24 @@ class Dictionary {
 }
 Dictionary.colonDef = {};
 Dictionary.words = {
+    'BASE': (env) => {
+        // ( -- a-addr )
+        // a-addr is the address of a cell containing the current number-conversion radix {{2...36}}.
+        env.dStack.push(env.memory.base());
+        return { status: 0 /* Status.Ok */, message: '' };
+    },
+    'HEX': (env) => {
+        // ( -- )
+        // Set contents of BASE to sixteen.
+        env.memory.storeWord(env.memory.base(), 16);
+        return { status: 0 /* Status.Ok */, message: '' };
+    },
+    'DECIMAL': (env) => {
+        // ( -- )
+        // Set the numeric conversion radix to ten (decimal).
+        env.memory.storeWord(env.memory.base(), 10);
+        return { status: 0 /* Status.Ok */, message: '' };
+    },
     // Definition
     ':': (env) => {
         // ( C: "<spaces>name" -- colon-sys )
@@ -278,6 +304,7 @@ Dictionary.words = {
         const len = text.length;
         env.memory.create('');
         const lenAddr = env.memory.here();
+        env.memory.allot(len + 1);
         env.memory.storeChar(lenAddr, len);
         const addr = lenAddr + 1;
         env.dStack.push(addr);
@@ -408,7 +435,9 @@ Dictionary.words = {
     // Stack manipulation
     '.': (env) => {
         const n = env.dStack.pop();
-        env.outputBuffer += String(n) + ' ';
+        const radix = env.memory.fetchWord(env.memory.base());
+        const text = Number.isInteger(n) ? n.toString(radix).toUpperCase() : String(n);
+        env.outputBuffer += text + ' ';
         return { status: 0 /* Status.Ok */, message: '' };
     },
     'DEPTH': (env) => {
@@ -614,6 +643,14 @@ Dictionary.words = {
         env.memory.storeWord(addr, n);
         return { status: 0 /* Status.Ok */, message: '' };
     },
+    'C,': (env) => {
+        // ( char  -- )
+        const addr = env.memory.here();
+        env.memory.allot(1);
+        const n = env.dStack.pop();
+        env.memory.storeChar(addr, n);
+        return { status: 0 /* Status.Ok */, message: '' };
+    },
     'ALIGNED': (env) => {
         // ( addr -- a-addr )
         const addr = env.dStack.pop();
@@ -659,7 +696,7 @@ Dictionary.words = {
     'TO': (env, token) => {
         // ( x "<spaces>name" -- )
         const word = token.content.toUpperCase();
-        const addr = env.memory.findName(word, true);
+        const addr = env.memory.findName(word);
         const rtb = env.memory.fetchWord(addr + 40);
         if (rtb !== RunTimeSemantic.Value)
             return { status: 1 /* Status.Fail */, message: `${token.content} Not a VALUE` };
@@ -798,7 +835,10 @@ Dictionary.words = {
     },
     // Tools
     '.S': (env) => {
-        env.outputBuffer += env.dStack.print();
+        const radix = env.memory.fetchWord(env.memory.base());
+        env.outputBuffer += env.dStack.print()
+            .map((n) => Number.isInteger(n) ? n.toString(radix).toUpperCase() : String(n))
+            .join(' ') + ' <- Top';
         return { status: 0 /* Status.Ok */, message: '' };
     },
     'WORDS': (env) => {
@@ -808,9 +848,9 @@ Dictionary.words = {
         ].sort();
         const output = [];
         for (let i = 0; i < words.length; i++) {
-            if (i % 6 === 0)
+            if (i % 8 === 0)
                 output.push('\n');
-            output.push(words[i].padEnd(10, ' '));
+            output.push(words[i].slice(0, 9).padEnd(10, ' '));
         }
         env.outputBuffer += output.join('') + '\n';
         return { status: 0 /* Status.Ok */, message: '' };
@@ -828,7 +868,7 @@ class Executor {
                 return { status: 1 /* Status.Fail */, message: ` ${token.value} ${token.error}` };
             switch (token.kind) {
                 case TokenKind.Number:
-                    env.dStack.push(Number(token.value));
+                    env.dStack.push(token.number);
                     break;
                 default:
                     if (env.isLeave)
@@ -1040,7 +1080,8 @@ class Forth {
         this.env.inputBuffer = inputLine + ' ';
         this.env.outputBuffer += this.env.inputBuffer;
         try {
-            const tokens = Parser.parseLine(this.env.inputBuffer);
+            const radix = this.env.memory.fetchWord(this.env.memory.base());
+            const tokens = Parser.parseLine(this.env.inputBuffer, radix);
             for (let i = 0; i < tokens.length; i += 1) {
                 const token = tokens[i];
                 if (token.error) {
@@ -1070,7 +1111,10 @@ class Forth {
         this.output(this.env.outputBuffer);
     }
     printStack() {
-        return this.env.dStack.print();
+        const radix = this.env.memory.fetchWord(this.env.memory.base());
+        return this.env.dStack.print()
+            .map((n) => Number.isInteger(n) ? n.toString(radix).toUpperCase() : String(n))
+            .join(' ') + ' <- Top';
     }
     die(message) {
         this.env.dStack.clear();
@@ -1088,7 +1132,7 @@ class Interpreter {
             return { status: 1 /* Status.Fail */, message: `${token.value} ${token.error}` };
         switch (token.kind) {
             case TokenKind.Number:
-                env.dStack.push(Number(token.value));
+                env.dStack.push(token.number);
                 break;
             case TokenKind.ColonDef:
                 env.tempDef = { name: token.content.toUpperCase(), tokens: [] };
@@ -1125,12 +1169,15 @@ class Memory {
             0048 - ...  : data bytes
          */
         this.NAME_LEN = 31; // ASCII characters
+        this.BASE_ADDR = 8;
         this.capacity = capacity;
         this.memory = new ArrayBuffer(capacity);
         this.uint8Arr = new Uint8Array(this.memory);
         this.float64Arr = new Float64Array(this.memory);
         this.SD = 80;
         this.lastDef = -1;
+        // Decimal mode
+        this.float64Arr[this.BASE_ADDR] = 10;
     }
     align() {
         const remainder = this.SD % 8;
@@ -1143,11 +1190,14 @@ class Memory {
     here() {
         return this.SD;
     }
+    base() {
+        return this.BASE_ADDR;
+    }
     allot(sizeBytes) {
         if (this.SD + sizeBytes >= this.capacity)
             throw new Error('Memory Overflow');
+        this.uint8Arr.fill(0, this.SD, this.SD + sizeBytes);
         this.SD += sizeBytes;
-        this.uint8Arr.fill(0, this.lastDef + 40, this.SD);
     }
     create(defName) {
         this.align();
@@ -1226,7 +1276,7 @@ class Memory {
     }
 }
 class Parser {
-    static parseLine(inputLine) {
+    static parseLine(inputLine, radix) {
         const tokens = [];
         const codeLine = inputLine.trimStart();
         let index = 0;
@@ -1255,21 +1305,28 @@ class Parser {
                     index = codeLine.length;
                     endIndex = codeLine.length;
                     if (grammar.strict) {
-                        tokens.push({ kind: grammar.kind, error: 'Not Closed', content: '', value, word });
+                        tokens.push({ kind: grammar.kind, error: 'Not Closed', content: '', value, word, number: 0 });
                         continue;
                     }
                 }
                 let content = codeLine.slice(toIndex, endIndex);
                 if (!grammar.empty && content.length === 0) {
-                    tokens.push({ kind: grammar.kind, error: 'Empty', content: '', value, word });
+                    tokens.push({ kind: grammar.kind, error: 'Empty', content: '', value, word, number: 0 });
                     continue;
                 }
-                tokens.push({ kind: grammar.kind, error: '', content, value, word });
+                tokens.push({ kind: grammar.kind, error: '', content, value, word, number: 0 });
             }
             else {
-                const isNumber = value.match(/^[+-]?\d+(?:.?\d+)?$/);
-                const kind = isNumber ? TokenKind.Number : TokenKind.Word;
-                tokens.push({ kind, error: '', content: '', value, word });
+                const isNumber = radix === 10
+                    ? value.match(/^[+-]?\d+(?:.?\d+)?$/)
+                    : value.match(/^[0-9A-Fa-f]{1,8}$/);
+                if (isNumber) {
+                    const number = radix === 10 ? Number(value) : parseInt(value, radix);
+                    tokens.push({ kind: TokenKind.Number, error: '', content: '', value: '', word: '', number });
+                }
+                else {
+                    tokens.push({ kind: TokenKind.Word, error: '', content: '', value, word, number: 0 });
+                }
             }
         }
         return tokens;
@@ -1421,7 +1478,7 @@ class Stack {
         this.index = 0;
     }
     print() {
-        return this.holder.slice(0, this.index).join(' ') + ' <- Top';
+        return this.holder.slice(0, this.index);
     }
 }
 //# sourceMappingURL=index.js.map

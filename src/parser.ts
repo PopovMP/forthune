@@ -101,7 +101,7 @@ class Parser
 		},
 	}
 
-	public static parseLine(inputLine: string): Token[]
+	public static parseLine(inputLine: string, radix: number): Token[]
 	{
 		const tokens: Token[] = []
 
@@ -139,7 +139,7 @@ class Parser
 					index    = codeLine.length
 					endIndex = codeLine.length
 					if (grammar.strict) {
-						tokens.push({kind: grammar.kind, error: 'Not Closed', content: '', value, word})
+						tokens.push({kind: grammar.kind, error: 'Not Closed', content: '', value, word, number: 0})
 						continue
 					}
 				}
@@ -147,16 +147,23 @@ class Parser
 				let content = codeLine.slice(toIndex, endIndex)
 
 				if (!grammar.empty && content.length === 0) {
-					tokens.push({kind: grammar.kind, error: 'Empty', content: '', value, word})
+					tokens.push({kind: grammar.kind, error: 'Empty', content: '', value, word, number: 0})
 					continue
 				}
 
-				tokens.push({kind: grammar.kind, error: '', content, value, word})
+				tokens.push({kind: grammar.kind, error: '', content, value, word, number: 0})
 			}
 			else {
-				const isNumber = value.match(/^[+-]?\d+(?:.?\d+)?$/)
-				const kind     = isNumber ? TokenKind.Number : TokenKind.Word
-				tokens.push({kind, error: '', content: '', value, word})
+				const isNumber = radix === 10
+					? value.match(/^[+-]?\d+(?:.?\d+)?$/)
+					: value.match(/^[0-9A-Fa-f]{1,8}$/)
+				if (isNumber) {
+					const number = radix === 10 ? Number(value) : parseInt(value, radix)
+					tokens.push({kind: TokenKind.Number, error: '', content: '', value: '', word: '', number})
+				}
+				else {
+					tokens.push({kind: TokenKind.Word, error: '', content: '', value, word, number: 0})
+				}
 			}
 		}
 

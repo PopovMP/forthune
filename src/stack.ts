@@ -48,8 +48,8 @@ class Stack
 		this.index = 0
 	}
 
-	public print(): string
+	public print(): number[]
 	{
-		return this.holder.slice(0, this.index).join(' ') + ' <- Top'
+		return this.holder.slice(0, this.index)
 	}
 }

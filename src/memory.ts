@@ -9,7 +9,8 @@ class Memory
 		0048 - ...  : data bytes
 	 */
 
-	private readonly NAME_LEN = 31 // ASCII characters
+	private readonly NAME_LEN  = 31 // ASCII characters
+	private readonly BASE_ADDR = 8
 	private readonly capacity  : number
 	private readonly memory    : ArrayBuffer
 	private readonly uint8Arr  : Uint8Array
@@ -26,6 +27,9 @@ class Memory
 		this.float64Arr = new Float64Array(this.memory)
 		this.SD         = 80
 		this.lastDef    = -1
+
+		// Decimal mode
+		this.float64Arr[this.BASE_ADDR] = 10
 	}
 
 	public align()
@@ -43,13 +47,18 @@ class Memory
 		return this.SD
 	}
 
+	public base()
+	{
+		return this.BASE_ADDR
+	}
+
 	public allot(sizeBytes: number): void
 	{
 		if (this.SD + sizeBytes >= this.capacity)
 			throw new Error('Memory Overflow')
 
+		this.uint8Arr.fill(0, this.SD, this.SD + sizeBytes)
 		this.SD += sizeBytes
-		this.uint8Arr.fill(0, this.lastDef + 40, this.SD)
 	}
 
 	public create(defName: string): void
