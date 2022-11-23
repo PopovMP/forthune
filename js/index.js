@@ -139,9 +139,9 @@ class Compiler {
                     env.tempDef.tokens.push(token);
                     break;
                 }
-                const defAddr = env.memory.findName(token.word, true);
+                const defAddr = env.memory.findName(token.word);
                 if (defAddr > 0) {
-                    const value = env.memory.findName(token.word, false);
+                    const value = env.memory.execDefinition(defAddr);
                     env.tempDef.tokens.push(Compiler.makeNumberToken(value));
                     break;
                 }
@@ -1103,9 +1103,9 @@ class Interpreter {
                 }
                 if (Dictionary.words.hasOwnProperty(token.word))
                     return Dictionary.words[token.word](env, token);
-                const defAddr = env.memory.findName(token.word, true);
+                const defAddr = env.memory.findName(token.word);
                 if (defAddr > 0) {
-                    const value = env.memory.findName(token.word, false);
+                    const value = env.memory.execDefinition(defAddr);
                     env.dStack.push(value);
                     break;
                 }
@@ -1166,30 +1166,30 @@ class Memory {
         this.lastDef = this.SD;
         this.SD = defAddr + 48;
     }
-    findName(defName, forceAddress) {
-        const nameLen = defName.length;
+    findName(defName) {
         let addr = this.lastDef;
-        while (true) {
-            if (this.uint8Arr[addr] !== nameLen) {
-                // Go to previous def
-                addr = this.float64Arr[addr + 32];
-                if (addr === 0)
-                    return 0;
-                continue;
-            }
-            for (let i = 0; i < nameLen; i += 1) {
-                if (this.uint8Arr[addr + 1 + i] !== defName.charCodeAt(i)) {
-                    addr = this.float64Arr[addr + 32];
-                    if (addr === 0)
-                        return 0;
+        while (addr > 0) {
+            // Compare names length
+            if (this.uint8Arr[addr] === defName.length) {
+                let found = true;
+                // Compare names characters
+                for (let i = 0; i < defName.length; i += 1) {
+                    if (this.uint8Arr[addr + 1 + i] !== defName.charCodeAt(i)) {
+                        found = false;
+                        break;
+                    }
                 }
+                // Names match. Return address.
+                if (found)
+                    return addr;
             }
-            break;
+            addr = this.float64Arr[addr + 32]; // Previous def
         }
-        if (forceAddress)
-            return addr;
-        const runTimeBehaviour = this.float64Arr[addr + 40];
-        switch (runTimeBehaviour) {
+        return addr;
+    }
+    execDefinition(addr) {
+        const rtSemantic = this.float64Arr[addr + 40];
+        switch (rtSemantic) {
             case RunTimeSemantic.DataAddress:
                 return addr + 48;
             case RunTimeSemantic.Value:

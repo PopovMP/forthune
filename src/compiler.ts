@@ -58,9 +58,9 @@ class Compiler
 					break
 				}
 
-				const defAddr = env.memory.findName(token.word, true)
+				const defAddr = env.memory.findName(token.word)
 				if (defAddr > 0 ) {
-					const value = env.memory.findName(token.word, false)
+					const value = env.memory.execDefinition(defAddr)
 					env.tempDef.tokens.push( Compiler.makeNumberToken(value) )
 					break
 				}

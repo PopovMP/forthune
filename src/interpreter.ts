@@ -31,9 +31,9 @@ class Interpreter
 				if ( Dictionary.words.hasOwnProperty(token.word) )
 					return Dictionary.words[token.word](env, token)
 
-				const defAddr = env.memory.findName(token.word, true)
+				const defAddr = env.memory.findName(token.word)
 				if (defAddr > 0 ) {
-					const value = env.memory.findName(token.word, false)
+					const value = env.memory.execDefinition(defAddr)
 					env.dStack.push(value)
 					break
 				}

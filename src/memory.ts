@@ -76,34 +76,39 @@ class Memory
 		this.SD = defAddr + 48
 	}
 
-	public findName(defName: string, forceAddress: boolean): number
+	public findName(defName: string): number
 	{
-		const nameLen = defName.length
-		let addr = this.lastDef
+		let addr  = this.lastDef
 
-		while (true) {
-			if (this.uint8Arr[addr] !== nameLen) {
-				// Go to previous def
-				addr = this.float64Arr[addr + 32]
-				if (addr === 0) return 0
-				continue
-			}
+		while (addr > 0) {
+			// Compare names length
+			if (this.uint8Arr[addr] === defName.length) {
+				let found = true
 
-			for (let i = 0; i < nameLen; i += 1) {
-				if (this.uint8Arr[addr + 1 + i] !== defName.charCodeAt(i)) {
-					addr = this.float64Arr[addr + 32]
-					if (addr === 0) return 0
+				// Compare names characters
+				for (let i = 0; i < defName.length; i += 1) {
+					if (this.uint8Arr[addr + 1 + i] !== defName.charCodeAt(i)) {
+						found = false
+						break
+					}
 				}
+
+				// Names match. Return address.
+				if (found)
+					return addr
 			}
 
-			break
+			addr = this.float64Arr[addr+32] // Previous def
 		}
 
-		if (forceAddress)
-			return addr
+		return addr
+	}
 
-		const runTimeBehaviour = this.float64Arr[addr + 40] as RunTimeSemantic
-		switch (runTimeBehaviour) {
+	public execDefinition(addr: number): number
+	{
+		const rtSemantic = this.float64Arr[addr + 40] as RunTimeSemantic
+
+		switch (rtSemantic) {
 			case RunTimeSemantic.DataAddress:
 				return addr + 48
 			case RunTimeSemantic.Value:
