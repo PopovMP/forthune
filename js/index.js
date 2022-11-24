@@ -701,12 +701,9 @@ Dictionary.words = {
     '\'': (env, token) => {
         // ( "<spaces>name" -- xt )
         const addr = env.memory.findName(token.content.toUpperCase());
-        const addrSemantics = env.memory.execDefinition(addr);
-        if (addrSemantics === 0)
+        if (addr === 0)
             return { status: 1 /* Status.Fail */, message: `${token.value} ?` };
-        const semantics = env.memory.fetchCell(addrSemantics);
-        if (semantics !== RunTimeSemantics.BuiltInWord && semantics !== RunTimeSemantics.ColonDef)
-            return { status: 1 /* Status.Fail */, message: `${token.content} Not an XT` };
+        const addrSemantics = addr + 40;
         env.dStack.push(addrSemantics);
         return { status: 0 /* Status.Ok */, message: '' };
     },
@@ -715,20 +712,33 @@ Dictionary.words = {
         // Remove xt from the stack and perform the semantics identified by it.
         const addrSemantics = env.dStack.pop();
         const semantics = env.memory.fetchCell(addrSemantics);
-        if (semantics !== RunTimeSemantics.BuiltInWord &&
-            semantics !== RunTimeSemantics.ColonDef)
-            return { status: 1 /* Status.Fail */, message: `Not an XT` };
-        const nameLength = env.memory.fetchChar(addrSemantics - 40);
-        const chars = Array(nameLength);
-        const cAddr = addrSemantics - 40 + 1;
-        for (let i = 0; i < nameLength; i += 1)
-            chars[i] = String.fromCharCode(env.memory.fetchChar(cAddr + i));
-        const word = chars.join('');
-        if (semantics === RunTimeSemantics.BuiltInWord && Dictionary.words.hasOwnProperty(word))
-            return Dictionary.words[word](env, { kind: TokenKind.Word, error: '', content: '', value: word, word, number: 0 });
-        if (semantics === RunTimeSemantics.ColonDef && Dictionary.colonDef.hasOwnProperty(word))
-            return Executor.run(Dictionary.colonDef[word].tokens, env);
-        return { status: 1 /* Status.Fail */, message: `${word} ?` };
+        switch (semantics) {
+            case RunTimeSemantics.BuiltInWord:
+            case RunTimeSemantics.ColonDef:
+                const nameLength = env.memory.fetchChar(addrSemantics - 40);
+                const chars = Array(nameLength);
+                const cAddr = addrSemantics - 40 + 1;
+                for (let i = 0; i < nameLength; i += 1)
+                    chars[i] = String.fromCharCode(env.memory.fetchChar(cAddr + i));
+                const word = chars.join('');
+                if (semantics === RunTimeSemantics.BuiltInWord && Dictionary.words.hasOwnProperty(word))
+                    return Dictionary.words[word](env, { kind: TokenKind.Word, error: '', content: '', value: word, word, number: 0 });
+                if (semantics === RunTimeSemantics.ColonDef && Dictionary.colonDef.hasOwnProperty(word))
+                    return Executor.run(Dictionary.colonDef[word].tokens, env);
+                return { status: 1 /* Status.Fail */, message: `${word} ?` };
+            case RunTimeSemantics.DataAddress:
+            case RunTimeSemantics.Variable:
+                env.dStack.push(addrSemantics + 8);
+                break;
+            case RunTimeSemantics.Value:
+            case RunTimeSemantics.Constant:
+                const value = env.memory.fetchCell(addrSemantics + 8);
+                env.dStack.push(value);
+                break;
+            default:
+                throw new Error('EXECUTE Unreachable');
+        }
+        return { status: 0 /* Status.Ok */, message: '' };
     },
     // Values
     'VALUE': (env, token) => {
