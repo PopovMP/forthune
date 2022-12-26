@@ -21,10 +21,6 @@
   </div>
 
   <div class="row center">
-    <div id="stack-view"></div>
-  </div>
-
-  <div class="row center">
     <label for="import-file">Import code file</label>
     <input id="import-file" type="file" accept=".f, .fs">
   </div>
@@ -35,11 +31,12 @@
 	'use strict'
 	const module = {exports: {}}
 </script>
+<script src="js/forth.js"></script>
 <script src="js/index.js"></script>
 <script>
 	'use strict'
 	window.addEventListener('load', () => {
-		new Application()
+		application()
 	})
 </script>
 </body>
