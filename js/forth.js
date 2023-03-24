@@ -436,6 +436,7 @@ function forth (write) {
 		addWord('+',          SUM,             0)
 		addWord('-',          MINUS,           0)
 		addWord('*',          STAR,            0)
+		addWord('/',          SLASH,           0)
 		addWord('=',          EQUALS,          0)
 		addWord('>',          GREATER_THAN,    0)
 		addWord('<',          LOWER_THAN,      0)
@@ -444,6 +445,10 @@ function forth (write) {
 		addWord('0<',         ZERO_LESS,       0)
 		addWord('0>',         ZERO_GREATER,    0)
 		addWord('0<>',        ZERO_NOT_EQUALS, 0)
+		addWord('MAX',        MAX,             0)
+		addWord('MIN',        MIN,             0)
+		addWord('NEGATE',     NEGATE,          0)
+		addWord('MOD',        MOD,             0)
 		addWord('TRUE',       TRUE,            0)
 		addWord('FALSE',      FALSE,           0)
 		addWord('DROP',       DROP,            0)
@@ -805,6 +810,16 @@ function forth (write) {
 	}
 
 	/**
+	 * / ( n1 n2 -- n3 )
+	 * Divide n1 by n2, giving the single-cell quotient n3.
+	 */
+	function SLASH() {
+		const n2 = pop()
+		const n1 = pop()
+		push( Math.floor(n1 / n2) )
+	}
+
+	/**
 	 * = ( x1 x2 -- flag )
 	 * flag is true if and only if x1 is bit-for-bit the same as x2.
 	 */
@@ -886,6 +901,42 @@ function forth (write) {
 	{
 		const x = pop()
 		push(x !== 0 ? -1 : 0)
+	}
+
+	/**
+	 * MAX ( n1 n2 -- n3 )
+	 * n3 is the greatest of n1 and n2.
+	 */
+	function MAX() {
+		const n2 = pop()
+		const n1 = pop()
+		push(n1 > n2 ? n1 : n2)
+	}
+
+	/**
+	 * MIN ( n1 n2 -- n3 )
+	 * n3 is the lowest of n1 and n2.
+	 */
+	function MIN() {
+		const n2 = pop()
+		const n1 = pop()
+		push(n1 < n2 ? n1 : n2)
+	}
+
+	/**
+	 * NEGATE ( n1 -- n2 )
+	 * Negate n1, giving its arithmetic inverse n2.
+	 */
+	function NEGATE() { push( -pop() ) }
+
+	/**
+	 * / ( n1 n2 -- n3 )
+	 * Divide n1 by n2, giving the single-cell remainder n3.
+	 */
+	function MOD() {
+		const n2 = pop()
+		const n1 = pop()
+		push(n1 % n2)
 	}
 
 	/**
