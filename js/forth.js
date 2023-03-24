@@ -816,27 +816,30 @@ function forth (write) {
 	}
 
 	/**
-	 * > ( x1 x2 -- flag )
+	 * > ( n1 n2 -- flag )
+	 * flag is true if and only if n1 is greater than n2.
 	 */
 	function GREATER_THAN()
 	{
-		const x2 = pop()
-		const x1 = pop()
-		push(x1 > x2 ? -1 : 0)
+		const n2 = pop()
+		const n1 = pop()
+		push(n1 > n2 ? -1 : 0)
 	}
 
 	/**
-	 * < ( x1 x2 -- flag )
+	 * < ( n1 n2 -- flag )
+	 * flag is true if and only if n1 is less than n2.
 	 */
 	function LOWER_THAN()
 	{
-		const x2 = pop()
-		const x1 = pop()
-		push(x1 < x2 ? -1 : 0)
+		const n2 = pop()
+		const n1 = pop()
+		push(n1 < n2 ? -1 : 0)
 	}
 
 	/**
-	 * < ( x1 x2 -- flag )
+	 * <> ( x1 x2 -- flag )
+	 * flag is true if and only if x1 is not bit-for-bit the same as x2.
 	 */
 	function NOT_EQUALS()
 	{
@@ -857,6 +860,7 @@ function forth (write) {
 
 	/**
 	 * 0< ( x -- flag )
+	 * flag is true if and only if n is less than zero.
 	 */
 	function ZERO_LESS()
 	{
@@ -866,6 +870,7 @@ function forth (write) {
 
 	/**
 	 * 0> ( x -- flag )
+	 * flag is true if and only if n is greater than zero.
 	 */
 	function ZERO_GREATER()
 	{
@@ -875,6 +880,7 @@ function forth (write) {
 
 	/**
 	 * 0<> ( x -- flag )
+	 * flag is true if and only if x is not equal to zero.
 	 */
 	function ZERO_NOT_EQUALS()
 	{
@@ -2240,7 +2246,7 @@ function forth (write) {
 	function J() { setRTS('(j)') }
 
 	// noinspection JSUnusedGlobalSymbols
-	return {interpret, pop}
+	return {interpret, pop, cFetch, MEMORY_SIZE}
 }
 
 const moduleRef = module || {}
