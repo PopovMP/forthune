@@ -433,6 +433,7 @@ function forth (write) {
 		addWord('(i)',        iRTS,            0)
 		addWord('(j)',        jRTS,            0)
 		addWord('(leave)',    leaveRTS,        0)
+		addWord('(type)',     typeRTS,         0)
 		addWord('+',          SUM,             0)
 		addWord('-',          MINUS,           0)
 		addWord('*',          STAR,            0)
@@ -727,6 +728,12 @@ function forth (write) {
 			throw new Error(`Cannot find RTS: ${word}`)
 		COMPILE_COMMA()
 	}
+
+	/**
+	 * TYPE ( c-addr u -- )
+	 * If u is greater than zero, display the character string specified by c-addr and u.
+	 */
+	function typeRTS() { TYPE() }
 
 	/**
 	 * SEE ( char “<spaces>ccc<space>” –- )
@@ -1574,7 +1581,17 @@ function forth (write) {
 	{
 		countedString()
 		COUNT()
-		TYPE()
+
+		// Compile-time specifics
+		if (fetch(STATE_ADDR) !== 0) {
+			SWAP()
+			LITERAL() // Append cAddr to current colon-def
+			LITERAL() // Append length to current colon-def
+			setRTS('(type)')
+		}
+		else {
+			TYPE()
+		}
 	}
 
 	/**
