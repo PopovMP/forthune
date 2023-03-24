@@ -516,6 +516,8 @@ function forth (write) {
 		addWord(']',          RIGHT_BRACKET,   0)
 		addWord('[',          LEFT_BRACKET,    0|Immediate)
 		addWord(':',          COLON,           0|Immediate)
+		addWord('(',          PAREN,           0|Immediate|NoInterpretation)
+		addWord('.(',         DOT_PAREN,       0|Immediate|NoInterpretation)
 		addWord(';',          SEMICOLON,       0|Immediate)
 		addWord('SEE',        SEE,             0)
 		addWord('EXIT',       EXIT,            0)
@@ -2001,6 +2003,30 @@ function forth (write) {
 
 		// Enter compilation state
 		RIGHT_BRACKET()
+	}
+
+	/**
+	 * ( ( "ccc<paren>" -- )
+	 * Parse ccc delimited by ) (right parenthesis).
+	 * The number of characters in ccc may be zero to the number of characters in the parse area.
+	 */
+	function PAREN()
+	{
+		push(41) // ASCII code of paren: )
+		PARSE()  // ( char “ccc<char>” – c-addr u )
+		pop()    // u
+		pop()    // c-addr
+	}
+
+	/**
+	 * .( ( "ccc<paren>" -- )
+	 * Parse and display ccc delimited by ) (right parenthesis). .( is an immediate word.
+	 */
+	function DOT_PAREN()
+	{
+		push(41) // ASCII code of paren: )
+		PARSE()  // ( char “ccc<char>” – c-addr u )
+		TYPE()   // ( c-addr u – )
 	}
 
 	/**
