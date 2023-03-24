@@ -539,6 +539,7 @@ function forth (write) {
 		addWord('+LOOP',      PLUS_LOOP,       0|Immediate|NoInterpretation)
 		addWord('I',          I,               0|Immediate|NoInterpretation)
 		addWord('J',          J,               0|Immediate|NoInterpretation)
+		addWord('\\',         BACKSLASH,       0|Immediate)
 	}
 
 	// -------------------------------------
@@ -2338,6 +2339,16 @@ function forth (write) {
 
 	/** J ( -- n ) */
 	function J() { setRTS('(j)') }
+
+	/**
+	 *  \  Execution: ( "ccc<eol>" -- )
+	 * Parse and discard the remainder of the parse area. \ is an immediate word.
+	 */
+	function BACKSLASH()
+	{
+		store(0, TO_IN_ADDR)
+		store(0, INPUT_BUFFER_CHARS_ADDR)
+	}
 
 	// noinspection JSUnusedGlobalSymbols
 	return {interpret, pop, cFetch, MEMORY_SIZE}
