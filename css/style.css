@@ -67,6 +67,15 @@ button {
     outline: none;
 }
 
+#mem-dump {
+    padding: 1px 2px;
+    border: #797575 solid 2px;
+    font-size: 20px;
+    font-family: Consolas, monospace;
+    background-color: #0f2689;
+    color: #ffffff;
+}
+
 .btn-secondary {
     background-color: darkcyan;
 }

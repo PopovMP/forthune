@@ -8,10 +8,13 @@
 </head>
 <body>
 
-<h1>Forthune</h1>
-<h2>Forth interpreter in JavaScript</h2>
 
 <div class="container">
+  <div class="row center">
+    <h1>Forthune</h1>
+    <h2>Forth interpreter in JavaScript</h2>
+  </div>
+
   <div class="row center">
     <label for="input-line" style="display: none">Readline</label>
     <div id="screen">
@@ -24,6 +27,13 @@
     <label for="import-file">Import code file</label>
     <input id="import-file" type="file" accept=".f, .fs">
   </div>
+
+  <div class="row center">
+    <h2>Memory Dump</h2>
+    <label for="show-dump">Show memory dump</label>
+    <input type="button" id="show-dump" value="Dump">
+    <pre id="mem-dump"></pre>
+  </div>
 </div>
 
 <!--suppress JSUnusedGlobalSymbols -->
@@ -32,6 +42,7 @@
 	const module = {exports: {}}
 </script>
 <script src="js/forth.js"></script>
+<script src="js/dump.js"></script>
 <script src="js/index.js"></script>
 <script>
 	'use strict'

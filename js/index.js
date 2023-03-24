@@ -9,12 +9,14 @@ function application()
 	const outputLog   = document.getElementById('output-log')
 	const inputLine   = document.getElementById('input-line')
 	const importFile  = document.getElementById('import-file')
+	const memDump     = document.getElementById('mem-dump')
 	const inputBuffer = []
 	let inputIndex  = 0
 
 	inputLine.addEventListener('keydown', inputLine_keydown)
 	importFile.addEventListener('change', importFile_change)
 	outputLog.addEventListener('click', () => inputLine.focus())
+	document.getElementById('show-dump').addEventListener('click', () => dump_click())
 	screen.addEventListener('click', () => inputLine.focus())
 	document.addEventListener('click', () => inputLine.focus())
 	inputLine.focus()
@@ -71,6 +73,11 @@ function application()
 		const fullText = outputLog.innerText + newText
 
 		outputLog.innerText = fullText.split('\n').slice(-OUTPUT_LINES).join('\n')
+	}
+
+	function dump_click()
+	{
+		dump(memDump, fth.cFetch, fth.MEMORY_SIZE)
 	}
 
 	function compileCodeLine(inputLine)
