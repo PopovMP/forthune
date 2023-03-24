@@ -313,18 +313,20 @@ function forth (write) {
 			DUP()
 			const nameLen = pop()
 			if (nameLen === 0) {
-				DROP()
-				DROP()
 				// No more words
-				SPACE()
-				tempText('ok')
-				COUNT()
-				TYPE()
+				DROP() // u
+				DROP() // c-addr
+				if (!isCompiling) {
+					SPACE()
+					tempText('ok')
+					COUNT()
+					TYPE()
+				}
 				CR()
 				break
 			}
 
-			POD()
+			POD()          // ( – addr )
 			TO_UPPERCASE() // ( c-addr1 u c-addr2 -- c-addr2 )
 			FIND()         // ( c-addr -- c-addr|cfa-addr flag )
 
