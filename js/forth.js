@@ -750,6 +750,49 @@ function forth (write) {
 		const wordXT = pop()
 
 		let addr = Math.floor(wordXT / 100_000)
+
+		// Print word name
+		const wordAddr = wordXT % 100_000
+		const immediate = cFetch(wordAddr+31) & Immediate
+
+		// It is a native word
+		if (NATIVE_RTS_ADDR <= wordAddr && wordAddr < DSP_START_ADDR) {
+			SPACE()
+			push(wordAddr)
+			DOT()
+			SPACE()
+			SPACE()
+			tempText(_wordName[wordAddr])
+			COUNT()
+			TYPE()
+			SPACE()
+			SPACE()
+			tempText('native word')
+			COUNT()
+			TYPE()
+			CR()
+			return
+		}
+
+		// It is a colon-def
+		if (DSP_START_ADDR <= wordAddr && wordAddr < STRING_FIELD_ADDR) {
+			push(wordAddr-48)
+			DUP()
+			DOT()
+			SPACE()
+			SPACE()
+			COUNT()
+			TYPE()
+			if (immediate) {
+				SPACE()
+				SPACE()
+				tempText('IMMEDIATE')
+				COUNT()
+				TYPE()
+			}
+			CR()
+		}
+
 		while(true) {
 			const xt     = fetch(addr)
 			const xtAddr = xt % 100_000
