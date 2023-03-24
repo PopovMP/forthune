@@ -430,6 +430,7 @@ function forth (write) {
 		addWord('(0branch)',  zeroBranchRTS,   0)
 		addWord('(branch)',   branchRTS,       0)
 		addWord('(do)',       doRTS,           0)
+		addWord('(?do)',      questionDoRTS,   0)
 		addWord('(loop)',     loopRTS,         0)
 		addWord('(+loop)',    plusLoopRTS,     0)
 		addWord('(i)',        iRTS,            0)
@@ -440,6 +441,8 @@ function forth (write) {
 		addWord('-',          MINUS,           0)
 		addWord('*',          STAR,            0)
 		addWord('/',          SLASH,           0)
+		addWord('1+',         ONE_PLUS,        0)
+		addWord('1-',         ONE_MINUS,       0)
 		addWord('=',          EQUALS,          0)
 		addWord('>',          GREATER_THAN,    0)
 		addWord('<',          LOWER_THAN,      0)
@@ -514,6 +517,7 @@ function forth (write) {
 		addWord('.',          DOT,             0)
 		addWord('.S',         DOT_S,           0)
 		addWord('SPACE',      SPACE,           0)
+		addWord('SPACES',     SPACES,          0)
 		addWord('ABORT',      ABORT,           0)
 		addWord('QUIT',       QUIT,            0)
 		addWord('STATE',      STATE,           0)
@@ -537,6 +541,7 @@ function forth (write) {
 		addWord('WHILE',      WHILE,           0|Immediate|NoInterpretation)
 		addWord('REPEAT',     REPEAT,          0|Immediate|NoInterpretation)
 		addWord('DO',         DO,              0|Immediate|NoInterpretation)
+		addWord('?DO',        QUESTION_DO,     0|Immediate|NoInterpretation)
 		addWord('LEAVE',      LEAVE,           0|Immediate|NoInterpretation)
 		addWord('LOOP',       LOOP,            0|Immediate|NoInterpretation)
 		addWord('+LOOP',      PLUS_LOOP,       0|Immediate|NoInterpretation)
@@ -645,6 +650,23 @@ function forth (write) {
 	{
 		const index = pop()
 		const limit = pop()
+		rPush(limit)
+		rPush(index)
+	}
+
+	/**
+	 * (?do) ( n1 | u1 n2 | u2 -- ) ( R: -- loop-sys )
+	 * If n1 | u1 is equal to n2 | u2, continue execution at the location given by the consumer of do-sys.
+	 * Otherwise, set up loop control parameters with index n2 | u2 and limit n1 | u1 and continue executing
+	 * immediately following ?DO.
+	 */
+	function questionDoRTS()
+	{
+		let   index = pop()
+		const limit = pop()
+		if (index === limit)
+			setRTS('(leave)')
+
 		rPush(limit)
 		rPush(index)
 	}
@@ -873,6 +895,18 @@ function forth (write) {
 		const n1 = pop()
 		push( Math.floor(n1 / n2) )
 	}
+
+	/**
+	 * 1+ ( n1 | u1 -- n2 | u2 )
+	 * Add one (1) to n1 | u1 giving the sum n2 | u2.
+	 */
+	function ONE_PLUS() { push(pop() + 1) }
+
+	/**
+	 * 1- ( n1 | u1 -- n2 | u2 )
+	 * Subtract one (1) from n1 | u1 giving the sum n2 | u2.
+	 */
+	function ONE_MINUS() { push(pop() - 1) }
 
 	/**
 	 * = ( x1 x2 -- flag )
@@ -1955,6 +1989,19 @@ function forth (write) {
 	}
 
 	/**
+	 * SPACES ( n -- )
+	 * If n is greater than zero, display n spaces.
+	 */
+	function SPACES()
+	{
+		let n = pop()
+		while (n > 0) {
+			SPACE()
+			n -= 1
+		}
+	}
+
+	/**
 	 * . ( n -- )
 	 * Display n in free field format.
 	 */
@@ -2334,6 +2381,19 @@ function forth (write) {
 	function DO()
 	{
 		setRTS('(do)')
+		cfPush(DS)
+	}
+
+	/**
+	 * ?DO Compilation: ( C: -- do-sys )
+	 * Run-time: ( n1 | u1 n2 | u2 -- ) ( R: -- loop-sys )
+	 * If n1 | u1 is equal to n2 | u2, continue execution at the location given by the consumer of do-sys.
+	 * Otherwise, set up loop control parameters with index n2 | u2 and limit n1 | u1 and
+	 * continue executing immediately following ?DO.
+	 */
+	function QUESTION_DO()
+	{
+		setRTS('(?do)')
 		cfPush(DS)
 	}
 
