@@ -755,7 +755,7 @@ function forth (write) {
 			}
 			else if (DSP_START_ADDR <= xtAddr && xtAddr < STRING_FIELD_ADDR) {
 				// It is a colon-def
-				push(xtAddr-40)
+				push(xtAddr-48)
 				COUNT()
 				TYPE()
 			}
