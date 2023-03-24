@@ -2242,3 +2242,6 @@ function forth (write) {
 	// noinspection JSUnusedGlobalSymbols
 	return {interpret, pop}
 }
+
+const moduleRef = module || {}
+moduleRef.exports = {forth}
