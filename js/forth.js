@@ -508,6 +508,7 @@ function forth (write) {
 		addWord('EVALUATE',   EVALUATE,        0)
 		addWord('>BODY',      TO_BODY,         0)
 		addWord('CHAR',       CHAR,            0)
+		addWord('[CHAR]',     BRACKET_CHAR,    0|Immediate|NoInterpretation)
 		addWord('BL',         BL,              0)
 		addWord('CR',         CR,              0)
 		addWord('.',          DOT,             0)
@@ -753,7 +754,6 @@ function forth (write) {
 
 		// Print word name
 		const wordAddr = wordXT % 100_000
-		const immediate = cFetch(wordAddr+31) & Immediate
 
 		// It is a native word
 		if (NATIVE_RTS_ADDR <= wordAddr && wordAddr < DSP_START_ADDR) {
@@ -783,7 +783,7 @@ function forth (write) {
 			SPACE()
 			COUNT()
 			TYPE()
-			if (immediate) {
+			if (cFetch(wordAddr-17) & Immediate) {
 				SPACE()
 				SPACE()
 				tempText('IMMEDIATE')
@@ -1916,6 +1916,20 @@ function forth (write) {
 		const cAddr = pop()
 		const char  = cFetch(cAddr+1) // Skip the length byte
 		push(char)
+	}
+
+	/**
+	 * [CHAR] Compilation: ( "<spaces>name" -- )
+	 * Skip leading space delimiters. Parse name delimited by a space.
+	 * Append the run-time semantics given below to the current definition.
+	 * Run-time: ( -- char )
+	 * Place char, the value of the first character of name, on the stack.
+	 */
+	function BRACKET_CHAR()
+	{
+		CHAR()
+		LITERAL()
+		RIGHT_BRACKET()
 	}
 
 	/**
