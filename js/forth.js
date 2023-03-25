@@ -6,7 +6,15 @@
  * @return {{ interpret(text: string): void, pop(): number }}
  */
 function forth (write) {
+	const WS = 8 /** word size */
+
 	// Registers
+	const S_REG                   =      0 // Data stack pointer
+	const R_REG                   =      8 // Return stack pointer
+	const CF_REG                  =     16 // Control-flow stack pointer
+	const DS_REG                  =     24 // Data-space pointer
+	const SFP_REG                 =     32 // String Field Pointer
+	const IP_REG                  =     40 // Instruction Pointer
 	const STATE_ADDR              =     72
 	const TO_IN_ADDR              =     80 // Addr of input buffer pointer
 	const INPUT_BUFFER_CHARS_ADDR =     88
@@ -38,23 +46,12 @@ function forth (write) {
 	/** @type { {[CFA: number]: word } */
 	const _wordName = {}
 
-	/** @property {number} S - data Stack pointer */
-	let S = DATA_STACK_ADDR
-
-	/** @property {number} R - Return stack pointer */
-	let R = RET_STACK_ADDR
-
-	/** @property {number} CF - Control-flow stack pointer */
-	let CF = CONTROL_FLOW_ADDR
-
-	/** @property {number} DS - data-space pointer */
-	let DS = DSP_START_ADDR
-
-	/** @property {number} SFP - String Field Pointer */
-	let SFP = STRING_FIELD_ADDR
-
-	/** @property {number} IP - (Instruction Pointer) - a-addr of next XT to execute at run-time */
-	let IP = 0
+	store(DATA_STACK_ADDR,   S_REG)
+	store(RET_STACK_ADDR,    R_REG)
+	store(CONTROL_FLOW_ADDR, CF_REG)
+	store(DSP_START_ADDR,    DS_REG)
+	store(STRING_FIELD_ADDR, SFP_REG)
+	store(0,                 IP_REG)
 
 	// Declare native words
 	addWords()
@@ -67,11 +64,10 @@ function forth (write) {
 	 */
 	function store(x, aAddr)
 	{
-		if (aAddr === CURRENT_DEF_ADDR && (x < DSP_START_ADDR || x > MEMORY_SIZE) && x !== 0)
-			throw new Error('Wrong DSP_START_ADDR: ' + x)
-		if (aAddr % 8 !== 0)
+		if (aAddr % WS !== 0)
 			throw new Error('Address is not aligned. Given: ' + aAddr)
-		_cells[aAddr>>3] = x
+
+		_cells[aAddr / WS] = x
 	}
 
 	/**
@@ -81,9 +77,10 @@ function forth (write) {
 	 */
 	function fetch(aAddr)
 	{
-		if (aAddr % 8 !== 0)
+		if (aAddr % WS !== 0)
 			throw new Error('Address is not aligned. Given: ' + aAddr)
-		return _cells[aAddr>>3]
+
+		return _cells[aAddr / WS]
 	}
 
 	/**
@@ -96,6 +93,7 @@ function forth (write) {
 	{
 		if (cAddr === CURRENT_DEF_ADDR)
 			throw new Error('Invalid access to DSP_START_ADDR')
+
 		_chars[cAddr] = char
 	}
 
@@ -113,8 +111,9 @@ function forth (write) {
 	 */
 	function push(x)
 	{
+		const S = fetch(S_REG)
 		store(x, S)
-		S += 8
+		store(S + WS, S_REG)
 	}
 
 	/**
@@ -123,10 +122,12 @@ function forth (write) {
 	 */
 	function pop()
 	{
-		if (S === DATA_STACK_ADDR)
+		const S = fetch(S_REG)
+		if (S <= DATA_STACK_ADDR)
 			throw new Error('Stack underflow')
-		S -= 8
-		return fetch(S)
+		store(S - WS, S_REG)
+
+		return fetch(S - WS)
 	}
 
 	/**
@@ -136,9 +137,11 @@ function forth (write) {
 	 */
 	function pick(i)
 	{
-		const ptr = S - 8 - (i<<3)
+		const S = fetch(S_REG)
+		const ptr = S - WS - (i * WS)
 		if (ptr < DATA_STACK_ADDR)
 			throw new Error('Stack underflow')
+
 		return fetch(ptr)
 	}
 
@@ -146,13 +149,20 @@ function forth (write) {
 	 * Gets the stack depth
 	 * @return {number}
 	 */
-	function depth() { return ((S - DATA_STACK_ADDR) >> 3) }
+	function depth()
+	{
+		const S = fetch(S_REG)
+		return ((S - DATA_STACK_ADDR) / WS)
+	}
 
 	/**
 	 * Empties stack
 	 * @return {void}
 	 */
-	function empty() { S = DATA_STACK_ADDR }
+	function empty()
+	{
+		store(DATA_STACK_ADDR, S_REG)
+	}
 
 	/**
 	 * Pushes a number to return stack.
@@ -161,8 +171,9 @@ function forth (write) {
 	 */
 	function rPush(x)
 	{
+		const R = fetch(R_REG)
 		store(x, R)
-		R += 8
+		store(R + WS, R_REG)
 	}
 
 	/**
@@ -171,10 +182,12 @@ function forth (write) {
 	 */
 	function rPop()
 	{
+		const R = fetch(R_REG)
 		if (R === RET_STACK_ADDR)
 			throw new Error('Stack underflow')
-		R -= 8
-		return fetch(R)
+		store(R - WS, R_REG)
+
+		return fetch(R - WS)
 	}
 
 	/**
@@ -184,9 +197,11 @@ function forth (write) {
 	 */
 	function rPick(i)
 	{
-		const ptr = R - 8 - (i<<3)
+		const R = fetch(R_REG)
+		const ptr = R - WS - (i * WS)
 		if (ptr < RET_STACK_ADDR)
 			throw new Error('Stack underflow')
+
 		return fetch(ptr)
 	}
 
@@ -194,13 +209,20 @@ function forth (write) {
 	 * Gets the return stack depth
 	 * @return {number}
 	 */
-	function rDepth() { return ((R - RET_STACK_ADDR) >> 3) }
+	function rDepth()
+	{
+		const R = fetch(R_REG)
+		return ((R - RET_STACK_ADDR) / WS)
+	}
 
 	/**
 	 * Empties return stack
 	 * @return {void}
 	 */
-	function rEmpty() { R = RET_STACK_ADDR }
+	function rEmpty()
+	{
+		store(RET_STACK_ADDR, R_REG)
+	}
 
 	/**
 	 * Pushes a number to control-flow stack.
@@ -209,8 +231,9 @@ function forth (write) {
 	 */
 	function cfPush(x)
 	{
+		const CF = fetch(CF_REG)
 		store(x, CF)
-		CF += 8
+		store(CF + WS, CF_REG)
 	}
 
 	/**
@@ -219,10 +242,12 @@ function forth (write) {
 	 */
 	function cfPop()
 	{
+		const CF = fetch(CF_REG)
 		if (CF === CONTROL_FLOW_ADDR)
 			throw new Error('Stack underflow')
-		CF -= 8
-		return fetch(CF)
+		store(CF - WS, CF_REG)
+
+		return fetch(CF - WS)
 	}
 
 	/**
@@ -338,10 +363,11 @@ function forth (write) {
 					try {
 						while(true) {
 							EXECUTE()
+							const IP = fetch(IP_REG)
 							if (IP === 0) break
 							// Next XT within a colon-def
-							IP += 8
-							const xt = fetch(IP)
+							store(IP + WS, IP_REG)
+							const xt = fetch(IP + WS)
 							push(xt)
 						}
 					}
@@ -583,7 +609,8 @@ function forth (write) {
 	{
 		const callerAddr = rPop()
 		const nestDepth  = rDepth()
-		IP = nestDepth === 0 ? 0 : callerAddr
+		const retAddr    = nestDepth === 0 ? 0 : callerAddr
+		store(retAddr, IP_REG)
 	}
 
 	/**
@@ -593,8 +620,9 @@ function forth (write) {
 	 */
 	function literalRTS()
 	{
-		IP += 8
-		const val = fetch(IP)
+		const IP = fetch(IP_REG)
+		store(IP + WS, IP_REG)
+		const val = fetch(IP + WS)
 		push(val)
 	}
 
@@ -605,7 +633,7 @@ function forth (write) {
 	function postponeRTS(addr)
 	{
 		COMPILE_COMMA()
-		IP = addr
+		store(addr, IP_REG)
 	}
 
 	/**
@@ -616,8 +644,9 @@ function forth (write) {
 	 */
 	function branchRTS()
 	{
-		const orig = fetch(IP+8)
-		IP = orig-8 // NEXT adds 8
+		const IP = fetch(IP_REG)
+		const orig = fetch(IP + WS)
+		store(orig - WS, IP_REG) // NEXT adds WS
 	}
 
 	/**
@@ -629,15 +658,16 @@ function forth (write) {
 	 */
 	function zeroBranchRTS()
 	{
+		const IP   = fetch(IP_REG)
 		const flag = pop()
-		const orig = fetch(IP + 8)
+		const orig = fetch(IP + WS)
 
 		if (orig < DSP_START_ADDR || STRING_FIELD_ADDR <= orig)
 			throw new Error('Wrong branch addr. Given: ' + orig)
 
-		IP += 8         // Eat orig addr
+		store(IP + WS, IP_REG) // Eat orig addr
 		if (flag === 0)
-			IP = orig-8 // NEXT adds 8
+			store(orig - WS, IP_REG) // NEXT adds WS
 	}
 
 	/**
@@ -683,14 +713,15 @@ function forth (write) {
 		const index = rPop() + 1
 		const limit = rPop()
 
+		const IP = fetch(IP_REG)
 		if (index < limit) {
 			rPush(limit)
 			rPush(index)
-			const dest = fetch(IP+8)
-			IP = dest-8
+			const dest = fetch(IP + WS)
+			store(dest - WS, IP_REG)
 		}
 		else {
-			IP += 8 // Skip dest
+			store(IP + WS, IP_REG) // Skip dest
 		}
 	}
 
@@ -707,15 +738,16 @@ function forth (write) {
 		const index = rPop() + increment
 		const limit = rPop()
 
-		if ( (increment > 0 && index < limit) ||
+		const IP = fetch(IP_REG)
+		if ((increment > 0 && index < limit) ||
 			(increment < 0 && index > limit) ) {
 			rPush(limit)
 			rPush(index)
-			const dest = fetch(IP+8)
-			IP = dest-8
+			const dest = fetch(IP + WS)
+			store(dest - WS, IP_REG)
 		}
 		else {
-			IP += 8 // Skip dest
+			store(IP + WS, IP_REG) // Skip dest
 		}
 	}
 
@@ -739,8 +771,9 @@ function forth (write) {
 	 */
 	function leaveRTS()
 	{
-		const orig = fetch(IP+8)
-		IP = orig-8 // NEXT adds 8
+		const IP = fetch(IP_REG)
+		const orig = fetch(IP + WS)
+		store(orig - WS, IP_REG) // NEXT adds WS
 		rPop()
 		rPop()
 	}
@@ -1173,7 +1206,7 @@ function forth (write) {
 	 * CELLS ( n1 -- n2 )
 	 * n2 is the size in address units of n1 cells.
 	 */
-	function CELLS() { push(pop() * 8) }
+	function CELLS() { push(pop() * WS) }
 
 	// -------------------------------------
 	// Memory Operations
@@ -1183,7 +1216,11 @@ function forth (write) {
 	 * HERE ( -- addr )
 	 * Pushes the data-space pointer to the stack.
 	 */
-	function HERE() { push(DS) }
+	function HERE()
+	{
+		const DS = fetch(DS_REG)
+		push(DS)
+	}
 
 	/**
 	 * ALIGNED ( addr -- a-addr )
@@ -1192,8 +1229,8 @@ function forth (write) {
 	function ALIGNED()
 	{
 		const addr  = pop()
-		const rem   = addr % 8
-		const delta = rem === 0 ? 0 : 8 - rem
+		const rem   = addr % WS
+		const delta = rem === 0 ? 0 : WS - rem
 		push(addr + delta)
 	}
 
@@ -1209,6 +1246,18 @@ function forth (write) {
 		SWAP()
 		MINUS()
 		ALLOT()
+	}
+
+	/**
+	 * ALLOT ( n -- )
+	 * If n is greater than zero, reserve n address units of data space.
+	 */
+	function ALLOT()
+	{
+		const n    = pop()
+		const DS   = fetch(DS_REG)
+		const addr = DS + n
+		store(addr, DS_REG)
 	}
 
 	/**
@@ -1256,12 +1305,6 @@ function forth (write) {
 	}
 
 	/**
-	 * ALLOT ( n -- )
-	 * If n is greater than zero, reserve n address units of data space.
-	 */
-	function ALLOT() { DS += pop() }
-
-	/**
 	 * , ( x -- )
 	 * Reserve one cell of data space and store x in the cell.
 	 */
@@ -1270,7 +1313,7 @@ function forth (write) {
 		ALIGN()
 		HERE()
 		STORE()
-		push(8)
+		push(WS)
 		ALLOT()
 	}
 
@@ -1608,6 +1651,7 @@ function forth (write) {
 		const length = pop()
 		const cAddr  = pop()
 
+		const SFP = fetch(SFP_REG)
 		cStore(length, SFP)
 		let index = 0
 		while (index < length) {
@@ -1617,7 +1661,7 @@ function forth (write) {
 		}
 
 		push(SFP)
-		SFP += length + 1
+		store(SFP+length+1, SFP_REG)
 	}
 
 	/**
@@ -1888,9 +1932,10 @@ function forth (write) {
 		}
 		else if (DSP_START_ADDR <= rts && rts < MEMORY_SIZE) {
 			// It is a colon-def. NEST
+			const IP = fetch(IP_REG)
 			push(IP)
 			TO_R()
-			IP = rts-8 // Because NEXT will increment it
+			store(rts - WS, IP_REG) // Because NEXT will increment it
 		}
 		else {
 			throw new Error('Invalid XT')
@@ -2148,7 +2193,7 @@ function forth (write) {
 	 */
 	function DOT_PAREN()
 	{
-		push(41) // ASCII code of paren: )
+		push(41) // ASCII code of close paren:
 		PARSE()  // ( char “ccc<char>” – c-addr u )
 		TYPE()   // ( c-addr u – )
 	}
@@ -2179,7 +2224,10 @@ function forth (write) {
 	 * Before executing EXIT within a do-loop, a program shall discard
 	 * the loop-control parameters by executing UNLOOP.
 	 */
-	function EXIT() { IP = rPop() }
+	function EXIT()
+	{
+		store(rPop(), IP_REG)
+	}
 
 	/**
 	 * ( -- )
@@ -2220,6 +2268,7 @@ function forth (write) {
 		setRTS('(branch)')
 
 		// Origin
+		const DS = fetch(DS_REG)
 		cfPush(DS)
 		push(0)
 		COMMA()
@@ -2238,6 +2287,7 @@ function forth (write) {
 		setRTS('(0branch)')
 
 		// orig for forward jump to ELSE or THEN
+		const DS = fetch(DS_REG)
 		cfPush(DS)
 		push(0)
 		COMMA()
@@ -2258,6 +2308,7 @@ function forth (write) {
 
 		// Set current addr to IF orig
 		const orig = cfPop()
+		const DS = fetch(DS_REG)
 		store(DS, orig)
 
 		// orig for forward jump to THEN
@@ -2273,6 +2324,7 @@ function forth (write) {
 	 */
 	function THEN()
 	{
+		const DS   = fetch(DS_REG)
 		const orig = cfPop()
 		if (orig === 14) {
 			// Skip LEAVE
@@ -2294,7 +2346,11 @@ function forth (write) {
 	 * ( -- )
 	 * Continue execution.
 	 */
-	function BEGIN() { cfPush(DS) }
+	function BEGIN()
+	{
+		const DS = fetch(DS_REG)
+		cfPush(DS)
+	}
 
 	/**
 	 * AGAIN - no interpretation
@@ -2346,6 +2402,7 @@ function forth (write) {
 
 		setRTS('(0branch)')
 
+		const DS = fetch(DS_REG)
 		cfPush(DS)
 		push(0)
 		COMMA()
@@ -2370,6 +2427,7 @@ function forth (write) {
 		COMMA()
 
 		const orig = cfPop()
+		const DS = fetch(DS_REG)
 		store(DS, orig)
 	}
 
@@ -2381,6 +2439,7 @@ function forth (write) {
 	function DO()
 	{
 		setRTS('(do)')
+		const DS = fetch(DS_REG)
 		cfPush(DS)
 	}
 
@@ -2394,6 +2453,7 @@ function forth (write) {
 	function QUESTION_DO()
 	{
 		setRTS('(?do)')
+		const DS = fetch(DS_REG)
 		cfPush(DS)
 	}
 
@@ -2405,6 +2465,7 @@ function forth (write) {
 		setRTS('(leave)')
 
 		// orig for forward jump to LOOP or +LOOP
+		const DS = fetch(DS_REG)
 		cfPush(DS)
 		push(0)
 		COMMA()
@@ -2440,10 +2501,11 @@ function forth (write) {
 	{
 		let flag = cfPop()
 
+		const DS = fetch(DS_REG)
 		while (flag === 14) {
 			// Forward branch for LEAVE
 			const orig = cfPop()
-			store(DS+8, orig)
+			store(DS + WS, orig)
 
 			flag = cfPop()
 		}
