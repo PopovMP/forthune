@@ -1,19 +1,38 @@
 'use strict'
 
+const WS = 8 /** word size */
+
+const S_REG                   =      0 // Data stack pointer
+const R_REG                   =      8 // Return stack pointer
+const CF_REG                  =     16 // Control-flow stack pointer
+const DS_REG                  =     24 // Data-space pointer
+const IP_REG                  =     40 // Instruction Pointer
+
+const TO_IN_ADDR              =     80 // Addr of input buffer pointer
+const INPUT_BUFFER_CHARS_ADDR =     88
+const INPUT_BUFFER_ADDR       =    120
+
+const CURRENT_DEF_ADDR        =     96 // Name a-addr of the latest definition
+const DATA_STACK_ADDR         =    376 // size 32 cells
+const RET_STACK_ADDR          =    632 // size 1050 cells
+const CONTROL_FLOW_ADDR       =  9_032 // size 32 cells
+const PARSE_WORD_ADDR         =  9_544 // size 32 cells
+const MEMORY_SIZE             = 64_000
+
 /**
  * Dumps the VM memory
  *
  * @param {HTMLElement} memDump
  * @param {(addr: number) => number} cFetch
- * @param {number} MEM_SIZE
+ * @param {(addr: number) => number} fetch
  */
-function dump(memDump, cFetch, MEM_SIZE)
+function dump(memDump, cFetch, fetch)
 {
 	const ADDR_STEP = 16
 	const lines = [		' Dec  Hex    0 1  2 3  4 5  6 7  8 9  A B  C D  E F ']
 	let previousLineText = ''
 	let isStar = false
-	for (let lineAddr = 0; lineAddr < MEM_SIZE; lineAddr += ADDR_STEP) {
+	for (let lineAddr = 0; lineAddr < MEMORY_SIZE; lineAddr += ADDR_STEP) {
 		let lineBytes = []
 		for (let addr = lineAddr; addr < lineAddr + ADDR_STEP; addr += 2) {
 			lineBytes.push(cFetch(addr))
@@ -71,10 +90,45 @@ function f64ToText(num)
  *
  * @param {HTMLElement} memDump
  * @param {(addr: number) => number} cFetch
+ * @param {(addr: number) => number} fetch
  */
-function debug(memDump, cFetch)
+function debug(memDump, cFetch, fetch)
 {
-	const lines = ['foo']
+	const S = fetch(S_REG)
+	let dsText = 'Data stack      : '
+	for (let addr = DATA_STACK_ADDR; addr < S ; addr += WS)
+		dsText += fetch(addr).toString(10) + ' '
+	dsText += '<top'
 
-	memDump.innerText = lines.join('\n')
+	const R = fetch(R_REG)
+	let retText = 'Return stack    : '
+	for (let addr = RET_STACK_ADDR; addr < R ; addr += WS)
+		retText += fetch(addr).toString(10) + ' '
+	retText += '<top'
+
+	const CF = fetch(CF_REG)
+	let cfText = 'Control stack   : '
+	for (let addr = CONTROL_FLOW_ADDR; addr < CF ; addr += WS)
+		cfText += fetch(addr).toString(10) + ' '
+	cfText += '<top'
+
+	const ipText         = 'IP register     : ' + fetch(IP_REG).toString(10)
+	const currentDefText = 'Current def addr: ' + fetch(CURRENT_DEF_ADDR).toString(10)
+	const dataSpaceText  = 'Data space reg  : ' + fetch(DS_REG).toString(10)
+
+	const toINAddr       = '>IN             : ' + fetch(TO_IN_ADDR).toString(10)
+	const inputBuffChars = 'Input buff chars: ' + fetch(INPUT_BUFFER_CHARS_ADDR).toString(10)
+	let   inputBuffer    = 'Input buffer    : '
+	const charsCount     = fetch(INPUT_BUFFER_CHARS_ADDR)
+	for (let i = 0; i < charsCount ; i += 1)
+		inputBuffer += String.fromCharCode(cFetch(INPUT_BUFFER_ADDR + i))
+
+	const parsedWordLen = cFetch(PARSE_WORD_ADDR)
+	let   parsedWord    = 'Parsed word     : '
+	for (let i = 0; i < parsedWordLen ; i += 1)
+		parsedWord += String.fromCharCode(cFetch(PARSE_WORD_ADDR + 1 + i))
+
+	memDump.innerText = dsText + '\n' + retText + '\n' + cfText + '\n' + ipText + '\n' +
+		currentDefText + '\n' + dataSpaceText + '\n' + toINAddr + '\n' + inputBuffChars  + '\n' +
+		inputBuffer + '\n' + parsedWord
 }

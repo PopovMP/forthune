@@ -2532,7 +2532,7 @@ function forth (write) {
 	}
 
 	// noinspection JSUnusedGlobalSymbols
-	return {interpret, pop, cFetch, MEMORY_SIZE}
+	return {interpret, pop, cFetch, fetch}
 }
 
 const moduleRef = module || {}

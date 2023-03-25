@@ -16,7 +16,8 @@ function application()
 	inputLine.addEventListener('keydown', inputLine_keydown)
 	importFile.addEventListener('change', importFile_change)
 	outputLog.addEventListener('click', () => inputLine.focus())
-	document.getElementById('show-dump').addEventListener('click', () => dump_click())
+	document.getElementById('show-dump' ).addEventListener('click', () => dump_click())
+	document.getElementById('show-debug').addEventListener('click', () => debug_click())
 	screen.addEventListener('click', () => inputLine.focus())
 	document.addEventListener('click', () => inputLine.focus())
 	inputLine.focus()
@@ -77,7 +78,12 @@ function application()
 
 	function dump_click()
 	{
-		dump(memDump, fth.cFetch, fth.MEMORY_SIZE)
+		dump(memDump, fth.cFetch, fth.fetch)
+	}
+
+	function debug_click()
+	{
+		debug(memDump, fth.cFetch, fth.fetch)
 	}
 
 	function compileCodeLine(inputLine)
