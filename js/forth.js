@@ -2101,6 +2101,9 @@ function forth (write) {
 		store(0, INPUT_BUFFER_CHARS_ADDR)
 		store(0, TO_IN_ADDR)
 
+		// Reset Instruction pointer
+		store(0, IP_REG)
+
 		// Enter Interpretation state
 		LEFT_BRACKET()
 	}
