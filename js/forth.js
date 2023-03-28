@@ -6,6 +6,7 @@
  * @return {{ interpret(text: string): void, pop(): number }}
  */
 function forth (write) {
+	const LEAVE_FLAG = 14 /** LEAVE magic flag */
 	const WS = 8 /** word size */
 
 	// Registers
@@ -2021,7 +2022,11 @@ function forth (write) {
 	 * CR ( -- )
 	 * Cause subsequent output to appear at the beginning of the next line.
 	 */
-	function CR() { write(10) }
+	function CR()
+	{
+		push(10) // Line Feed char code
+		EMIT()
+	}
 
 	/**
 	 * SPACE ( -- )
@@ -2329,13 +2334,13 @@ function forth (write) {
 	{
 		const DS   = fetch(DS_REG)
 		const orig = cfPop()
-		if (orig === 14) {
+		if (orig === LEAVE_FLAG) {
 			// Skip LEAVE
 			const leaveOrig = cfPop()
 			const ifOrig    = cfPop()
 			store(DS, ifOrig)
 			cfPush(leaveOrig)
-			cfPush(14) // LEAVE flag
+			cfPush(LEAVE_FLAG) // LEAVE flag
 		}
 		else {
 			store(DS, orig)
@@ -2344,9 +2349,9 @@ function forth (write) {
 
 	/**
 	 * BEGIN - no interpretation semantics
-	 * ( C: -- dest )
+	 * Compilation: ( C: -- dest )
 	 * Put the next location for a transfer of control, dest, onto the control flow stack.
-	 * ( -- )
+	 * Run-time: ( -- )
 	 * Continue execution.
 	 */
 	function BEGIN()
@@ -2462,6 +2467,9 @@ function forth (write) {
 
 	/**
 	 * LEAVE - no interpretation
+	 * Execution: ( -- ) ( R: loop-sys -- )
+	 * Discard the current loop control parameters.
+	 * Continue execution immediately following the innermost syntactically enclosing DO...LOOP or DO...+LOOP.
 	 */
 	function LEAVE()
 	{
@@ -2472,7 +2480,7 @@ function forth (write) {
 		cfPush(DS)
 		push(0)
 		COMMA()
-		cfPush(14) // LEAVE flag
+		cfPush(LEAVE_FLAG) // LEAVE flag
 	}
 
 	/**
@@ -2505,7 +2513,7 @@ function forth (write) {
 		let flag = cfPop()
 
 		const DS = fetch(DS_REG)
-		while (flag === 14) {
+		while (flag === LEAVE_FLAG) {
 			// Forward branch for LEAVE
 			const orig = cfPop()
 			store(DS + WS, orig)
