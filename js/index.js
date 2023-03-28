@@ -70,10 +70,22 @@ function application()
 	 */
 	function write(char)
 	{
-		const newText  = char === 10 ? '\n' : 31 < char && char < 127 ? String.fromCharCode(char) : '?'
-		const fullText = outputLog.innerText + newText
+		if (char === 10) {
+			// Line Feed
+			outputLog.innerText += '\n'
+		}
+		else if (char === 12) {
+			// Form Feed
+			outputLog.innerText = ''
+		}
+		else if (31 < char && char < 127) {
+			outputLog.innerText += String.fromCharCode(char)
+		}
+		else {
+			throw new Error('Non-printable char code: ' + char)
+		}
 
-		outputLog.innerText = fullText.split('\n').slice(-OUTPUT_LINES).join('\n')
+		outputLog.innerText = outputLog.innerText.split('\n').slice(-OUTPUT_LINES).join('\n')
 	}
 
 	function dump_click()

@@ -517,6 +517,7 @@ function forth (write) {
 		addWord('COUNT',      COUNT,           0)
 		addWord('EMIT',       EMIT,            0)
 		addWord('TYPE',       TYPE,            0)
+		addWord('PAGE',       PAGE,            0)
 		addWord('>IN',        TO_IN,           0)
 		addWord('SOURCE',     SOURCE,          0)
 		addWord('PARSE',      PARSE,           0)
@@ -1486,6 +1487,17 @@ function forth (write) {
 			EMIT()
 			index += 1
 		}
+	}
+
+	/**
+	 * ( -- )
+	 * Move to another page for output.
+	 * On a terminal, PAGE clears the screen and resets the cursor position to the upper left corner.
+	 */
+	function PAGE()
+	{
+		push(12) // Form Feed
+		EMIT()
 	}
 
 	/**
