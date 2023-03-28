@@ -448,21 +448,21 @@ function forth (write) {
 
 	function addWords()
 	{
-		addWord('(variable)', variableRTS,     0)
-		addWord('(constant)', constantRTS,     0)
-		addWord('(value)',    valueRTS,        0)
-		addWord('(literal)',  literalRTS,      0)
-		addWord('(exit)',     unNestRTS,       0)
-		addWord('(postpone)', postponeRTS,     0)
-		addWord('(0branch)',  zeroBranchRTS,   0)
-		addWord('(branch)',   branchRTS,       0)
-		addWord('(do)',       doRTS,           0)
-		addWord('(?do)',      questionDoRTS,   0)
-		addWord('(loop)',     loopRTS,         0)
-		addWord('(+loop)',    plusLoopRTS,     0)
-		addWord('(i)',        iRTS,            0)
-		addWord('(j)',        jRTS,            0)
-		addWord('(leave)',    leaveRTS,        0)
+		addWord('(VARIABLE)', variableRTS,     0)
+		addWord('(CONSTANT)', constantRTS,     0)
+		addWord('(VALUE)',    valueRTS,        0)
+		addWord('(LITERAL)',  literalRTS,      0)
+		addWord('(EXIT)',     unNestRTS,       0)
+		addWord('(POSTPONE)', postponeRTS,     0)
+		addWord('(0BRANCH)',  zeroBranchRTS,   0)
+		addWord('(BRANCH)',   branchRTS,       0)
+		addWord('(DO)',       doRTS,           0)
+		addWord('(?DO)',      questionDoRTS,   0)
+		addWord('(LOOP)',     loopRTS,         0)
+		addWord('(+LOOP)',    plusLoopRTS,     0)
+		addWord('(I)',        iRTS,            0)
+		addWord('(J)',        jRTS,            0)
+		addWord('(LEAVE)',    leaveRTS,        0)
 		addWord('+',          SUM,             0)
 		addWord('-',          MINUS,           0)
 		addWord('*',          STAR,            0)
@@ -695,7 +695,7 @@ function forth (write) {
 		let   index = pop()
 		const limit = pop()
 		if (index === limit)
-			setRTS('(leave)')
+			setRTS('(LEAVE)')
 
 		rPush(limit)
 		rPush(index)
@@ -1633,7 +1633,7 @@ function forth (write) {
 	 */
 	function LITERAL()
 	{
-		setRTS('(literal)')
+		setRTS('(LITERAL)')
 		COMMA() // ( x -- )
 	}
 
@@ -2216,7 +2216,7 @@ function forth (write) {
 		const flag = cFetch(nfa+31) & ~Hidden
 		cStore(flag, nfa+31)
 
-		setRTS('(exit)')
+		setRTS('(EXIT)')
 
 		// Exit compilation state
 		LEFT_BRACKET()
@@ -2256,7 +2256,7 @@ function forth (write) {
 	{
 		TICK() // ( -- xt )
 		LITERAL()
-		setRTS('(postpone)')
+		setRTS('(POSTPONE)')
 	}
 
 	/**
@@ -2270,7 +2270,7 @@ function forth (write) {
 	 */
 	function AHEAD()
 	{
-		setRTS('(branch)')
+		setRTS('(BRANCH)')
 
 		// Origin
 		const DS = fetch(DS_REG)
@@ -2289,7 +2289,7 @@ function forth (write) {
 	 */
 	function IF()
 	{
-		setRTS('(0branch)')
+		setRTS('(0BRANCH)')
 
 		// orig for forward jump to ELSE or THEN
 		const DS = fetch(DS_REG)
@@ -2309,7 +2309,7 @@ function forth (write) {
 	function ELSE()
 	{
 		// When fall through IF branch to THEN
-		setRTS('(branch)')
+		setRTS('(BRANCH)')
 
 		// Set current addr to IF orig
 		const orig = cfPop()
@@ -2367,7 +2367,7 @@ function forth (write) {
 	 */
 	function AGAIN()
 	{
-		setRTS('(branch)')
+		setRTS('(BRANCH)')
 
 		// Backward jump
 		const dest = cfPop()
@@ -2385,7 +2385,7 @@ function forth (write) {
 	 */
 	function UNTIL()
 	{
-		setRTS('(0branch)')
+		setRTS('(0BRANCH)')
 
 		const dest = cfPop()
 		push(dest)
@@ -2405,7 +2405,7 @@ function forth (write) {
 	{
 		const dest = cfPop()
 
-		setRTS('(0branch)')
+		setRTS('(0BRANCH)')
 
 		const DS = fetch(DS_REG)
 		cfPush(DS)
@@ -2425,7 +2425,7 @@ function forth (write) {
 	 */
 	function REPEAT()
 	{
-		setRTS('(branch)')
+		setRTS('(BRANCH)')
 
 		const dest = cfPop()
 		push(dest)
@@ -2443,7 +2443,7 @@ function forth (write) {
 	 */
 	function DO()
 	{
-		setRTS('(do)')
+		setRTS('(DO)')
 		const DS = fetch(DS_REG)
 		cfPush(DS)
 	}
@@ -2457,7 +2457,7 @@ function forth (write) {
 	 */
 	function QUESTION_DO()
 	{
-		setRTS('(?do)')
+		setRTS('(?DO)')
 		const DS = fetch(DS_REG)
 		cfPush(DS)
 	}
@@ -2470,7 +2470,7 @@ function forth (write) {
 	 */
 	function LEAVE()
 	{
-		setRTS('(leave)')
+		setRTS('(LEAVE)')
 
 		// orig for forward jump to LOOP or +LOOP
 		const DS = fetch(DS_REG)
@@ -2488,7 +2488,7 @@ function forth (write) {
 	 */
 	function LOOP()
 	{
-		setRTS('(loop)')
+		setRTS('(LOOP)')
 		loopSys()
 	}
 
@@ -2501,7 +2501,7 @@ function forth (write) {
 	 */
 	function PLUS_LOOP()
 	{
-		setRTS('(+loop)')
+		setRTS('(+LOOP)')
 		loopSys()
 	}
 
@@ -2524,10 +2524,10 @@ function forth (write) {
 	}
 
 	/** I ( -- n ) */
-	function I() { setRTS('(i)') }
+	function I() { setRTS('(I)') }
 
 	/** J ( -- n ) */
-	function J() { setRTS('(j)') }
+	function J() { setRTS('(J)') }
 
 	/**
 	 *  \  Execution: ( "ccc<eol>" -- )
