@@ -12,7 +12,10 @@ function write(char)
 		return
 	}
 
-	const text = 31 < char && char < 127 ? String.fromCharCode(char) : '?'
+	if (char < 32 && char > 126)
+		throw new Error('Non-printable char code: ' + char)
+
+	const text = String.fromCharCode(char)
 	process.stdout.write(text, 'ascii')
 }
 
