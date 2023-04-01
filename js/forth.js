@@ -551,8 +551,9 @@ function forth (write) {
 		addWord(']',          RIGHT_BRACKET,   0)
 		addWord('[',          LEFT_BRACKET,    0|Immediate|NoInterpretation)
 		addWord(':',          COLON,           0|Immediate)
-		addWord('(',          PAREN,           0|Immediate|NoInterpretation)
-		addWord('.(',         DOT_PAREN,       0|Immediate|NoInterpretation)
+		addWord('(',          PAREN,           0|Immediate)
+		addWord('.(',         DOT_PAREN,       0|Immediate)
+		addWord('\\',         BACKSLASH,       0|Immediate)
 		addWord(';',          SEMICOLON,       0|Immediate|NoInterpretation)
 		addWord('SEE',        SEE,             0)
 		addWord('EXIT',       EXIT,            0|NoInterpretation)
@@ -574,7 +575,6 @@ function forth (write) {
 		addWord('+LOOP',      PLUS_LOOP,       0|Immediate|NoInterpretation)
 		addWord('I',          I,               0|Immediate|NoInterpretation)
 		addWord('J',          J,               0|Immediate|NoInterpretation)
-		addWord('\\',         BACKSLASH,       0|Immediate)
 	}
 
 	// -------------------------------------
@@ -2216,6 +2216,16 @@ function forth (write) {
 	}
 
 	/**
+	 *  \  Execution: ( "ccc<eol>" -- )
+	 * Parse and discard the remainder of the parse area. \ is an immediate word.
+	 */
+	function BACKSLASH()
+	{
+		store(0, TO_IN_ADDR)
+		store(0, INPUT_BUFFER_CHARS_ADDR)
+	}
+
+	/**
 	 * ; ( C: colon-sys -- ) ( R: nest-sys -- )
 	 * End the current definition, allow it to be found in the dictionary and
 	 * enter interpretation state, consuming colon-sys.
@@ -2540,16 +2550,6 @@ function forth (write) {
 
 	/** J ( -- n ) */
 	function J() { setRTS('(J)') }
-
-	/**
-	 *  \  Execution: ( "ccc<eol>" -- )
-	 * Parse and discard the remainder of the parse area. \ is an immediate word.
-	 */
-	function BACKSLASH()
-	{
-		store(0, TO_IN_ADDR)
-		store(0, INPUT_BUFFER_CHARS_ADDR)
-	}
 
 	// noinspection JSUnusedGlobalSymbols
 	return {interpret, pop, cFetch, fetch}

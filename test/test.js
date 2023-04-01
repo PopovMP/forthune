@@ -141,6 +141,11 @@ function testReady()
 	assert('Hello World by chars', 1, 1)
 })();
 
+(function () {
+	interpret(`21 ( foo ) dup .( interpreter ) + CR \\ Comments in`)
+	assert('Comments in interpreter', 42, pop())
+})();
+
 // Colon def
 
 (function () {
