@@ -113,6 +113,8 @@ function forth (write) {
 	function push(x)
 	{
 		const S = fetch(S_REG)
+		if (S > RET_STACK_ADDR - WS)
+			throw new Error('Stack overflow')
 		store(x, S)
 		store(S + WS, S_REG)
 	}
@@ -140,8 +142,8 @@ function forth (write) {
 	{
 		const S = fetch(S_REG)
 		const ptr = S - WS - (i * WS)
-		if (ptr < DATA_STACK_ADDR)
-			throw new Error('Stack underflow')
+		if (ptr > RET_STACK_ADDR - WS || ptr < DATA_STACK_ADDR)
+			throw new Error('Stack out of range')
 
 		return fetch(ptr)
 	}
@@ -173,6 +175,8 @@ function forth (write) {
 	function rPush(x)
 	{
 		const R = fetch(R_REG)
+		if (R > CONTROL_FLOW_ADDR - WS)
+			throw new Error('Return stack overflow')
 		store(x, R)
 		store(R + WS, R_REG)
 	}
@@ -184,8 +188,8 @@ function forth (write) {
 	function rPop()
 	{
 		const R = fetch(R_REG)
-		if (R === RET_STACK_ADDR)
-			throw new Error('Stack underflow')
+		if (R <= RET_STACK_ADDR)
+			throw new Error('Return stack underflow')
 		store(R - WS, R_REG)
 
 		return fetch(R - WS)
@@ -200,8 +204,8 @@ function forth (write) {
 	{
 		const R = fetch(R_REG)
 		const ptr = R - WS - (i * WS)
-		if (ptr < RET_STACK_ADDR)
-			throw new Error('Stack underflow')
+		if (ptr > CONTROL_FLOW_ADDR - WS || ptr < RET_STACK_ADDR)
+			throw new Error('Return stack out of range')
 
 		return fetch(ptr)
 	}
@@ -233,6 +237,8 @@ function forth (write) {
 	function cfPush(x)
 	{
 		const CF = fetch(CF_REG)
+		if (CF > POD_ADDR + WS)
+			throw new Error('Stack overflow')
 		store(x, CF)
 		store(CF + WS, CF_REG)
 	}
@@ -244,7 +250,7 @@ function forth (write) {
 	function cfPop()
 	{
 		const CF = fetch(CF_REG)
-		if (CF === CONTROL_FLOW_ADDR)
+		if (CF <= CONTROL_FLOW_ADDR)
 			throw new Error('Stack underflow')
 		store(CF - WS, CF_REG)
 
@@ -420,6 +426,8 @@ function forth (write) {
 
 	/**
 	 * ( -- cAddr ) Stores text in POD
+	 * @param {string} text - text to add to POD
+	 * @return {void}
 	 */
 	function tempText(text)
 	{
@@ -438,6 +446,7 @@ function forth (write) {
 
 	/**
 	 * Types word from the PARSED_WORD buffer
+	 * @return {void}
 	 */
 	function typeParsedWord()
 	{
@@ -446,6 +455,9 @@ function forth (write) {
 		TYPE()
 	}
 
+	/**
+	 * Adds all known words to the dictionary
+	 */
 	function addWords()
 	{
 		addWord('(VARIABLE)', variableRTS,     0|NoInterpretation)
@@ -676,6 +688,7 @@ function forth (write) {
 	 * Set up loop control parameters with index n2 | u2 and limit n1 | u1.
 	 * An ambiguous condition exists if n1 | u1 and n2 | u2 are not both the same type.
 	 * Anything already on the return stack becomes unavailable until the loop-control parameters are discarded.
+	 * @return {void}
 	 */
 	function doRTS()
 	{
@@ -690,6 +703,7 @@ function forth (write) {
 	 * If n1 | u1 is equal to n2 | u2, continue execution at the location given by the consumer of do-sys.
 	 * Otherwise, set up loop control parameters with index n2 | u2 and limit n1 | u1 and continue executing
 	 * immediately following ?DO.
+	 * @return {void}
 	 */
 	function questionDoRTS()
 	{
@@ -708,6 +722,7 @@ function forth (write) {
 	 * If the loop index is then equal to the loop limit,
 	 * discard the loop parameters and continue execution immediately following the loop.
 	 * Otherwise, continue execution at the beginning of the loop.
+	 * @return {void}
 	 */
 	function loopRTS()
 	{
@@ -732,6 +747,7 @@ function forth (write) {
 	 * If the loop index did not cross the boundary between the loop limit minus one and the loop limit,
 	 * continue execution at the beginning of the loop.
 	 * Otherwise, discard the current loop control parameters and continue execution immediately following the loop.
+	 * @return {void}
 	 */
 	function plusLoopRTS()
 	{
@@ -755,12 +771,14 @@ function forth (write) {
 	/**
 	 * (i) ( -- n | u ) ( R: loop-sys -- loop-sys )
 	 * n | u is a copy of the current (innermost) loop index.
+	 * @return {void}
 	 */
 	function iRTS() { push( rPick(0) ) }
 
 	/**
 	 * (j) ( -- n | u ) ( R: loop-sys1 loop-sys2 -- loop-sys1 loop-sys2 )
 	 * n | u is a copy of the next-outer loop index.
+	 * @return {void}
 	 */
 	function jRTS() { push( rPick(2) ) }
 
