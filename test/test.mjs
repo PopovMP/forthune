@@ -1,5 +1,5 @@
-const process = require('node:process')
-const {forth} = require('../js/forth.js')
+import {stdout} from 'node:process'
+import {forth}  from '../js/forth.mjs'
 
 /**
  * Prints a character
@@ -8,7 +8,7 @@ const {forth} = require('../js/forth.js')
 function write(char)
 {
 	if (char === 10) {
-		process.stdout.write('\n', 'ascii')
+		stdout.write('\n', 'ascii')
 		return
 	}
 
@@ -16,7 +16,7 @@ function write(char)
 		throw new Error('Non-printable char code: ' + char)
 
 	const text = String.fromCharCode(char)
-	process.stdout.write(text, 'ascii')
+	stdout.write(text, 'ascii')
 }
 
 const {interpret, pop} = forth(write)

@@ -3,9 +3,9 @@
 /**
  * Forth interpreter
  * @param { (charCode: number) => void } write
- * @return {{ interpret(text: string): void, pop(): number }}
+ * @return {{ interpret(text: string): void, pop(): number, cFetch(addr: number): number, fetch(addr: number): number }}
  */
-function forth (write) {
+export function forth (write) {
 	const LEAVE_FLAG = 14 /** LEAVE magic flag */
 	const WS = 8 /** word size */
 
@@ -2572,6 +2572,3 @@ function forth (write) {
 	// noinspection JSUnusedGlobalSymbols
 	return {interpret, pop, cFetch, fetch}
 }
-
-const moduleRef = module || {}
-moduleRef.exports = {forth}

@@ -8,7 +8,6 @@
 </head>
 <body>
 
-
 <div class="container">
   <div class="row center">
     <h1>Forthune</h1>
@@ -41,16 +40,11 @@
 </div>
 
 <!--suppress JSUnusedGlobalSymbols -->
-<script>
+<script type="module">
 	'use strict'
-	const module = {exports: {}}
-</script>
-<script src="js/forth.js"></script>
-<script src="js/dump.js"></script>
-<script src="js/index.js"></script>
-<script>
-	'use strict'
-	window.addEventListener('load', () => {
+    import {application} from './js/index.mjs'
+
+    window.addEventListener('load', () => {
 		application()
 	})
 </script>

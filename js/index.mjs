@@ -1,6 +1,9 @@
 'use strict'
 
-function application()
+import {forth} from './forth.mjs'
+import {dump, debug} from './dump.mjs'
+
+export function application()
 {
 	const OUTPUT_LINES = 24
 	const fth = forth(write.bind(this))
@@ -90,7 +93,7 @@ function application()
 
 	function dump_click()
 	{
-		dump(memDump, fth.cFetch, fth.fetch)
+		dump(memDump, fth.cFetch)
 	}
 
 	function debug_click()

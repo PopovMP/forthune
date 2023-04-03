@@ -24,9 +24,8 @@ const MEMORY_SIZE             = 64_000
  *
  * @param {HTMLElement} memDump
  * @param {(addr: number) => number} cFetch
- * @param {(addr: number) => number} fetch
  */
-function dump(memDump, cFetch, fetch)
+export function dump(memDump, cFetch)
 {
 	const ADDR_STEP = 16
 	const lines = [		' Dec  Hex    0 1  2 3  4 5  6 7  8 9  A B  C D  E F ']
@@ -92,7 +91,7 @@ function f64ToText(num)
  * @param {(addr: number) => number} cFetch
  * @param {(addr: number) => number} fetch
  */
-function debug(memDump, cFetch, fetch)
+export function debug(memDump, cFetch, fetch)
 {
 	const S = fetch(S_REG)
 	let dsText = 'Data stack      : '
