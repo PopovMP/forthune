@@ -304,7 +304,7 @@ export function forth (write) {
 
 	/**
 	 * Interprets forth code.
-	 * Shows output via `write` and exposes data via `pop`
+	 * Shows output via 'write' and exposes data via 'pop'
 	 * @param {string} text - max 254 chars length
 	 */
 	function interpret(text)
@@ -350,9 +350,7 @@ export function forth (write) {
 				DROP() // c-addr
 				if (!isCompiling) {
 					SPACE()
-					tempText('ok')
-					COUNT()
-					TYPE()
+					typeText('ok')
 				}
 				CR()
 				break
@@ -418,10 +416,15 @@ export function forth (write) {
 		ABORT()
 		typeParsedWord()
 		SPACE()
-		tempText(message)
+		typeText(message)
+		CR()
+	}
+
+	function typeText(text)
+	{
+		tempText(text)
 		COUNT()
 		TYPE()
-		CR()
 	}
 
 	/**
@@ -803,7 +806,7 @@ export function forth (write) {
 		FIND()
 		const flag = pop()
 		if (flag === 0)
-			throw new Error(`Cannot find RTS: ${word}`)
+			throw new Error('Cannot find RTS: ' + word)
 		COMPILE_COMMA()
 	}
 
@@ -830,14 +833,10 @@ export function forth (write) {
 			DOT()
 			SPACE()
 			SPACE()
-			tempText(_wordName[wordAddr])
-			COUNT()
-			TYPE()
+			typeText(_wordName[wordAddr])
 			SPACE()
 			SPACE()
-			tempText('native word')
-			COUNT()
-			TYPE()
+			typeText('native word')
 			CR()
 			return
 		}
@@ -854,9 +853,7 @@ export function forth (write) {
 			if (cFetch(wordAddr-17) & Immediate) {
 				SPACE()
 				SPACE()
-				tempText('IMMEDIATE')
-				COUNT()
-				TYPE()
+				typeText('IMMEDIATE')
 			}
 			CR()
 		}
@@ -877,9 +874,7 @@ export function forth (write) {
 
 			if (NATIVE_RTS_ADDR <= xtAddr && xtAddr < DSP_START_ADDR) {
 				// It is a native word
-				tempText(_wordName[xtAddr])
-				COUNT()
-				TYPE()
+				typeText(_wordName[xtAddr])
 			}
 			else if (DSP_START_ADDR <= xtAddr && xtAddr < STRING_FIELD_ADDR) {
 				// It is a colon-def
@@ -2085,9 +2080,7 @@ export function forth (write) {
 	function DOT()
 	{
 		const n = pop()
-		tempText('' + n)
-		COUNT()
-		TYPE()
+		typeText('' + n)
 		SPACE()
 	}
 
@@ -2107,9 +2100,7 @@ export function forth (write) {
 			index += 1
 		}
 
-		tempText('<top')
-		COUNT()
-		TYPE()
+		typeText('<top')
 	}
 
 	/**
@@ -2158,7 +2149,7 @@ export function forth (write) {
 	 * a-addr is the address of a cell containing the compilation-state flag.
 	 * STATE is true when in compilation state, false otherwise.
 	 * Only the following standard words alter the value in STATE:
-	 * `:`,  `;`,  `ABORT`, `QUIT`, `:NONAME`, `[`,  `]`
+	 * ':',  ';',  'ABORT', 'QUIT', ':NONAME', '[',  ']'
 	 */
 	function STATE() { push(STATE_ADDR) }
 
