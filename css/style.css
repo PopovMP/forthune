@@ -29,11 +29,6 @@ button {
     margin-right: auto;
 }
 
-.inverse {
-    color: #181818;
-    background-color: #3fa00b;
-}
-
 .terminal {
     display: block;
     font-size: 20px;
@@ -76,18 +71,3 @@ button {
     color: #ffffff;
 }
 
-.btn-secondary {
-    background-color: darkcyan;
-}
-
-.btn-primary {
-    background-color: cornflowerblue;
-}
-
-.btn-warning {
-    background-color: coral;
-}
-
-.btn-success {
-    background-color: green;
-}
