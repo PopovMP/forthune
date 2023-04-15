@@ -224,7 +224,7 @@ export function forth (write) {
 	{
 		const CF = fetch(CF_REG)
 		if (CF > POD_ADDR + WS)
-			throw new Error('Stack overflow')
+			throw new Error('Control stack overflow')
 		store(x, CF)
 		store(CF + WS, CF_REG)
 	}
@@ -237,7 +237,7 @@ export function forth (write) {
 	{
 		const CF = fetch(CF_REG)
 		if (CF <= CONTROL_FLOW_ADDR)
-			throw new Error('Stack underflow')
+			throw new Error('Control stack underflow')
 		store(CF - WS, CF_REG)
 
 		return fetch(CF - WS)
@@ -697,11 +697,11 @@ export function forth (write) {
 	{
 		let   index = pop()
 		const limit = pop()
-		if (index === limit)
-			setRTS('(LEAVE)')
-
 		rPush(limit)
 		rPush(index)
+
+		if (index === limit)
+			leaveRTS()
 	}
 
 	/**
@@ -2460,7 +2460,13 @@ export function forth (write) {
 	function QUESTION_DO()
 	{
 		setRTS('(?DO)')
-		cfPush( fetch(DS_REG))
+		cfPush( fetch(DS_REG) )
+
+		// orig for forward jump to LOOP or +LOOP
+		cfPush( fetch(DS_REG) )
+		push(0)
+		COMMA()
+		cfPush(LEAVE_FLAG) // LEAVE flag
 	}
 
 	/**

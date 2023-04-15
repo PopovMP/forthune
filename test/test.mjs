@@ -365,4 +365,16 @@ function testReady()
 	assert('do5', 42, pop())
 })();
 
+// ?DO LOOP
+
+(function () {
+	interpret(`: ?do1 1 ?DO 1 + LOOP ;  1 42 ?do1 .S`)
+	assert('?do1 leave', 42, pop())
+})();
+
+(function () {
+	interpret(`: ?do2 3 3 ?DO DROP 13 LEAVE LOOP ;   42 ?do2 .S`)
+	assert('?do2 leave', 42, pop())
+})();
+
 testReady()
