@@ -295,13 +295,23 @@ function testReady()
 })();
 
 (function () {
-	interpret(`: if4 0 IF 13 ELSE 42 THEN ;   if4   .S`)
+	interpret(`: if4   0 IF 13 ELSE 42 THEN   ;   if4 .S`)
 	assert('0 IF ELSE', 42, pop())
 })();
 
 (function () {
 	interpret(`: if5 0 IF 13 ELSE if3 THEN ;   if5   .S`)
-	assert('0 IF ELSE', 42, pop())
+	assert('0 IF ELSE 2', 42, pop())
+})();
+
+(function () {
+	interpret(`: do_if 10 0 DO   I 5 = IF 42 THEN   LOOP ;   do_if   .S`)
+	assert('DO IF', 42, pop())
+})();
+
+(function () {
+	interpret(`: do_if_else 0 10 0 DO   I 5 = IF drop 7 ELSE drop 42 THEN   LOOP ;   do_if_else   .S`)
+	assert('DO IF ELSE', 42, pop())
 })();
 
 // BEGIN UNTIL

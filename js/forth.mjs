@@ -2325,7 +2325,7 @@ export function forth (write) {
 		// Set current addr to IF orig
 		const orig = cfPop()
 		const DS = fetch(DS_REG)
-		store(DS, orig)
+		store(DS + WS, orig)
 
 		// orig for forward jump to THEN
 		cfPush(DS)
