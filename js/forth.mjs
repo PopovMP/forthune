@@ -1433,7 +1433,11 @@ export function forth (write) {
 	{
 		const n = pop()
 		TICK()
-		const xt  = pop()
+		const xt = pop()
+		const rts= xt % 100_000
+		if (_wordName[rts] !== '(VALUE)')
+			throw new Error(`TO requires VALUE. Got: ${_wordName[rts]}`)
+
 		const pfa = Math.floor(xt / 100_000)
 		store(n, pfa)
 	}
