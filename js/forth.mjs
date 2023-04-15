@@ -152,20 +152,13 @@ export function forth (write) {
 	 * Gets the stack depth
 	 * @return {number}
 	 */
-	function depth()
-	{
-		const S = fetch(S_REG)
-		return ((S - DATA_STACK_ADDR) / WS)
-	}
+	function depth() { return ((fetch(S_REG) - DATA_STACK_ADDR) / WS) }
 
 	/**
 	 * Empties stack
 	 * @return {void}
 	 */
-	function empty()
-	{
-		store(DATA_STACK_ADDR, S_REG)
-	}
+	function empty() { store(DATA_STACK_ADDR, S_REG) }
 
 	/**
 	 * Pushes a number to return stack.
@@ -214,20 +207,13 @@ export function forth (write) {
 	 * Gets the return stack depth
 	 * @return {number}
 	 */
-	function rDepth()
-	{
-		const R = fetch(R_REG)
-		return ((R - RET_STACK_ADDR) / WS)
-	}
+	function rDepth() { return ((fetch(R_REG) - RET_STACK_ADDR) / WS) }
 
 	/**
 	 * Empties return stack
 	 * @return {void}
 	 */
-	function rEmpty()
-	{
-		store(RET_STACK_ADDR, R_REG)
-	}
+	function rEmpty() { store(RET_STACK_ADDR, R_REG) }
 
 	/**
 	 * Pushes a number to control-flow stack.
@@ -342,12 +328,9 @@ export function forth (write) {
 
 			PARSE_NAME() // ( -- c-addr u)
 
-			DUP()
-			const nameLen = pop()
-			if (nameLen === 0) {
+			if (pick(0) === 0) {
 				// No more words
-				DROP() // u
-				DROP() // c-addr
+				TWO_DROP()
 				if (!isCompiling) {
 					SPACE()
 					typeText('ok')
@@ -508,6 +491,8 @@ export function forth (write) {
 		addWord('ROT',        ROT,             0)
 		addWord('TUCK',       TUCK,            0)
 		addWord('DEPTH',      DEPTH,           0)
+		addWord('2DROP',      TWO_DROP,        0)
+		addWord('2DUP',       TWO_DUP,         0)
 		addWord('R>',         R_FROM,          0|NoInterpretation)
 		addWord('>R',         TO_R,            0|NoInterpretation)
 		addWord('R@',         R_FETCH,         0|NoInterpretation)
@@ -997,47 +982,32 @@ export function forth (write) {
 	 * 0= ( x -- flag )
 	 * flag is true if and only if x is equal to zero.
 	 */
-	function ZERO_EQUALS()
-	{
-		const x = pop()
-		push(x === 0 ? -1 : 0)
-	}
+	function ZERO_EQUALS() { push(pop() === 0 ? -1 : 0) }
 
 	/**
 	 * 0< ( x -- flag )
 	 * flag is true if and only if n is less than zero.
 	 */
-	function ZERO_LESS()
-	{
-		const x = pop()
-		push(x < 0 ? -1 : 0)
-	}
+	function ZERO_LESS() { push(pop() < 0 ? -1 : 0) }
 
 	/**
 	 * 0> ( x -- flag )
 	 * flag is true if and only if n is greater than zero.
 	 */
-	function ZERO_GREATER()
-	{
-		const x = pop()
-		push(x > 0 ? -1 : 0)
-	}
+	function ZERO_GREATER() { push(pop() > 0 ? -1 : 0) }
 
 	/**
 	 * 0<> ( x -- flag )
 	 * flag is true if and only if x is not equal to zero.
 	 */
-	function ZERO_NOT_EQUALS()
-	{
-		const x = pop()
-		push(x !== 0 ? -1 : 0)
-	}
+	function ZERO_NOT_EQUALS() { push(pop() !== 0 ? -1 : 0) }
 
 	/**
 	 * MAX ( n1 n2 -- n3 )
 	 * n3 is the greatest of n1 and n2.
 	 */
-	function MAX() {
+	function MAX()
+	{
 		const n2 = pop()
 		const n1 = pop()
 		push(n1 > n2 ? n1 : n2)
@@ -1047,7 +1017,8 @@ export function forth (write) {
 	 * MIN ( n1 n2 -- n3 )
 	 * n3 is the lowest of n1 and n2.
 	 */
-	function MIN() {
+	function MIN()
+	{
 		const n2 = pop()
 		const n1 = pop()
 		push(n1 < n2 ? n1 : n2)
@@ -1063,7 +1034,8 @@ export function forth (write) {
 	 * / ( n1 n2 -- n3 )
 	 * Divide n1 by n2, giving the single-cell remainder n3.
 	 */
-	function MOD() {
+	function MOD()
+	{
 		const n2 = pop()
 		const n1 = pop()
 		push(n1 % n2)
@@ -1089,7 +1061,7 @@ export function forth (write) {
 	 * DROP ( x -- )
 	 * Remove x from the stack.
 	 */
-	function DROP()	{ pop() }
+	function DROP() { pop() }
 
 	/**
 	 * DUP ( x -- x x )
@@ -1112,12 +1084,7 @@ export function forth (write) {
 	 * PICK ( xu...x1 x0 u -- xu...x1 x0 xu )
 	 * Remove u. Copy the xu to the top of the stack.
 	 */
-	function PICK()
-	{
-		const u  = pop()
-		const xu = pick(u)
-		push(xu)
-	}
+	function PICK() { push( pick( pop() )) }
 
 	/**
 	 * OVER ( x1 x2 -- x1 x2 x1 )
@@ -1182,6 +1149,26 @@ export function forth (write) {
 	 */
 	function DEPTH() { push( depth() ) }
 
+	/**
+	 * 2DROP ( x1 x2 -- )
+	 * Drop cell pair x1 x2 from the stack.
+	 */
+	function TWO_DROP()
+	{
+		DROP()
+		DROP()
+	}
+
+	/**
+	 * 2DUP ( x1 x2 -- x1 x2 x1 x2 )
+	 * Duplicate cell pair x1 x2.
+	 */
+	function TWO_DUP()
+	{
+		OVER()
+		OVER()
+	}
+
 	// -------------------------------------
 	// Return Stack Operations
 	// ------------------------------------
@@ -1224,11 +1211,7 @@ export function forth (write) {
 	 * HERE ( -- addr )
 	 * Pushes the data-space pointer to the stack.
 	 */
-	function HERE()
-	{
-		const DS = fetch(DS_REG)
-		push(DS)
-	}
+	function HERE() { push( fetch(DS_REG) ) }
 
 	/**
 	 * ALIGNED ( addr -- a-addr )
@@ -1478,11 +1461,7 @@ export function forth (write) {
 	 * EMIT ( x -- )
 	 * If x is a graphic character in the implementation-defined character set, display x.
 	 */
-	function EMIT()
-	{
-		const char = pop()
-		write(char)
-	}
+	function EMIT() { write( pop() ) }
 
 	/**
 	 * TYPE ( c-addr u -- )
@@ -2260,10 +2239,7 @@ export function forth (write) {
 	 * Before executing EXIT within a do-loop, a program shall discard
 	 * the loop-control parameters by executing UNLOOP.
 	 */
-	function EXIT()
-	{
-		store(rPop(), IP_REG)
-	}
+	function EXIT() { store(rPop(), IP_REG) }
 
 	/**
 	 * ( -- )
@@ -2382,11 +2358,7 @@ export function forth (write) {
 	 * Run-time: ( -- )
 	 * Continue execution.
 	 */
-	function BEGIN()
-	{
-		const DS = fetch(DS_REG)
-		cfPush(DS)
-	}
+	function BEGIN() { cfPush( fetch(DS_REG) ) }
 
 	/**
 	 * AGAIN - no interpretation
@@ -2475,8 +2447,7 @@ export function forth (write) {
 	function DO()
 	{
 		setRTS('(DO)')
-		const DS = fetch(DS_REG)
-		cfPush(DS)
+		cfPush( fetch(DS_REG) )
 	}
 
 	/**
@@ -2489,8 +2460,7 @@ export function forth (write) {
 	function QUESTION_DO()
 	{
 		setRTS('(?DO)')
-		const DS = fetch(DS_REG)
-		cfPush(DS)
+		cfPush( fetch(DS_REG))
 	}
 
 	/**
@@ -2504,8 +2474,7 @@ export function forth (write) {
 		setRTS('(LEAVE)')
 
 		// orig for forward jump to LOOP or +LOOP
-		const DS = fetch(DS_REG)
-		cfPush(DS)
+		cfPush( fetch(DS_REG) )
 		push(0)
 		COMMA()
 		cfPush(LEAVE_FLAG) // LEAVE flag
