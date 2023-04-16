@@ -140,8 +140,8 @@ export function forth (write) {
 	 */
 	function pick(i)
 	{
-		const S = fetch(S_REG)
-		const ptr = S - WS - (i * WS)
+		const S   = fetch(S_REG)
+		const ptr = S-WS - i*WS
 		if (ptr > RET_STACK_ADDR - WS || ptr < DATA_STACK_ADDR)
 			throw new Error('Stack out of range')
 
@@ -195,8 +195,8 @@ export function forth (write) {
 	 */
 	function rPick(i)
 	{
-		const R = fetch(R_REG)
-		const ptr = R - WS - (i * WS)
+		const R   = fetch(R_REG)
+		const ptr = R-WS - i*WS
 		if (ptr > CONTROL_FLOW_ADDR - WS || ptr < RET_STACK_ADDR)
 			throw new Error('Return stack out of range')
 
@@ -446,11 +446,10 @@ export function forth (write) {
 	 */
 	function addWords()
 	{
-		addWord('(VARIABLE)', variableRTS,     0|NoInterpretation)
-		addWord('(CONSTANT)', constantRTS,     0|NoInterpretation)
-		addWord('(VALUE)',    valueRTS,        0|NoInterpretation)
+		addWord('(VARIABLE)', variableRTS,     0|NoInterpretation) // Must be first
+		addWord('(EXIT)',     exitRTS,         0|NoInterpretation) // Must be second
 		addWord('(LITERAL)',  literalRTS,      0|NoInterpretation)
-		addWord('(EXIT)',     unNestRTS,       0|NoInterpretation)
+		addWord('(TO)',       toRTS,           0|NoInterpretation)
 		addWord('(POSTPONE)', postponeRTS,     0|NoInterpretation)
 		addWord('(0BRANCH)',  zeroBranchRTS,   0|NoInterpretation)
 		addWord('(BRANCH)',   branchRTS,       0|NoInterpretation)
@@ -502,7 +501,7 @@ export function forth (write) {
 		addWord('VARIABLE',   VARIABLE,        0)
 		addWord('CONSTANT',   CONSTANT,        0)
 		addWord('VALUE',      VALUE,           0)
-		addWord('TO',         TO,              0)
+		addWord('TO',         TO,              0|Immediate)
 		addWord('CHARS',      CHARS,           0)
 		addWord('CELLS',      CELLS,           0)
 		addWord('ALIGNED',    ALIGNED,         0)
@@ -589,24 +588,10 @@ export function forth (write) {
 	function variableRTS(pfa) { push(pfa) }
 
 	/**
-	 * (constant) Run-time specifics for CONSTANT
-	 * @param {number} pfa - parameter-field address
-	 * @return {void}
-	 */
-	function constantRTS(pfa) { push( fetch(pfa) ) }
-
-	/**
-	 * (value) Run-time specifics for VALUE
-	 * @param {number} pfa - parameter-field address
-	 * @return {void}
-	 */
-	function valueRTS(pfa) { push( fetch(pfa) ) }
-
-	/**
 	 * (exit) Run-time specifics for exit from a colon-def
 	 * @return {void}
 	 */
-	function unNestRTS()
+	function exitRTS()
 	{
 		const callerAddr = rPop()
 		const nestDepth  = rDepth()
@@ -622,9 +607,18 @@ export function forth (write) {
 	function literalRTS()
 	{
 		const IP = fetch(IP_REG)
-		store(IP + WS, IP_REG)
-		const val = fetch(IP + WS)
+		store(IP+WS, IP_REG)
+		const val = fetch(IP+WS)
 		push(val)
+	}
+
+	function toRTS()
+	{
+		const IP = fetch(IP_REG)
+		store(IP+WS, IP_REG)
+		const val  = pop()
+		const addr = fetch(IP+WS)
+		store(val, addr)
 	}
 
 	/**
@@ -787,11 +781,12 @@ export function forth (write) {
 
 	function setRTS(word)
 	{
-		tempText(word)
-		FIND()
+		tempText(word) // ( -- c-addr )
+		FIND()         // ( c-addr -- XT flag )
 		const flag = pop()
 		if (flag === 0)
 			throw new Error('Cannot find RTS: ' + word)
+
 		COMPILE_COMMA()
 	}
 
@@ -870,7 +865,7 @@ export function forth (write) {
 
 			CR()
 
-			if (xtAddr === NATIVE_RTS_ADDR+4) break  // unNestRTS
+			if (xtAddr === NATIVE_RTS_ADDR+1) break  // exitRTS
 			addr += 8
 		}
 	}
@@ -1389,17 +1384,10 @@ export function forth (write) {
 	 */
 	function CONSTANT()
 	{
-		const x = pop()
-		CREATE()
-
-		// Set XT for CONSTANT
-		HERE()
-		const pfa = pop()
-		const xt  = 100_000*pfa + NATIVE_RTS_ADDR+1
-		store(xt, pfa - 8)
-
-		push(x)
-		COMMA()
+		COLON()
+		setRTS('(LITERAL)')
+		COMMA() // ( x -- )
+		SEMICOLON()
 	}
 
 	/**
@@ -1411,17 +1399,10 @@ export function forth (write) {
 	 */
 	function VALUE()
 	{
-		const x = pop()
-		CREATE()
-
-		// Set XT for VALUE
-		HERE()
-		const pfa = pop()
-		const xt  = 100_000*pfa + NATIVE_RTS_ADDR+2
-		store(xt, pfa-8)
-
-		push(x)
-		COMMA()
+		COLON()
+		setRTS('(LITERAL)')
+		COMMA() // ( x -- )
+		SEMICOLON()
 	}
 
 	/**
@@ -1431,15 +1412,19 @@ export function forth (write) {
 	 */
 	function TO()
 	{
-		const n = pop()
 		TICK()
-		const xt = pop()
-		const rts= xt % 100_000
-		if (_wordName[rts] !== '(VALUE)')
-			throw new Error(`TO requires VALUE. Got: ${_wordName[rts]}`)
-
+		const xt  = pop()
 		const pfa = Math.floor(xt / 100_000)
-		store(n, pfa)
+
+		if (fetch(STATE_ADDR) !== 0) {
+			setRTS('(TO)')
+			push(pfa+WS)
+			COMMA()
+		}
+		else {
+			const n = pop()
+			store(n, pfa+WS)
+		}
 	}
 
 	// -------------------------------------
@@ -1936,12 +1921,10 @@ export function forth (write) {
 			// It is a native word
 			_wordMap[rts](pfa)
 		}
-		else if (DSP_START_ADDR <= rts && rts < MEMORY_SIZE) {
+		else if (DSP_START_ADDR <= rts && rts < STRING_FIELD_ADDR) {
 			// It is a colon-def. NEST
-			const IP = fetch(IP_REG)
-			push(IP)
-			TO_R()
-			store(rts - WS, IP_REG) // Because NEXT will increment it
+			rPush(fetch(IP_REG))  // Push IP to Return stack
+			store(rts-WS, IP_REG) // Because NEXT will increment it
 		}
 		else {
 			throw new Error('Invalid XT')
@@ -2089,8 +2072,7 @@ export function forth (write) {
 	/**
 	 * QUIT ( -- ) ( R: i * x -- )
 	 * Empty the return stack, store zero in SOURCE-ID if it is present,
-	 * make the user input device the input source,
-	 * and enter interpretation state.
+	 * make the user input device the input source, and enter interpretation state.
 	 * Do not display a message.
 	 */
 	function QUIT()

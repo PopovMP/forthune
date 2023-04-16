@@ -126,6 +126,21 @@ function testReady()
 })();
 
 (function () {
+	interpret(`42 constant c1   : get_c1 c1 ;   get_c1 .s`)
+	assert('CONSTANT in colon-def', 42, pop())
+})();
+
+(function () {
+	interpret(`42 value v1   : get_v1 v1 ;   get_v1 .s`)
+	assert('VALUE in colon-def', 42, pop())
+})();
+
+(function () {
+	interpret(`13 value v2   : to_v2 to v2 ;   42 to_v2  v2 .s`)
+	assert('TO in colon-def', 42, pop())
+})();
+
+(function () {
 	interpret(`VARIABLE v5   42 v5 !   v5 @  DUP .`)
 	assert('VARIABLE ! @', 42, pop())
 })();
