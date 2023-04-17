@@ -553,6 +553,7 @@ export function forth (write) {
 		addWord('(',          PAREN,           0|Immediate)
 		addWord('.(',         DOT_PAREN,       0|Immediate)
 		addWord('\\',         BACKSLASH,       0|Immediate)
+		addWord('RECURSE',    RECURSE,         0|Immediate)
 		addWord(';',          SEMICOLON,       0|Immediate|NoInterpretation)
 		addWord('SEE',        SEE,             0)
 		addWord('EXIT',       EXIT,            0|NoInterpretation)
@@ -2197,6 +2198,18 @@ export function forth (write) {
 	{
 		store(0, TO_IN_ADDR)
 		store(0, INPUT_BUFFER_CHARS_ADDR)
+	}
+
+	/**
+	 * RECURSE Compilation: ( -- )
+	 * Append the execution semantics of the current definition to the current definition.
+	 */
+	function RECURSE()
+	{
+		const nfa = fetch(CURRENT_DEF_ADDR)
+		const xt  = 100_000*fetch(DS_REG) + nfa+48
+		push(xt)
+		COMMA()
 	}
 
 	/**

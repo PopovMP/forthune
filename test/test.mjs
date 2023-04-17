@@ -255,6 +255,15 @@ function testReady()
 })();
 
 (function () {
+	interpret(': fac ( n -- f )             ')
+	interpret('  dup 2 < if drop 1 exit then')
+	interpret('  dup 1- RECURSE *           ')
+	interpret(';                            ')
+	interpret('5 fac dup .                  ')
+	assert('RECURSE Factorial 5', 120, pop())
+})();
+
+(function () {
 	interpret(`: def-s-string S" S String test" ;   def-s-string TYPE `)
 	assert('Colon def S', 1, 1)
 })();
@@ -344,16 +353,16 @@ function testReady()
 // BEGIN UNTIL REPEAT
 
 (function () {
-	interpret(`: FACTORIAL                   `)
-	interpret(`   DUP 2 < IF DROP 1 EXIT THEN`)
-	interpret(`   DUP                        `)
-	interpret(`   BEGIN DUP 2 > WHILE        `)
-	interpret(`      1 - SWAP OVER * SWAP    `)
-	interpret(`   REPEAT                     `)
-	interpret(`   DROP                       `)
-	interpret(`;                             `)
-	interpret(`5 FACTORIAL   .S              `)
-	assert('FACTORIAL', 120, pop())
+	interpret(`: factorial                  `)
+	interpret(`  dup 2 < if drop 1 exit then`)
+	interpret(`  dup                        `)
+	interpret(`  begin dup 2 > while        `)
+	interpret(`    1 - swap over * swap     `)
+	interpret(`  repeat                     `)
+	interpret(`  drop                       `)
+	interpret(`;                            `)
+	interpret(`5 factorial   dup .          `)
+	assert('factorial', 120, pop())
 })();
 
 // BEGIN AGAIN
