@@ -92,6 +92,7 @@ export function forth (write) {
 		addWord('0<',         ZERO_LESS,       0)
 		addWord('0>',         ZERO_GREATER,    0)
 		addWord('0<>',        ZERO_NOT_EQUALS, 0)
+		addWord('ABS',        ABS,             0)
 		addWord('MAX',        MAX,             0)
 		addWord('MIN',        MIN,             0)
 		addWord('NEGATE',     NEGATE,          0)
@@ -212,10 +213,10 @@ export function forth (write) {
 		addWord('DO',         DO,              0|Immediate|NoInterpretation)
 		addWord('?DO',        QUESTION_DO,     0|Immediate|NoInterpretation)
 		addWord('LEAVE',      LEAVE,           0|Immediate|NoInterpretation)
-		addWord('LOOP',       LOOP,            0|Immediate|NoInterpretation)
-		addWord('+LOOP',      PLUS_LOOP,       0|Immediate|NoInterpretation)
 		addWord('I',          I,               0|Immediate|NoInterpretation)
 		addWord('J',          J,               0|Immediate|NoInterpretation)
+		addWord('LOOP',       LOOP,            0|Immediate|NoInterpretation)
+		addWord('+LOOP',      PLUS_LOOP,       0|Immediate|NoInterpretation)
 	}
 
 	/**
@@ -857,7 +858,8 @@ export function forth (write) {
 	 * / ( n1 n2 -- n3 )
 	 * Divide n1 by n2, giving the single-cell quotient n3.
 	 */
-	function SLASH() {
+	function SLASH()
+	{
 		const n2 = pop()
 		const n1 = pop()
 		push( Math.floor(n1 / n2) )
@@ -942,6 +944,11 @@ export function forth (write) {
 	 * flag is true if and only if x is not equal to zero.
 	 */
 	function ZERO_NOT_EQUALS() { push(pop() !== 0 ? -1 : 0) }
+
+	/**
+	 * ABS ( n -- n )
+	 */
+	function ABS() { push(Math.abs(pop())) }
 
 	/**
 	 * MAX ( n1 n2 -- n3 )
