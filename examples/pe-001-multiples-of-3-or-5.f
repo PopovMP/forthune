@@ -16,5 +16,4 @@
     loop
 ;
 
-1000 multiples
-cr ." Result: " .
+1000 multiples .
