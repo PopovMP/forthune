@@ -30,7 +30,7 @@ function stdinReader(onLine, onEnd)
 
 function stdin_line(line)
 {
-    fth.interpret(line)
+    fth.interpret(line.replaceAll('\t', '    '))
 }
 
 function stdin_end()
@@ -40,18 +40,10 @@ function stdin_end()
 
 function forth_write(char)
 {
-    if (char === 10) {
-        // Line Feed
-        stdout.write('\n')
-    }
-    else if (char === 12) {
-        // Form Feed
-        // Not implemented
-    }
-    else if (31 < char && char < 127) {
-        stdout.write( String.fromCharCode(char) )
-    }
-    else {
+    if (char === 10)
+        stdout.write('\n', 'ascii')
+    else if (31 < char && char < 127)
+        stdout.write(String.fromCharCode(char), 'ascii')
+    else
         throw new Error('Non-printable char code: ' + char)
-    }
 }

@@ -9,12 +9,12 @@
 : pal? ( n -- f ) dup pal1 over pal2 + over pal3 + over pal4 + = ;
 
 : euler4 ( -- pal )
-  100001  \ Initial palindrome
-  999 100 do
-  999 100 do
-    i j * \ new candidate
-    dup pal? if max else drop then
-  loop loop
+	100001     \ initial palindrome
+	999 100 do
+	999 100 do
+		i j *  \ new candidate
+		dup pal? if max else drop then
+	loop loop
 ;
 
 euler4 .

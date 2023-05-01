@@ -6,14 +6,14 @@
 4000000 constant max_fibo
 
 : even_fibos_sum ( -- res )
-  0 0 1 ( -- res f1 f2 )
-  begin
-    swap over +        \ Update Fibos
-    dup 2 mod 0= if    \ if (f2 % 2 == 0) 
-      rot over + -rot  \ res += f2
-    then
-  dup max_fibo > until \ f2 < max_fibo
-  2drop ( res f1 f2 -- res ) \ Drop Fibos
+	0 0 1 ( -- res f1 f2 )
+	begin
+		swap over +         \ Update Fibos
+		dup 2 mod 0= if     \ if (f2 % 2 == 0) 
+			rot over + -rot \ res += f2
+		then
+	dup max_fibo > until    \ f2 < max_fibo
+	2drop ( res f1 f2 -- res ) \ Drop Fibos
 ;
 
 even_fibos_sum .

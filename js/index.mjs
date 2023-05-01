@@ -103,12 +103,11 @@ export function application()
 
 	function compileCodeLine(inputLine)
 	{
-		if (inputLine !== '' && (inputBuffer.length === 0 ||
-			inputBuffer[inputBuffer.length - 1] !== inputLine)) {
+		if (inputLine !== '' && (inputBuffer.length === 0 || inputBuffer[inputBuffer.length-1] !== inputLine)) {
 			inputBuffer.push(inputLine)
 			inputIndex = inputBuffer.length - 1
 		}
-		fth.interpret(inputLine)
+		fth.interpret(inputLine.replaceAll('\t', '    '))
 	}
 
 	function readFile(file)
