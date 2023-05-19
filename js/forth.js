@@ -1,5 +1,3 @@
-'use strict'
-
 /**
  * Forth interpreter
  * @param { (charCode: number) => void } write

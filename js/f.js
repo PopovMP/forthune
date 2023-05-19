@@ -1,10 +1,7 @@
 #!/usr/bin/env node
 
-'use strict'
-
 import {stdin, stdout, exit} from 'node:process'
-
-import {forth} from './forth.mjs'
+import {forth} from './forth.js'
 
 const fth = forth(forth_write)
 

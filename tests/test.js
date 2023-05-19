@@ -1,5 +1,5 @@
 import {stdout} from 'node:process'
-import {forth}  from '../js/forth.mjs'
+import {forth}  from '../js/forth.js'
 
 /**
  * Prints a character

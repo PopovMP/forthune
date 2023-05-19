@@ -1,0 +1,10 @@
+{
+  "name": "forthune",
+  "version": "1.0.0",
+  "type": "module",
+  "dependencies": {
+  },
+  "scripts": {
+    "test": "node --test ./tests"
+  }
+}

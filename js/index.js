@@ -1,7 +1,5 @@
-'use strict'
-
-import {forth} from './forth.mjs'
-import {dump, debug} from './dump.mjs'
+import {forth} from './forth.js'
+import {dump, debug} from './dump.js'
 
 export function application()
 {
