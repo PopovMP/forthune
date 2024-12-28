@@ -39,10 +39,10 @@ export function forth (write) {
 	const _chars  = new Uint8Array(_buffer)
 	const _cells  = new Float64Array(_buffer)
 
-	/** @type { {[CFA: number]: (PFA: number) => void } */
+	/** @type { {[CFA: number]: (PFA: number) => void} } */
 	const _wordMap = {}
 
-	/** @type { {[CFA: number]: word } */
+	/** @type { {[CFA: number]: string} } */
 	const _wordName = {}
 
 	store(DATA_STACK_ADDR,   S_REG)
